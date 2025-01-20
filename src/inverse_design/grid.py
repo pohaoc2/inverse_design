@@ -28,5 +28,7 @@ class Grid:
     def get_location(self, i, j):
         return self.lattice[i,j]
 
-
+    def get_empty_von_neumann_neighbors(self, i, j):
+        location = self.get_location(i, j)
+        return location.get_empty_von_neumann_neighbors()
 

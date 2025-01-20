@@ -4,7 +4,7 @@ class Location:
     def __init__(self, i, j):
         self.i = i
         self.j = j
-        self.cell = Cell()
+        self.cell = None
         self.valid_neighbors = []
     
     @property    
@@ -35,5 +35,11 @@ class Location:
     def set_cell(self, cell):
         self.cell = cell
 
-    def get_valid_neighbors(self):
+    def get_von_neumann_neighbors(self):
         return self.valid_neighbors
+
+    def has_cell(self):
+        return self.cell is not None
+
+    def remove_cell(self):
+        self.cell = None

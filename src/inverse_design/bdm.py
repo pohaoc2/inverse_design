@@ -8,6 +8,9 @@ from grid import Grid
 from config import BDMConfig
 import os
 import logging
+from typing import List
+from gillespie import Gillespie
+
 
 class BDM:
     def __init__(self, config: BDMConfig):
@@ -23,23 +26,24 @@ class BDM:
         self.migrate_rate = config.rates.migrate
         
         self.grid = self.initialize()
+        self.gillespie = Gillespie(config)
         self.log_config(config)
         
     def log_config(self, config: BDMConfig):
         """
-        Log configuration parameters
+        Log model parameters and save configuration file
         Args:
             config: Hydra configuration object
         """
         log = logging.getLogger(__name__)
         
-        # Log all configuration parameters
-        log.info("BDM Configuration:")
-        log.info(f"Lattice size: {self.lattice_size}")
-        log.info(f"Initial density: {self.initial_density}")
-        log.info(f"Proliferation rate: {self.proliferate_rate}")
-        log.info(f"Death rate: {self.death_rate}")
-        log.info(f"Migration rate: {self.migrate_rate}")
+        # Log model parameters only
+        log.info("Model Parameters:")
+        log.info(f"- Lattice size: {self.lattice_size}")
+        log.info(f"- Initial density: {self.initial_density}")
+        log.info(f"- Proliferation rate: {self.proliferate_rate}")
+        log.info(f"- Death rate: {self.death_rate}")
+        log.info(f"- Migration rate: {self.migrate_rate}")
         
         # Save config to YAML file in Hydra's output directory
         if hydra.core.hydra_config.HydraConfig.initialized():
@@ -78,6 +82,16 @@ class BDM:
         """Return the current grid state"""
         return self.grid
 
+    def step(self, max_time: float = 1.0) -> List[float]:
+        """
+        Step the simulation forward using Gillespie algorithm
+        Args:
+            max_time: Maximum simulation time
+        Returns:
+            time_points: List of time points when events occurred
+        """
+        return self.gillespie.run(self.grid, max_time)
+
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig) -> None:
     # Set up logging
@@ -91,8 +105,10 @@ def main(cfg: DictConfig) -> None:
     )
     
     bdm = BDM(cfg)
-    grid = bdm.get_grid()
-    print(grid)
+    # Run simulation for 10 time units
+    time_points = bdm.step(max_time=10.0)
+    print(f"Simulation completed with {len(time_points)} events")
+    # print(bdm.grid)
 
 if __name__ == "__main__":
     """
