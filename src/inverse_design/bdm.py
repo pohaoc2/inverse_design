@@ -1,20 +1,53 @@
 # Implementation of a birth-death-migration model using the Gillespie algorithm
 
+import hydra
+from omegaconf import DictConfig, OmegaConf
 import numpy as np
 from cell import Cell
 from grid import Grid
+from config import BDMConfig
+import os
+import logging
 
 class BDM:
-    def __init__(self, lattice_size, initial_density=0.05):
+    def __init__(self, config: BDMConfig):
         """
-        Initialize BDM model
+        Initialize BDM model using Hydra config
         Args:
-            lattice_size: Size of the square lattice
-            initial_density: Initial fraction of sites occupied by cells (default 0.05)
+            config: Hydra configuration object
         """
-        self.lattice_size = lattice_size
-        self.initial_density = initial_density
+        self.lattice_size = config.lattice.size
+        self.initial_density = config.lattice.initial_density
+        self.proliferate_rate = config.rates.proliferate
+        self.death_rate = config.rates.death
+        self.migrate_rate = config.rates.migrate
+        
         self.grid = self.initialize()
+        self.log_config(config)
+        
+    def log_config(self, config: BDMConfig):
+        """
+        Log configuration parameters
+        Args:
+            config: Hydra configuration object
+        """
+        log = logging.getLogger(__name__)
+        
+        # Log all configuration parameters
+        log.info("BDM Configuration:")
+        log.info(f"Lattice size: {self.lattice_size}")
+        log.info(f"Initial density: {self.initial_density}")
+        log.info(f"Proliferation rate: {self.proliferate_rate}")
+        log.info(f"Death rate: {self.death_rate}")
+        log.info(f"Migration rate: {self.migrate_rate}")
+        
+        # Save config to YAML file in Hydra's output directory
+        if hydra.core.hydra_config.HydraConfig.initialized():
+            output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+            config_path = os.path.join(output_dir, "config_log.yaml")
+            with open(config_path, 'w') as f:
+                OmegaConf.save(config=config, f=f)
+            log.info(f"Configuration saved to {config_path}")
     
     def initialize(self):
         """
@@ -45,10 +78,28 @@ class BDM:
         """Return the current grid state"""
         return self.grid
 
-if __name__ == "__main__":
-    lattice_size = 100
-    initial_density = 0.05
-    bdm = BDM(lattice_size, initial_density)
+@hydra.main(version_base=None, config_path="conf", config_name="config")
+def main(cfg: DictConfig) -> None:
+    # Set up logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s [%(levelname)s] %(message)s',
+        handlers=[
+            logging.FileHandler(os.path.join(hydra.core.hydra_config.HydraConfig.get().runtime.output_dir, 'bdm.log')),
+            logging.StreamHandler()
+        ]
+    )
+    
+    bdm = BDM(cfg)
     grid = bdm.get_grid()
-    print(grid.lattice)
+    print(grid)
+
+if __name__ == "__main__":
+    """
+    Example usage:
+    python bdm.py
+    python bdm.py --config=experiments/exp1_config.yaml
+    python bdm.py lattice.size=200 rates.proliferate=2.0
+    """
+    main()
     

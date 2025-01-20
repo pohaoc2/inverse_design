@@ -1,3 +1,9 @@
+# Output
+*.log
+*.out
+*.txt
+outputs/
+
 # Editors
 .vscode/
 .idea/
