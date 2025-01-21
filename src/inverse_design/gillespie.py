@@ -7,6 +7,8 @@ from config import BDMConfig
 from grid import Grid
 from cell import Cell
 from location import Location
+
+
 class Gillespie:
     def __init__(self, config: BDMConfig):
         """
@@ -18,7 +20,7 @@ class Gillespie:
         self.proliferate_rate = config.rates.proliferate
         self.death_rate = config.rates.death
         self.migrate_rate = config.rates.migrate
-        
+
     def calculate_propensities(self, grid: Grid) -> Tuple[float, Cell]:
         """
         Calculate propensities for all possible events
@@ -34,7 +36,7 @@ class Gillespie:
         if action_cell is None:
             raise ValueError("No cell to perform the action on")
         return total_propensity, action_cell
-    
+
     def _get_random_empty_neighbor(self, grid: Grid, location: Location) -> Location | None:
         """
         Get a random empty neighbor from all von Neumann neighbors
@@ -100,37 +102,58 @@ class Gillespie:
         """
         if event_type == "death":
             cell.get_location().remove_cell()
-            
+
         elif event_type == "migrate":
             self._migrate_cell(grid, cell.get_location())
-                
+
         elif event_type == "proliferate":
             self._proliferate_cell(grid, cell.get_location())
         else:
             raise ValueError(f"Invalid event type: {event_type}")
-    
-    def run(self, grid: Grid, max_time: float = 1.0) -> tuple[List[float], List[tuple[str, int, int]]]:
+
+    def run(
+        self, grid: Grid, max_time: float = 1.0, frequency: float = 0.1
+    ) -> tuple[List[float], List[tuple[str, int, int]]]:
         """
         Run the Gillespie algorithm until max_time
         Args:
             grid: Initial grid state
             max_time: Maximum simulation time
+            frequency: How often to print the current time (in time units)
         Returns:
-            time_points: List of time points when events occurred
+            time_points: List of time points when states were saved
             executed_events: List of events that were executed
+            grid_states: List of grid states at each saved time point
         """
         current_time = 0
+        next_print_time = frequency  # Initialize next time to print
+        next_save_time = frequency   # Initialize next time to save grid state
         time_points = []
         executed_events = []
         grid_states = []
+
+        # Save initial state
+        time_points.append(current_time)
+        grid_states.append(copy.deepcopy(grid))
+
         while current_time < max_time:
             time_increment = self.step(grid)
+            executed_events.append(self.last_event)
             if time_increment == 0:
                 break
             current_time += time_increment
-            time_points.append(current_time)
-            executed_events.append(self.last_event)
-            grid_states.append(copy.deepcopy(grid))
+
+            # Print current time when we pass the next print threshold
+            while current_time >= next_print_time:
+                print(f"Current time: {next_print_time:.3f} / {max_time:.3f}")
+                next_print_time += frequency
+
+            # Save grid state only when we pass the save threshold
+            while current_time >= next_save_time and next_save_time <= max_time:
+                time_points.append(current_time)
+                grid_states.append(copy.deepcopy(grid))
+                next_save_time += frequency
+
         return time_points, executed_events, grid_states
 
     def step(self, grid: Grid) -> float:
@@ -143,27 +166,27 @@ class Gillespie:
         """
         # Calculate propensities
         total_propensity, action_cell = self.calculate_propensities(grid)
-        
+
         if total_propensity == 0:
             return 0
-            
+
         # Generate random numbers
         r1, r2 = np.random.random(2)
         event_rate = r2 * total_propensity
         # Calculate time increment
         time_increment = -np.log(r1) / total_propensity
-        
+
         # Choose event
-        if event_rate < self.proliferate_rate*grid.get_num_cells():
+        if event_rate < self.proliferate_rate * grid.get_num_cells():
             event_type = "proliferate"
-        elif event_rate < (self.proliferate_rate + self.migrate_rate)*grid.get_num_cells():
+        elif event_rate < (self.proliferate_rate + self.migrate_rate) * grid.get_num_cells():
             event_type = "migrate"
         else:
             event_type = "death"
-        
+
         # Store the event for logging
         self.last_event = event_type
-        
+
         # Execute event
         self.execute_event(grid, event_type, action_cell)
         return time_increment

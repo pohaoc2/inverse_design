@@ -9,10 +9,10 @@ class Cell:
         self.location = None  # Initialize to None
         if location is not None:
             self.set_location(location)  # Use setter to properly set up relationship
-    
+
     def get_status(self):
         return self.status
-    
+
     def set_status(self, status):
         """Set the status of the cell
         Available statuses: "cell"
@@ -26,4 +26,3 @@ class Cell:
 
     def get_location(self):
         return self.location
-

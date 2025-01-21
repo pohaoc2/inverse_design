@@ -6,4 +6,7 @@ lattice:
 rates:
   proliferate: 0.01
   death: 0.0025
-  migrate: 1.0
+  migrate: 0.1
+
+output:
+  frequency: 100.0
