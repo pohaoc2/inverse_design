@@ -1,9 +1,9 @@
 # Model parameters for Birth-Death-Migration simulation
 lattice:
-  size: 100
+  size: 10
   initial_density: 0.05
 
 rates:
-  proliferate: 1.0
-  death: 0.1
-  migrate: 0.5 
+  proliferate: 0.01
+  death: 0.0025
+  migrate: 1.0

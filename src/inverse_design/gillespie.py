@@ -1,3 +1,6 @@
+# Gillespie algorithm for BDM model
+
+import copy
 import numpy as np
 from typing import Tuple, List
 from config import BDMConfig
@@ -16,37 +19,39 @@ class Gillespie:
         self.death_rate = config.rates.death
         self.migrate_rate = config.rates.migrate
         
-    def calculate_propensities(self, grid: Grid) -> Tuple[float, List[Tuple[str, int, int]]]:
+    def calculate_propensities(self, grid: Grid) -> Tuple[float, Cell]:
         """
         Calculate propensities for all possible events
         Args:
             grid: Current grid state
         Returns:
             total_propensity: Sum of all event propensities
-            events: List of possible events with their locations
+            action_cell: Cell to perform the action on
         """
-        events = []
-        total_propensity = 0
-        
-        # Iterate through all grid positions
-        for i in range(grid.lattice_size):
-            for j in range(grid.lattice_size):
-                location = grid.get_location(i, j)
-                if location.has_cell():
-                    # Death event
-                    total_propensity += self.death_rate
-                    events.append(("death", i, j))
-                    
-                    # Migration events - check neighboring sites
-                    total_propensity += self.migrate_rate
-                    events.append(("migrate", i, j))
-
-                    # Proliferation events - only add once if there are empty neighbors
-                    total_propensity += self.proliferate_rate
-                    events.append(("proliferate", i, j))
-                        
-        return total_propensity, events
+        total_propensity = self.death_rate + self.migrate_rate + self.proliferate_rate
+        total_propensity *= grid.get_num_cells()
+        action_cell = grid.get_random_cell()
+        if action_cell is None:
+            raise ValueError("No cell to perform the action on")
+        return total_propensity, action_cell
     
+    def _get_random_empty_neighbor(self, grid: Grid, location: Location) -> Location | None:
+        """
+        Get a random empty neighbor from all von Neumann neighbors
+        Args:
+            grid: Current grid state
+            location: Location to get neighbors from
+        Returns:
+            target_location if found, None otherwise
+        """
+        all_neighbors = location.get_von_neumann_neighbors()
+        if all_neighbors:
+            new_i, new_j = all_neighbors[np.random.randint(len(all_neighbors))]
+            target_location = grid.get_location(new_i, new_j)
+            if not target_location.has_cell():
+                return target_location
+        return None
+
     def _move_cell(self, from_location, to_location):
         """
         Move a cell from one location to another
@@ -55,73 +60,79 @@ class Gillespie:
             to_location: Target location to move the cell to
         """
         cell = from_location.get_cell()
+        if cell is None:
+            return
         from_location.remove_cell()
         to_location.set_cell(cell)
-    
-    def _get_random_empty_neighbor(self, grid: Grid, i: int, j: int) -> tuple[Location, int, int] | None:
-        """
-        Get a random empty neighbor from all von Neumann neighbors
-        Args:
-            grid: Current grid state
-            i, j: Location coordinates
-        Returns:
-            Tuple of (target_location, new_i, new_j) if found, None otherwise
-        """
-        location = grid.get_location(i, j)
-        all_neighbors = location.get_von_neumann_neighbors()
-        if all_neighbors:
-            new_i, new_j = all_neighbors[np.random.randint(len(all_neighbors))]
-            target_location = grid.get_location(new_i, new_j)
-            if not target_location.has_cell():
-                return target_location, new_i, new_j
-        return None
 
-    def _migrate_cell(self, grid: Grid, i: int, j: int):
+    def _migrate_cell(self, grid: Grid, location: Location):
         """
         Attempt to migrate a cell to a random neighboring site
         Args:
             grid: Current grid state
-            i, j: Location coordinates of the cell to migrate
+            location: Location of the cell to migrate
         """
-        location = grid.get_location(i, j)
-        neighbor_result = self._get_random_empty_neighbor(grid, i, j)
+        neighbor_result = self._get_random_empty_neighbor(grid, location)
         if neighbor_result is not None:
-            target_location, _, _ = neighbor_result
+            target_location = neighbor_result
             self._move_cell(location, target_location)
 
-    def _proliferate_cell(self, grid: Grid, i: int, j: int):
+    def _proliferate_cell(self, grid: Grid, location: Location):
         """
         Attempt to create a new cell in a random neighboring site
         Args:
             grid: Current grid state
-            i, j: Location coordinates of the parent cell
+            location: Location of the parent cell
         """
-        neighbor_result = self._get_random_empty_neighbor(grid, i, j)
+        neighbor_result = self._get_random_empty_neighbor(grid, location)
         if neighbor_result is not None:
-            target_location, _, _ = neighbor_result
-            new_cell = Cell(status="cell")
+            target_location = neighbor_result
+            new_cell = Cell(status="cell", location=target_location)
             target_location.set_cell(new_cell)
 
-    def execute_event(self, grid: Grid, event_type: str, i: int, j: int):
+    def execute_event(self, grid: Grid, event_type: str, cell: Cell):
         """
         Execute the chosen event
         Args:
             grid: Current grid state
             event_type: Type of event to execute
-            i, j: Location of the event
+            cell: Cell to perform the action on
         """
         if event_type == "death":
-            location = grid.get_location(i, j)
-            location.remove_cell()
+            cell.get_location().remove_cell()
             
         elif event_type == "migrate":
-            self._migrate_cell(grid, i, j)
+            self._migrate_cell(grid, cell.get_location())
                 
         elif event_type == "proliferate":
-            self._proliferate_cell(grid, i, j)
+            self._proliferate_cell(grid, cell.get_location())
         else:
             raise ValueError(f"Invalid event type: {event_type}")
     
+    def run(self, grid: Grid, max_time: float = 1.0) -> tuple[List[float], List[tuple[str, int, int]]]:
+        """
+        Run the Gillespie algorithm until max_time
+        Args:
+            grid: Initial grid state
+            max_time: Maximum simulation time
+        Returns:
+            time_points: List of time points when events occurred
+            executed_events: List of events that were executed
+        """
+        current_time = 0
+        time_points = []
+        executed_events = []
+        grid_states = []
+        while current_time < max_time:
+            time_increment = self.step(grid)
+            if time_increment == 0:
+                break
+            current_time += time_increment
+            time_points.append(current_time)
+            executed_events.append(self.last_event)
+            grid_states.append(copy.deepcopy(grid))
+        return time_points, executed_events, grid_states
+
     def step(self, grid: Grid) -> float:
         """
         Execute one step of the Gillespie algorithm
@@ -131,43 +142,28 @@ class Gillespie:
             time_increment: Time increment for this step
         """
         # Calculate propensities
-        total_propensity, events = self.calculate_propensities(grid)
+        total_propensity, action_cell = self.calculate_propensities(grid)
         
-        if total_propensity == 0 or not events:
+        if total_propensity == 0:
             return 0
             
         # Generate random numbers
         r1, r2 = np.random.random(2)
-        
+        event_rate = r2 * total_propensity
         # Calculate time increment
         time_increment = -np.log(r1) / total_propensity
         
         # Choose event
-        event_index = int(r2 * len(events))
-        event_type, i, j = events[event_index]
+        if event_rate < self.proliferate_rate*grid.get_num_cells():
+            event_type = "proliferate"
+        elif event_rate < (self.proliferate_rate + self.migrate_rate)*grid.get_num_cells():
+            event_type = "migrate"
+        else:
+            event_type = "death"
+        
+        # Store the event for logging
+        self.last_event = event_type
         
         # Execute event
-        self.execute_event(grid, event_type, i, j)
-        
+        self.execute_event(grid, event_type, action_cell)
         return time_increment
-    
-    def run(self, grid: Grid, max_time: float = 1.0) -> List[float]:
-        """
-        Run the Gillespie algorithm until max_time
-        Args:
-            grid: Initial grid state
-            max_time: Maximum simulation time
-        Returns:
-            time_points: List of time points when events occurred
-        """
-        current_time = 0
-        time_points = [current_time]
-        
-        while current_time < max_time:
-            time_increment = self.step(grid)
-            if time_increment == 0:
-                break
-            current_time += time_increment
-            time_points.append(current_time)
-            
-        return time_points

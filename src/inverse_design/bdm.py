@@ -1,6 +1,7 @@
 # Implementation of a birth-death-migration model using the Gillespie algorithm
 
 import hydra
+import copy
 from omegaconf import DictConfig, OmegaConf
 import numpy as np
 from cell import Cell
@@ -10,6 +11,7 @@ import os
 import logging
 from typing import List
 from gillespie import Gillespie
+from vis import plot_grid
 
 
 class BDM:
@@ -24,7 +26,7 @@ class BDM:
         self.proliferate_rate = config.rates.proliferate
         self.death_rate = config.rates.death
         self.migrate_rate = config.rates.migrate
-        
+        self.current_time = 0.0
         self.grid = self.initialize()
         self.gillespie = Gillespie(config)
         self.log_config(config)
@@ -73,24 +75,69 @@ class BDM:
         # Place agents at selected positions
         for i, j in zip(row_indices, col_indices):
             location = grid.get_location(i, j)
-            cell = Cell(status="cell")
+            cell = Cell(status="cell", location=location)
             location.set_cell(cell)
-        
+
+        self.original_grid = copy.deepcopy(grid)
         return grid
     
     def get_grid(self):
         """Return the current grid state"""
         return self.grid
 
-    def step(self, max_time: float = 1.0) -> List[float]:
+    def step(self, max_time: float = 1.0) -> tuple[List[float], List[tuple[str, int, int]], List[Grid]]:
         """
-        Step the simulation forward using Gillespie algorithm
+        Step the simulation forward by a specified time duration using Gillespie algorithm
         Args:
-            max_time: Maximum simulation time
+            max_time: Duration to simulate (default: 1.0)
         Returns:
             time_points: List of time points when events occurred
+            events: List of (event_type, i, j) tuples describing what happened
+            grid_states: List of grids at each time point
         """
-        return self.gillespie.run(self.grid, max_time)
+        time_points, events, grid_states = self.gillespie.run(self.grid, max_time)
+        self.current_time += max(time_points)
+        return time_points, events, grid_states
+
+    def analyze_events_by_timeunit(self, time_points: List[float], events: List[tuple[str, int, int]], 
+                                 time_unit: float = 1.0) -> None:
+        """
+        Analyze and output events grouped by time unit
+        Args:
+            time_points: List of event times
+            events: List of (event_type, i, j) tuples
+            time_unit: Size of time interval for analysis
+        """
+        log = logging.getLogger(__name__)
+        current_unit = time_unit
+        
+        # Group events by time unit
+        while True:
+            # Find events in current time interval
+            events_in_interval = [(t, e) for t, e in zip(time_points, events) 
+                                if t <= current_unit]
+            
+            if not events_in_interval:
+                break
+                
+            # Count event types
+            event_counts = {}
+            for _, event_type in events_in_interval:
+                event_counts[event_type] = event_counts.get(event_type, 0) + 1
+            
+            # Log summary
+            log.info(f"Time unit {current_unit}:")
+            log.info(f"  Total events: {len(events_in_interval)}")
+            for event_type, count in event_counts.items():
+                log.info(f"  - {event_type}: {count}")
+            
+            # Remove processed events
+            remaining_indices = [i for i, t in enumerate(time_points) 
+                               if t > current_unit]
+            time_points = [time_points[i] for i in remaining_indices]
+            events = [events[i] for i in remaining_indices]
+            
+            current_unit += time_unit
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig) -> None:
@@ -105,10 +152,29 @@ def main(cfg: DictConfig) -> None:
     )
     
     bdm = BDM(cfg)
-    # Run simulation for 10 time units
-    time_points = bdm.step(max_time=10.0)
-    print(f"Simulation completed with {len(time_points)} events")
-    # print(bdm.grid)
+    
+    max_time = 700.0
+    time_unit = 5.0
+    log = logging.getLogger(__name__)
+    
+    # Run complete simulation
+    log.info("Starting simulation...")
+    time_points, events, grid_states = bdm.step(max_time)
+    time_to_grids ={time_point: grid_state for time_point, grid_state in zip(time_points, grid_states)}
+
+    # Plot grid states closest to each time unit
+    max_units = int(np.ceil(max_time))
+    plot_grid(bdm.original_grid, 0)
+    for unit in range(1, max_units+1):
+        target_time = unit * time_unit
+        # Find closest time point to the target time
+        closest_time = min(time_points, key=lambda x: abs(x - target_time))
+        plot_grid(time_to_grids[closest_time], np.round(closest_time, 2))
+    
+    log.info(f"Simulation completed with {len(events)} total events")
+    # Analyze events by time unit
+    # log.info("\nAnalyzing events by time unit:")
+    # bdm.analyze_events_by_timeunit(time_points.copy(), events.copy(), time_unit)
 
 if __name__ == "__main__":
     """

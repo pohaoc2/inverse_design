@@ -4,8 +4,11 @@ import numpy as np
 
 
 class Cell:
-    def __init__(self, status="cell"):
+    def __init__(self, status="cell", location=None):
         self.status = status
+        self.location = None  # Initialize to None
+        if location is not None:
+            self.set_location(location)  # Use setter to properly set up relationship
     
     def get_status(self):
         return self.status
@@ -15,13 +18,12 @@ class Cell:
         Available statuses: "cell"
         """
         self.status = status
-    
-        
-    def proliferate(self, prob_proliferate):
-        """
-        Attempt to place daughter cell in random neighboring site
-        Returns True if successful, False if aborted
-        """
-        if np.random.random() > prob_proliferate:
-            return False
-        return False
+
+    def set_location(self, location):
+        self.location = location
+        if location is not None:
+            location.set_cell(self)  # Establish bidirectional relationship
+
+    def get_location(self):
+        return self.location
+
