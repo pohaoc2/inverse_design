@@ -4,14 +4,14 @@ import hydra
 import copy
 from omegaconf import DictConfig, OmegaConf
 import numpy as np
-from cell import Cell
-from grid import Grid
-from config import BDMConfig
+from .cell import Cell
+from .grid import Grid
+from .config import BDMConfig
 import os
 import logging
 from typing import List
-from gillespie import Gillespie
-from vis import plot_grid, plot_cell_density
+from .gillespie import Gillespie
+from .vis import plot_grid, plot_cell_density
 import time
 
 class BDM:

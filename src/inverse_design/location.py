@@ -1,5 +1,4 @@
-from cell import Cell
-
+# Implementation of a location in a grid
 
 class Location:
     def __init__(self, i, j, grid=None):

@@ -69,7 +69,7 @@ class ParameterRange:
 
 @dataclass
 class ABCConfig:
-    num_samples: int
+    sobol_power: int
     epsilon: float
     parameter_ranges: Dict[str, ParameterRange]
     output_frequency: int
@@ -80,8 +80,8 @@ class ABCConfig:
             for name, ranges in cfg.parameter_ranges.items()
         }
         return cls(
-            num_samples=cfg.num_samples,
             epsilon=cfg.epsilon,
+            sobol_power=cfg.sobol_power,
             parameter_ranges=parameter_ranges,
             output_frequency=cfg.output_frequency
         )

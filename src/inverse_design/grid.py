@@ -1,7 +1,7 @@
 # Implementation of a birth-death-migration model using the Gillespie algorithm
 import random
 import numpy as np
-from location import Location
+from .location import Location
 
 
 class Grid:

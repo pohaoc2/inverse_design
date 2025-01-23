@@ -9,6 +9,10 @@ bdm:
   verbose: false
   lattice:
     size: 25
+  output:
+    frequency: 100.0
+    max_time: 2000.0
 abc:
-  num_samples: 30
   output_frequency: 10
+  epsilon: 0.1
+  sobol_power: 7

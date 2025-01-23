@@ -3,10 +3,10 @@
 import copy
 import numpy as np
 from typing import Tuple, List
-from config import BDMConfig
-from grid import Grid
-from cell import Cell
-from location import Location
+from .config import BDMConfig
+from .grid import Grid
+from .cell import Cell
+from .location import Location
 import warnings
 
 
