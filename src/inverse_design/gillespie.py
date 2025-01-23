@@ -7,6 +7,7 @@ from config import BDMConfig
 from grid import Grid
 from cell import Cell
 from location import Location
+import warnings
 
 
 class Gillespie:
@@ -20,7 +21,7 @@ class Gillespie:
         self.proliferate_rate = config.rates.proliferate
         self.death_rate = config.rates.death
         self.migrate_rate = config.rates.migrate
-
+        self.verbose = config.verbose
     def calculate_propensities(self, grid: Grid) -> Tuple[float, Cell]:
         """
         Calculate propensities for all possible events
@@ -145,7 +146,8 @@ class Gillespie:
 
             # Print current time when we pass the next print threshold
             while current_time >= next_print_time:
-                print(f"Current time: {next_print_time:.3f} / {max_time:.3f}")
+                if self.verbose:
+                    print(f"Current time: {next_print_time:.3f} / {max_time:.3f}")
                 next_print_time += frequency
 
             # Save grid state only when we pass the save threshold
@@ -162,7 +164,7 @@ class Gillespie:
         Args:
             grid: Current grid state
         Returns:
-            time_increment: Time increment for this step
+            time_increment: Time increment for this step, returns 0 if simulation should stop
         """
         # Calculate propensities
         total_propensity, action_cell = self.calculate_propensities(grid)
@@ -189,4 +191,10 @@ class Gillespie:
 
         # Execute event
         self.execute_event(grid, event_type, action_cell)
+        
+        # Check if all cells have died
+        if grid.get_num_cells() == 0:
+            warnings.warn("All cells have died", RuntimeWarning)
+            return 0
+            
         return time_increment

@@ -12,7 +12,7 @@ import logging
 from typing import List
 from gillespie import Gillespie
 from vis import plot_grid, plot_cell_density
-
+import time
 
 class BDM:
     def __init__(self, config: BDMConfig):
@@ -27,11 +27,13 @@ class BDM:
         self.death_rate = config.rates.death
         self.migrate_rate = config.rates.migrate
         self.output_frequency = config.output.frequency
+        self.max_time = config.output.max_time
+        self.verbose = config.verbose
         self.random_seed = 42
         self.current_time = 0.0
         self.grid = self.initialize()
         self.gillespie = Gillespie(config)
-        self.log_config(config)
+        # self.log_config(config)
 
     def log_config(self, config: BDMConfig):
         """
@@ -88,7 +90,7 @@ class BDM:
         return self.grid
 
     def step(
-        self, max_time: float = 1.0
+        self
     ) -> tuple[List[float], List[tuple[str, int, int]], List[Grid]]:
         """
         Step the simulation forward by a specified time duration using Gillespie algorithm
@@ -100,7 +102,7 @@ class BDM:
             grid_states: List of grids at each time point
         """
         time_points, events, grid_states = self.gillespie.run(
-            self.grid, max_time, frequency=self.output_frequency
+            self.grid, self.max_time, frequency=self.output_frequency
         )
         self.current_time += max(time_points)
         return time_points, events, grid_states
@@ -160,7 +162,7 @@ class BDM:
         return final_density
 
 
-@hydra.main(version_base=None, config_path="conf", config_name="bdm")
+@hydra.main(version_base=None, config_path="conf/bdm", config_name="default")
 def main(cfg: DictConfig) -> None:
     # Set up logging
     logging.basicConfig(
@@ -178,18 +180,20 @@ def main(cfg: DictConfig) -> None:
     )
 
     bdm = BDM(cfg)
-
-    max_time = 2500.0
     log = logging.getLogger(__name__)
 
     # Run complete simulation
     log.info("Starting simulation...")
-    time_points, events, grid_states = bdm.step(max_time)
+    start_time = time.time()
+    print("Starting model step...")
+    time_points, events, grid_states = bdm.step()
+    end_time = time.time()
+    print(f"Model step completed in {end_time - start_time:.2f} seconds")
     # Plot grids at saved time points
     if 1==0:
         plot_grid(bdm.original_grid, 0)
-        for time, grid in zip(time_points[1:], grid_states[1:]):  # Skip first since we already plotted original
-            plot_grid(grid, np.round(time, 2))
+        for time_point, grid in zip(time_points[1:], grid_states[1:]):  # Skip first since we already plotted original
+            plot_grid(grid, np.round(time_point, 2))
     cell_densities = [grid.num_cells / (bdm.lattice_size**2) * 100 for grid in grid_states]
     for i in range(len(time_points)):
         plot_cell_density(time_points, cell_densities, time_points[i], cell_densities[i])

@@ -4,8 +4,10 @@ defaults:
   - _self_
 
 # You can override specific values here
+
 bdm:
+  verbose: false
   lattice:
-    size: 100
+    size: 25
 abc:
-  num_samples: 2000 
+  num_samples: 1000

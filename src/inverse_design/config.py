@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Any, Dict
 import hydra
 from omegaconf import DictConfig, OmegaConf
+import copy
 
 
 @dataclass
@@ -10,6 +11,9 @@ class LatticeConfig:
     # These must now be specified in config.yaml
     size: int
     initial_density: float
+
+    def copy(self):
+        return copy.deepcopy(self)
 
 
 @dataclass
@@ -19,10 +23,17 @@ class RatesConfig:
     death: float
     migrate: float
 
+    def copy(self):
+        return copy.deepcopy(self)
+
 
 @dataclass
 class OutputConfig:
     frequency: float
+    max_time: float
+
+    def copy(self):
+        return copy.deepcopy(self)
 
 
 @dataclass
@@ -30,13 +41,23 @@ class BDMConfig:
     lattice: LatticeConfig
     rates: RatesConfig
     output: OutputConfig
+    verbose: bool
+
+    def copy(self):
+        return BDMConfig(
+            lattice=self.lattice.copy(),
+            rates=self.rates.copy(),
+            output=self.output.copy(),
+            verbose=self.verbose
+        )
 
     @classmethod
     def from_dictconfig(cls, cfg: DictConfig) -> 'BDMConfig':
         return cls(
             lattice=LatticeConfig(**cfg.lattice),
             rates=RatesConfig(**cfg.rates),
-            output=OutputConfig(**cfg.output)
+            output=OutputConfig(**cfg.output),
+            verbose=cfg.verbose
         )
 
 

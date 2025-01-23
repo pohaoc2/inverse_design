@@ -1,6 +1,8 @@
 # Model parameters for Birth-Death-Migration simulation
+verbose: true
+
 lattice:
-  size: 10
+  size: 30
   initial_density: 0.05
 
 rates:
@@ -10,3 +12,4 @@ rates:
 
 output:
   frequency: 100.0
+  max_time: 2500.0

@@ -55,7 +55,7 @@ class ABC:
             idx = np.argmin(np.abs(np.array(time_points) - target_time))
             grid = grid_states[idx]
             
-        return grid.num_cells / (grid.size**2) * 100
+        return grid.num_cells / (grid.lattice_size**2) * 100
     
     def calculate_metrics(self, grid_states: List, time_points: List[float],
                          target_time: Optional[float] = None) -> Dict[Metric, float]:
@@ -127,7 +127,6 @@ class ABC:
             
             model = BDM(config)
             time_points, _, grid_states = model.step()
-            
             metrics = self.calculate_metrics(grid_states, time_points, target_time)
             distance = self.calculate_distance(metrics)
             
