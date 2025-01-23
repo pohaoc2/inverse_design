@@ -1,12 +1,13 @@
 num_samples: 1000
 epsilon: 5.0
+output_frequency: 100
 parameter_ranges:
   proliferate:
-    min: 0.001
-    max: 0.05
+    min: 0.01
+    max: 0.02
   death:
-    min: 0.0001
-    max: 0.01
-  migrate:
     min: 0.001
+    max: 0.005
+  migrate:
+    min: 0.15
     max: 0.25

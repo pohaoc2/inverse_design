@@ -41,9 +41,13 @@ class ABC:
         self.num_samples = abc_config.num_samples
         self.epsilon = abc_config.epsilon
         self.parameter_ranges = abc_config.parameter_ranges
-        
+        self.output_frequency = abc_config.output_frequency
         self.metric_functions = {
             Metric.DENSITY: self._calculate_density,
+        }
+        self.all_accept_metrics = {
+            'all': [],
+            'accepted': []
         }
     
     def _calculate_density(self, grid_states: List, time_points: List[float], 
@@ -116,8 +120,12 @@ class ABC:
         
         target_str = ", ".join([f"{t.metric.value}: {t.value}" for t in self.targets])
         log.info(f"Starting ABC inference for targets: {target_str}")
-        
+        self.all_accept_metrics = {
+            'all': [],
+            'accepted': []
+        }
         for i in range(self.num_samples):
+            
             params = self.sample_parameters()
             
             config = self.base_config.copy()
@@ -128,15 +136,16 @@ class ABC:
             model = BDM(config)
             time_points, _, grid_states = model.step()
             metrics = self.calculate_metrics(grid_states, time_points, target_time)
+            self.all_accept_metrics['all'].append(metrics)
             distance = self.calculate_distance(metrics)
             
             if distance < self.epsilon:
                 accepted_params.append(params)
                 distances.append(distance)
+                self.all_accept_metrics['accepted'].append(metrics)
                 
-            if (i + 1) % 100 == 0:
+            if (i + 1) % self.output_frequency == 0:
                 log.info(f"Processed {i + 1} samples, accepted {len(accepted_params)}")
-        
         log.info(f"Inference complete. Accepted {len(accepted_params)} parameter sets")
         
         # Calculate PDFs using kernel density estimation
@@ -194,25 +203,60 @@ if __name__ == "__main__":
         abc_config = ABCConfig.from_dictconfig(cfg.abc)
         
         # Define targets
-        targets = [Target(Metric.DENSITY, 50.0)]
+        targets = [Target(Metric.DENSITY, 70.0)]
         
         # Initialize ABC
         abc = ABC(bdm_config, abc_config, targets)
         
         try:
             # Run inference
-            best_params, param_pdfs = abc.get_best_parameters()
+            accepted_params, distances, param_pdfs = abc.run_inference()
             
             # Print best parameters
+            best_idx = np.argmin(distances)
+            best_params = accepted_params[best_idx]
             print("\nBest Parameters:")
             for param_name, value in best_params.items():
                 print(f"{param_name}: {value:.3f}")
             
+            # Plot density distributions
+            plt.figure(figsize=(8, 6))
+            all_densities = [metrics[Metric.DENSITY] for metrics in abc.all_accept_metrics['all']]
+            accepted_densities = [metrics[Metric.DENSITY] for metrics in abc.all_accept_metrics['accepted']]
+            
+            # Calculate common bins
+            bins = np.histogram_bin_edges(all_densities, bins=10)
+            
+            # Plot histograms with common bins
+            plt.hist(all_densities, bins=bins, alpha=0.3, density=True, label='All samples', color='blue')
+            plt.hist(accepted_densities, bins=bins, alpha=0.3, density=True, label='Accepted samples', color='orange')
+            
+            # Add KDE curves
+            x_all = np.linspace(0, 100, 200)
+            if len(all_densities) > 1:
+                kde_all = stats.gaussian_kde(all_densities)
+                
+                plt.plot(x_all, kde_all(x_all), color='blue', linewidth=2, label='All samples (KDE)')
+            
+            if len(accepted_densities) > 1:
+                kde_accepted = stats.gaussian_kde(accepted_densities)
+                plt.plot(x_all, kde_accepted(x_all), color='orange', linewidth=2, label='Accepted samples (KDE)')
+            
+            plt.axvline(targets[0].value, color='r', linestyle='--', label='Target density')
+            plt.xlabel('Density (%)')
+            plt.ylabel('Frequency')
+            plt.title('Distribution of Densities')
+            plt.xlim(0, 100)
+            plt.legend()
+            plt.savefig("density_distribution.png")
+            plt.close()
+            
             # Analyze and plot PDFs
             plt.figure(figsize=(12, 4))
             for i, (param_name, kde) in enumerate(param_pdfs.items(), 1):
-                # Generate points for plotting
-                x = np.linspace(0.1, 5.0, 100)
+                # Generate points for plotting using config ranges
+                param_range = abc_config.parameter_ranges[param_name]
+                x = np.linspace(param_range.min, param_range.max, 1000)
                 density = kde(x)
                 
                 # Calculate statistics
@@ -229,15 +273,15 @@ if __name__ == "__main__":
                 plt.plot(x, density)
                 plt.title(f"{param_name}")
                 plt.xlabel("Value")
-                plt.ylabel("Density")
+                plt.ylabel("kde density")
                 plt.axvline(mean, color='r', linestyle='--', label=f'Mean: {mean:.2f}')
                 plt.axvline(mean + std, color='g', linestyle=':', label=f'±1 SD')
                 plt.axvline(mean - std, color='g', linestyle=':')
                 plt.legend()
             
             plt.tight_layout()
-            plt.show()
-            
+            plt.savefig("abc_results.png")
+            plt.close()
         except ValueError as e:
             print(f"Error: {e}")
     

@@ -72,7 +72,7 @@ class ABCConfig:
     num_samples: int
     epsilon: float
     parameter_ranges: Dict[str, ParameterRange]
-
+    output_frequency: int
     @classmethod
     def from_dictconfig(cls, cfg: DictConfig) -> 'ABCConfig':
         parameter_ranges = {
@@ -82,7 +82,8 @@ class ABCConfig:
         return cls(
             num_samples=cfg.num_samples,
             epsilon=cfg.epsilon,
-            parameter_ranges=parameter_ranges
+            parameter_ranges=parameter_ranges,
+            output_frequency=cfg.output_frequency
         )
 
 
