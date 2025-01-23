@@ -147,8 +147,20 @@ class BDM:
 
             current_unit += time_unit
 
+    def evaluate(self, max_time: float = 2500.0) -> float:
+        """
+        Evaluate the model by running a simulation and returning the final cell density
+        Args:
+            max_time: Duration to simulate (default: 2500.0)
+        Returns:
+            final_density: Final cell density as a percentage
+        """
+        _, _, grid_states = self.step(max_time)
+        final_density = grid_states[-1].num_cells / (self.lattice_size**2) * 100
+        return final_density
 
-@hydra.main(version_base=None, config_path="conf", config_name="config")
+
+@hydra.main(version_base=None, config_path="conf", config_name="bdm")
 def main(cfg: DictConfig) -> None:
     # Set up logging
     logging.basicConfig(

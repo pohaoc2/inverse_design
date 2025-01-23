@@ -1,0 +1,12 @@
+# Model parameters for Birth-Death-Migration simulation
+lattice:
+  size: 10
+  initial_density: 0.05
+
+rates:
+  proliferate: 0.01
+  death: 0.0025
+  migrate: 0.1
+
+output:
+  frequency: 100.0
