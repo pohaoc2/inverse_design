@@ -11,6 +11,7 @@ from omegaconf import DictConfig, OmegaConf
 import scipy
 from . import vis
 from . import evaluate
+import os
 
 class Metric(Enum):
     DENSITY = "density"
@@ -36,6 +37,7 @@ class ABC:
             targets: Single target or list of targets to achieve
         """
         self.base_config = bdm_config
+        self.abc_config = abc_config
         self.targets = [targets] if isinstance(targets, Target) else targets
         
         # Get ABC parameters from config
@@ -232,23 +234,29 @@ class ABC:
             pdf_results: Results from _estimate_pdfs
             save_dir: Directory to save plots
         """
-        # Plot parameter distributions
-        vis.plot_parameter_distributions(
+        # Plot parameter distributions and correlations
+        vis.plot_parameter_correlations(
             accepted_params, 
             pdf_results,
-            f"{save_dir}/parameter_distributions.png"
+            os.path.join(save_dir, 'parameter_correlations.png')
         )
+        vis.plot_parameter_kde(
+            pdf_results, 
+            self.abc_config,
+            os.path.join(save_dir, 'parameter_distributions.png')
+        )
+        
+        # Plot metric distributions
         x_ranges = {
             Metric.DENSITY: (0, 100),
             Metric.TIME_TO_EQUILIBRIUM: (0, self.base_config.output.max_time)
         }
-        # Plot metric distributions
         for target in self.targets:
             vis.plot_metric_distribution(
                 self.all_accept_metrics,
                 target.metric,
                 self.targets,
-                f"{save_dir}/{target.metric.value}_distribution.png",
+                os.path.join(save_dir, f"{target.metric.value}_distribution.png"),
                 x_range=x_ranges[target.metric]
             )
 
@@ -286,11 +294,10 @@ if __name__ == "__main__":
         try:
             # Create output directory with timestamp
             from datetime import datetime
-            import os
             import json
             
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_dir = f"abc_results_{timestamp}"
+            output_dir = f"../results/abc_results_{timestamp}"
             os.makedirs(output_dir, exist_ok=True)
             
             # Run inference
@@ -325,6 +332,33 @@ if __name__ == "__main__":
             with open(os.path.join(output_dir, 'sampling_results.json'), 'w') as f:
                 # Convert any numpy values to float and Metric enum to string for JSON serialization
                 json_results = {}
+                
+                # Add prior information from config
+                json_results['prior_info'] = {
+                    param_name: {
+                        'min': float(ranges.min),
+                        'max': float(ranges.max)
+                    }
+                    for param_name, ranges in abc_config.parameter_ranges.items()
+                }
+                
+                # Add posterior information
+                json_results['posterior_info'] = {
+                    'independent': {
+                        param_name: {
+                            'mean': float(kde.resample(1000).mean()),
+                            'std': float(kde.resample(1000).std())
+                        }
+                        for param_name, kde in parameter_pdfs['independent'].items()
+                    },
+                    'joint': {
+                        'mean': [float(x) for x in parameter_pdfs['joint_mean']],
+                        'covariance': [[float(x) for x in row] for row in parameter_pdfs['joint_cov']],
+                        'parameter_names': parameter_pdfs['param_names']
+                    }
+                }
+                
+                # Add sampling method results
                 for method, results in sampling_results.items():
                     json_results[method] = {}
                     for k, v in results.items():
@@ -337,6 +371,7 @@ if __name__ == "__main__":
                         else:
                             # Handle other values
                             json_results[method][k] = float(v) if isinstance(v, (np.float32, np.float64)) else v
+                
                 json.dump(json_results, f, indent=4)
             
             print("\nSampling Method Comparison:")
@@ -355,7 +390,7 @@ if __name__ == "__main__":
                         print(f"    {metric_name.value}: {value:.4f}")
             
             # Plot and save results
-            abc.plot_results(accepted_params, parameter_pdfs, save_dir=output_dir)
+            abc.plot_results(accepted_params, parameter_pdfs, output_dir)
             
             print(f"\nResults saved to: {output_dir}")
             

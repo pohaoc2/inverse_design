@@ -3,6 +3,7 @@
 *.out
 *.txt
 outputs/
+results/
 
 # Editors
 .vscode/
