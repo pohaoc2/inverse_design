@@ -14,5 +14,5 @@ bdm:
     max_time: 2000.0
 abc:
   output_frequency: 10
-  epsilon: 5
+  epsilon: 1
   sobol_power: 1

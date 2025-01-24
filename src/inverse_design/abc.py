@@ -12,6 +12,7 @@ import scipy
 from . import vis
 from . import evaluate
 import os
+import pandas as pd  # Add this import at the top of the file
 
 class Metric(Enum):
     DENSITY = "density"
@@ -62,9 +63,10 @@ class ABC:
             Metric.DENSITY: self._calculate_density,
             Metric.TIME_TO_EQUILIBRIUM: self._calculate_time_to_equilibrium,
         }
-        self.all_accept_metrics = {
-            'all': [],
-            'accepted': []
+        self.all_sample_metrics = {
+            'parameters': [],
+            'metrics': [],
+            'accepted_indices': []
         }
     
     def _calculate_density(self, grid_states: List, time_points: List[float], 
@@ -197,10 +199,6 @@ class ABC:
         
         target_str = ", ".join([f"{t.metric.value}: {t.value}" for t in self.targets])
         log.info(f"Starting ABC inference for targets: {target_str}, Total samples: {self.num_samples}")
-        self.all_accept_metrics = {
-            'all': [],
-            'accepted': []
-        }
         for i in range(self.num_samples):
             params = self.sample_parameters()
             
@@ -212,19 +210,20 @@ class ABC:
             model = BDM(config)
             time_points, _, grid_states = model.step()
             metrics = self.calculate_metrics(grid_states, time_points, target_time)
-            self.all_accept_metrics['all'].append(metrics)
+            self.all_sample_metrics['metrics'].append(metrics)
+            self.all_sample_metrics['parameters'].append(params)
             distance = self.calculate_distance(metrics)
             
             if distance < self.epsilon:
                 accepted_params.append(params)
                 distances.append(distance)
-                self.all_accept_metrics['accepted'].append(metrics)
+                self.all_sample_metrics['accepted_indices'].append(i)
                 
             if (i + 1) % self.output_frequency == 0:
                 log.info(f"Processed {i + 1} samples, accepted {len(accepted_params)}")
         log.info(f"Inference complete. Accepted {len(accepted_params)} parameter sets")
-        
-        return accepted_params, distances
+
+        return accepted_params, distances, self.all_sample_metrics
     
     def plot_results(self, accepted_params: List[Dict], pdf_results: Dict, 
                     save_dir: str = "."):
@@ -253,7 +252,7 @@ class ABC:
         }
         for target in self.targets:
             vis.plot_metric_distribution(
-                self.all_accept_metrics,
+                self.all_sample_metrics,
                 target.metric,
                 self.targets,
                 os.path.join(save_dir, f"{target.metric.value}_distribution.png"),
@@ -301,8 +300,22 @@ if __name__ == "__main__":
             os.makedirs(output_dir, exist_ok=True)
             
             # Run inference
-            accepted_params, distances = abc.run_inference()
-            
+            accepted_params, distances, all_sample_metrics = abc.run_inference()
+            all_samples_data = []
+            for i in range(len(all_sample_metrics['parameters'])):
+                params = all_sample_metrics['parameters'][i]
+                metrics = all_sample_metrics['metrics'][i]
+                all_samples_data.append({
+                    'proliferate': round(params.get('proliferate', None), 3) if params.get('proliferate', None) is not None else None,
+                    'death': round(params.get('death', None), 3) if params.get('death', None) is not None else None,
+                    'migratory': round(params.get('migrate', None), 3) if params.get('migrate', None) is not None else None,
+                    'cell_density': round(metrics.get(Metric.DENSITY, None), 3) if metrics.get(Metric.DENSITY, None) is not None else None,
+                    'time_to_eq': round(metrics.get(Metric.TIME_TO_EQUILIBRIUM, None), 3) if metrics.get(Metric.TIME_TO_EQUILIBRIUM, None) is not None else None
+                })
+
+            all_samples_df = pd.DataFrame(all_samples_data)
+            all_samples_df.to_csv(os.path.join(output_dir, 'all_samples_metrics.csv'), index=False)
+
             # Get best parameters
             best_idx = np.argmin(distances)
             best_params = accepted_params[best_idx]
@@ -322,11 +335,10 @@ if __name__ == "__main__":
             
             with open(os.path.join(output_dir, 'config.json'), 'w') as f:
                 json.dump(config_dict, f, indent=4)
-            
 
             # Calculate PDFs and compare sampling methods
             parameter_pdfs = evaluate.estimate_pdfs(accepted_params)
-            sampling_results = evaluate.compare_sampling_methods(abc, parameter_pdfs, num_samples=np.power(2, abc_config.sobol_power-1))
+            sampling_results = evaluate.compare_sampling_methods(abc, parameter_pdfs, num_samples=1)
             
             # Save sampling results
             with open(os.path.join(output_dir, 'sampling_results.json'), 'w') as f:

@@ -59,8 +59,8 @@ def plot_metric_distribution(all_metrics: Dict[str, List[Dict]], metric: Metric,
         x_range: Optional tuple of (min, max) for x-axis limits
     """
     # Get metric values for all and accepted samples
-    all_values = [metrics[metric] for metrics in all_metrics['all']]
-    accepted_values = [metrics[metric] for metrics in all_metrics['accepted']]
+    all_values = [metrics[metric] for metrics in all_metrics['metrics']]
+    accepted_values = [all_values[i] for i in all_metrics['accepted_indices']]
     
     # Find target value for this metric
     target_value = next(t.value for t in targets if t.metric == metric)

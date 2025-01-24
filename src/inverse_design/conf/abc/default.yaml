@@ -1,6 +1,7 @@
 epsilon: 0.05
 output_frequency: 100
 sobol_power: 5.0
+output_dir: abc_results/
 parameter_ranges:
   proliferate:
     min: 0.01
