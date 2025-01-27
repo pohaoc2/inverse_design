@@ -14,5 +14,6 @@ bdm:
     max_time: 2000.0
 abc:
   output_frequency: 10
-  epsilon: 1
-  sobol_power: 1
+  epsilon: 7
+  sobol_power: 2
+  model_type: "BDM"

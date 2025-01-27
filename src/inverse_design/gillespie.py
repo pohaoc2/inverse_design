@@ -1,13 +1,13 @@
 # Gillespie algorithm for BDM model
 
 import copy
-import numpy as np
-from typing import Tuple, List
-from .config import BDMConfig
-from .grid import Grid
-from .cell import Cell
-from .location import Location
 import warnings
+from typing import Tuple, List
+import numpy as np
+from .config import BDMConfig
+from .models.grid import Grid
+from .models.cell import Cell
+from .models.location import Location
 
 
 class Gillespie:
@@ -22,6 +22,7 @@ class Gillespie:
         self.death_rate = config.rates.death
         self.migrate_rate = config.rates.migrate
         self.verbose = config.verbose
+
     def calculate_propensities(self, grid: Grid) -> Tuple[float, Cell]:
         """
         Calculate propensities for all possible events
@@ -128,7 +129,7 @@ class Gillespie:
         """
         current_time = 0
         next_print_time = frequency  # Initialize next time to print
-        next_save_time = frequency   # Initialize next time to save grid state
+        next_save_time = frequency  # Initialize next time to save grid state
         time_points = []
         executed_events = []
         grid_states = []
@@ -191,10 +192,10 @@ class Gillespie:
 
         # Execute event
         self.execute_event(grid, event_type, action_cell)
-        
+
         # Check if all cells have died
         if grid.get_num_cells() == 0:
             warnings.warn("All cells have died", RuntimeWarning)
             return 0
-            
+
         return time_increment

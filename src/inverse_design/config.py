@@ -9,8 +9,8 @@ import copy
 @dataclass
 class LatticeConfig:
     # These must now be specified in config.yaml
-    size: int
-    initial_density: float
+    size: int = 30  # Default value specified
+    initial_density: float = 0.05  # Default value specified
 
     def copy(self):
         return copy.deepcopy(self)
@@ -19,9 +19,9 @@ class LatticeConfig:
 @dataclass
 class RatesConfig:
     # These must now be specified in config.yaml
-    proliferate: float
-    death: float
-    migrate: float
+    proliferate: float = 0.01  # Default value specified
+    death: float = 0.0025  # Default value specified
+    migrate: float = 0.1  # Default value specified
 
     def copy(self):
         return copy.deepcopy(self)
@@ -29,8 +29,16 @@ class RatesConfig:
 
 @dataclass
 class OutputConfig:
-    frequency: float
-    max_time: float
+    frequency: float = 100.0  # Default value specified
+    max_time: float = 2500.0  # Default value specified
+
+    def copy(self):
+        return copy.deepcopy(self)
+
+
+@dataclass
+class MetricsConfig:
+    equilibrium_threshold: float = 0.05
 
     def copy(self):
         return copy.deepcopy(self)
@@ -41,6 +49,7 @@ class BDMConfig:
     lattice: LatticeConfig
     rates: RatesConfig
     output: OutputConfig
+    metrics: MetricsConfig
     verbose: bool
 
     def copy(self):
@@ -48,17 +57,27 @@ class BDMConfig:
             lattice=self.lattice.copy(),
             rates=self.rates.copy(),
             output=self.output.copy(),
-            verbose=self.verbose
+            metrics=self.metrics.copy(),
+            verbose=self.verbose,
         )
 
     @classmethod
-    def from_dictconfig(cls, cfg: DictConfig) -> 'BDMConfig':
+    def from_dictconfig(cls, cfg: DictConfig) -> "BDMConfig":
         return cls(
             lattice=LatticeConfig(**cfg.lattice),
             rates=RatesConfig(**cfg.rates),
             output=OutputConfig(**cfg.output),
-            verbose=cfg.verbose
+            metrics=MetricsConfig(**cfg.metrics),
+            verbose=cfg.verbose,
         )
+
+
+@dataclass
+class ARCADEConfig:
+    lattice: LatticeConfig
+    rates: RatesConfig
+    output: OutputConfig
+    verbose: bool
 
 
 @dataclass
@@ -73,17 +92,19 @@ class ABCConfig:
     epsilon: float
     parameter_ranges: Dict[str, ParameterRange]
     output_frequency: int
+    model_type: str
+
     @classmethod
-    def from_dictconfig(cls, cfg: DictConfig) -> 'ABCConfig':
+    def from_dictconfig(cls, cfg: DictConfig) -> "ABCConfig":
         parameter_ranges = {
-            name: ParameterRange(**ranges)
-            for name, ranges in cfg.parameter_ranges.items()
+            name: ParameterRange(**ranges) for name, ranges in cfg.parameter_ranges.items()
         }
         return cls(
             epsilon=cfg.epsilon,
             sobol_power=cfg.sobol_power,
             parameter_ranges=parameter_ranges,
-            output_frequency=cfg.output_frequency
+            output_frequency=cfg.output_frequency,
+            model_type=cfg.model_type,
         )
 
 

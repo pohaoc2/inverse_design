@@ -2,17 +2,19 @@
 
 import hydra
 import copy
-from omegaconf import DictConfig, OmegaConf
-import numpy as np
-from .cell import Cell
-from .grid import Grid
-from .config import BDMConfig
+import time
 import os
 import logging
+from omegaconf import DictConfig, OmegaConf
 from typing import List
-from .gillespie import Gillespie
-from .vis import plot_grid, plot_cell_density
-import time
+import numpy as np
+
+from ..gillespie import Gillespie
+from ..vis import plot_grid, plot_cell_density, plot_combined_grid_and_density
+from .cell import Cell
+from .grid import Grid
+from ..config import BDMConfig
+
 
 class BDM:
     def __init__(self, config: BDMConfig):
@@ -33,7 +35,8 @@ class BDM:
         self.current_time = 0.0
         self.grid = self.initialize()
         self.gillespie = Gillespie(config)
-        # self.log_config(config)
+        if self.verbose:
+            self.log_config(config)
 
     def log_config(self, config: BDMConfig):
         """
@@ -89,9 +92,7 @@ class BDM:
         """Return the current grid state"""
         return self.grid
 
-    def step(
-        self
-    ) -> tuple[List[float], List[tuple[str, int, int]], List[Grid]]:
+    def step(self) -> tuple[List[float], List[tuple[str, int, int]], List[Grid]]:
         """
         Step the simulation forward by a specified time duration using Gillespie algorithm
         Args:
@@ -181,7 +182,8 @@ def main(cfg: DictConfig) -> None:
 
     bdm = BDM(cfg)
     log = logging.getLogger(__name__)
-
+    target_time_point = 1200.0
+    target_density = 80.0
     # Run complete simulation
     log.info("Starting simulation...")
     start_time = time.time()
@@ -189,14 +191,29 @@ def main(cfg: DictConfig) -> None:
     time_points, events, grid_states = bdm.step()
     end_time = time.time()
     print(f"Model step completed in {end_time - start_time:.2f} seconds")
-    # Plot grids at saved time points
-    if 1==0:
-        plot_grid(bdm.original_grid, 0)
-        for time_point, grid in zip(time_points[1:], grid_states[1:]):  # Skip first since we already plotted original
-            plot_grid(grid, np.round(time_point, 2))
     cell_densities = [grid.num_cells / (bdm.lattice_size**2) * 100 for grid in grid_states]
-    for i in range(len(time_points)):
-        plot_cell_density(time_points, cell_densities, time_points[i], cell_densities[i])
+
+    if 1 == 0:
+        plot_grid(bdm.original_grid, 0)
+        for time_point, grid in zip(
+            time_points[1:], grid_states[1:]
+        ):  # Skip first since we already plotted original
+            plot_grid(grid, np.round(time_point, 2))
+
+        for i in range(len(time_points)):
+            plot_cell_density(time_points, cell_densities, time_points[i], cell_densities[i])
+
+    if 1 == 1:
+        for red_dot_time_point, grid in zip(time_points, grid_states):
+            plot_combined_grid_and_density(
+                grid,
+                time_points,
+                cell_densities,
+                red_dot_time_point,
+                target_density,
+                target_time_point,
+            )
+
     log.info(f"Simulation completed with {len(events)} total events")
     # Analyze events by time unit
     # log.info("\nAnalyzing events by time unit:")
