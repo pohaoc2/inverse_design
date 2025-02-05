@@ -25,7 +25,7 @@ class ABC:
             abc_config: Configuration for ABC algorithm
             targets: Single target or list of targets to achieve
         """
-        self.base_config = model_config
+        self.model_config = model_config
         self.abc_config = abc_config
         self.targets = [targets] if isinstance(targets, Target) else targets
 
@@ -47,7 +47,7 @@ class ABC:
         self.current_sample_idx = 0
 
         self.model_type = abc_config.model_type  # e.g., "BDM" or "ARCADE"
-        self.max_time = self.base_config.output.max_time
+        self.max_time = self.model_config.output.max_time
 
         self.parameter_handler = ParameterFactory.create_parameter_handler(self.model_type)
 
@@ -92,7 +92,7 @@ class ABC:
                 if target.metric == Metric.DENSITY:
                     kwargs = {"target_time": target_time}
                 elif target.metric == Metric.TIME_TO_EQUILIBRIUM:
-                    kwargs = {"threshold": self.base_config.metrics.equilibrium_threshold}
+                    kwargs = {"threshold": self.model_config.metrics.equilibrium_threshold}
                 else:
                     kwargs = {}
 
@@ -147,7 +147,7 @@ class ABC:
         for i in range(self.num_samples):
             params = self.sample_parameters()
 
-            config = self.base_config.copy()
+            config = self.model_config.copy()
             config = self.parameter_handler.update_config(config, params)
 
             model = ModelFactory.create_model(self.model_type, config)

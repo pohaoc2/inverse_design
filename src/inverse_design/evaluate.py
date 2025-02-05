@@ -53,7 +53,7 @@ def evaluate_parameters(abc_instance, parameters: Dict[str, float]) -> Tuple[Dic
     # Import BDM here to avoid circular import
     from .models.bdm import BDM
 
-    config = abc_instance.base_config.copy()
+    config = abc_instance.model_config.copy()
     for param_name, value in parameters.items():
         setattr(config.rates, param_name, value)
     model = BDM(config)

@@ -6,6 +6,7 @@ from datetime import datetime
 import numpy as np
 
 from .abc import ABC
+from .abc_with_model import ABCWithModel
 from .config import BDMConfig, ABCConfig
 from .metrics import Metric, Target
 from . import evaluate
@@ -25,8 +26,8 @@ def main(cfg: DictConfig):
     targets = [Target(Metric.DENSITY, 70.0), Target(Metric.TIME_TO_EQUILIBRIUM, 1400.0)]
 
     # Initialize ABC
-    abc = ABC(bdm_config, abc_config, targets)
-
+    # abc = ABC(bdm_config, abc_config, targets)
+    abc = ABCWithModel(bdm_config, abc_config, targets)
     try:
         # Create output directory with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

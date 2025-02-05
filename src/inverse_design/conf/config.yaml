@@ -15,5 +15,5 @@ bdm:
 abc:
   output_frequency: 10
   epsilon: 7
-  sobol_power: 2
+  sobol_power: 1
   model_type: "BDM"

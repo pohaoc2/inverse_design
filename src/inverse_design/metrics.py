@@ -1,8 +1,8 @@
-from abc import ABC, abstractmethod
-from typing import List, Optional, Set, Dict
+from typing import List, Optional, Set
+from dataclasses import dataclass
 from enum import Enum
 import numpy as np
-from dataclasses import dataclass
+from abc import ABC, abstractmethod
 
 
 class Metric(Enum):
@@ -69,9 +69,18 @@ class Metrics(ABC):
 
 
 class MetricsBDM(Metrics):
-    """Class for calculating various metrics from BDM grid states"""
+    """Class for calculating various metrics from BDM (Biocellular Dynamic Model) grid states.
+    
+    This class implements specific metric calculations for the BDM model, including density
+    and time to equilibrium measurements.
+    """
 
     def get_available_metrics(self) -> Set[Metric]:
+        """Returns the set of metrics that can be calculated for BDM simulations.
+        
+        Returns:
+            Set[Metric]: Available metrics for BDM model (density and time to equilibrium)
+        """
         return {Metric.DENSITY, Metric.TIME_TO_EQUILIBRIUM}
 
     # Normalization factors specific to BDM
@@ -85,6 +94,15 @@ class MetricsBDM(Metrics):
         self.normalization_factors["time_to_equilibrium"] = max_time
 
     def calculate_density(self, target_time: Optional[float] = None) -> float:
+        """Calculate the cell density at a specific time point or at the final state.
+        
+        Args:
+            target_time (Optional[float]): Time point at which to calculate density.
+                If None, uses the final state.
+        
+        Returns:
+            float: Cell density as a percentage (0-100) of occupied grid points.
+        """
         if target_time is None:
             grid = self.grid_states[-1]
         else:
@@ -94,6 +112,20 @@ class MetricsBDM(Metrics):
         return grid.num_cells / (grid.lattice_size**2) * 100
 
     def calculate_time_to_equilibrium(self, threshold: float = 0.05) -> float:
+        """Calculate the time required for the system to reach equilibrium.
+        
+        Equilibrium is determined by measuring density fluctuations over a sliding window.
+        The system is considered at equilibrium when relative density fluctuations fall
+        below the threshold.
+        
+        Args:
+            threshold (float): Maximum allowed relative density fluctuation to consider
+                the system at equilibrium. Defaults to 0.05 (5%).
+        
+        Returns:
+            float: Time at which equilibrium was reached, or final time point if
+                equilibrium was not reached.
+        """
         densities = []
         for i in range(len(self.grid_states)):
             density = self.calculate_density(self.time_points[i])
@@ -118,7 +150,11 @@ class MetricsBDM(Metrics):
 
 
 class MetricsARCADE(Metrics):
-    """Class for calculating various metrics from ARCADE states"""
+    """Class for calculating various metrics from ARCADE model states.
+    
+    This class implements specific metric calculations for the ARCADE model, including
+    density, cluster size, and migration speed measurements.
+    """
 
     def get_available_metrics(self) -> Set[Metric]:
         return {Metric.DENSITY, Metric.CLUSTER_SIZE, Metric.MIGRATION_SPEED}
@@ -147,10 +183,26 @@ class MetricsARCADE(Metrics):
 
 
 class MetricsFactory:
+    """Factory class for creating appropriate metrics calculator based on model type."""
+    
     @staticmethod
     def create_metrics(
         model_type: str, grid_states: List, time_points: List[float], max_time: float
     ) -> Metrics:
+        """Create and return appropriate metrics calculator for the given model type.
+        
+        Args:
+            model_type (str): Type of model ('BDM' or 'ARCADE')
+            grid_states (List): List of model states at different time points
+            time_points (List[float]): List of time points corresponding to states
+            max_time (float): Maximum simulation time
+        
+        Returns:
+            Metrics: Appropriate metrics calculator instance
+            
+        Raises:
+            ValueError: If model_type is not recognized
+        """
         if model_type == "BDM":
             return MetricsBDM(grid_states, time_points, max_time)
         elif model_type == "ARCADE":
