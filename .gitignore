@@ -2,6 +2,10 @@
 *.log
 *.out
 *.txt
+*.json
+*.xml
+*.csv
+*.jar
 outputs/
 results/
 
