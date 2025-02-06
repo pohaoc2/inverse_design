@@ -47,7 +47,7 @@ class ABCBase:
 
         return total_distance
 
-    def calculate_metrics(
+    def calculate_all_metrics(
         self, target_time: Optional[float] = None, metrics_calculator=None
     ) -> Dict[Metric, float]:
         """Calculate all required metrics from grid states
@@ -70,7 +70,7 @@ class ABCBase:
                 else:
                     kwargs = {}
 
-                metrics[target.metric] = metrics_calculator.calculate_metric(
+                metrics[target.metric] = metrics_calculator.get_calculate_method(
                     target.metric, **kwargs
                 )
             except ValueError as e:

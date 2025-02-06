@@ -7,6 +7,7 @@ import numpy as np
 
 from .abc import ABC
 from .abc_with_model import ABCWithModel
+from .abc_precomputed import ABCPrecomputed
 from .config import BDMConfig, ABCConfig
 from .metrics import Metric, Target
 from . import evaluate
@@ -15,7 +16,7 @@ from .utils import get_samples_data
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
-def main(cfg: DictConfig):
+def run_abc_with_model(cfg: DictConfig):
     """Example script demonstrating how to use the ABC inference"""
 
     # Load configurations
@@ -175,6 +176,18 @@ def main(cfg: DictConfig):
     except ValueError as e:
         print(f"Error: {e}")
 
+@hydra.main(version_base=None, config_path="conf", config_name="config")
+def run_abc_precomputed(cfg: DictConfig):
+    """Example script demonstrating how to use the ABC inference"""
+
+    # Load configurations
+    bdm_config = BDMConfig.from_dictconfig(cfg.bdm)
+    abc_config = ABCConfig.from_dictconfig(cfg.abc)
+
+    targets = [Target(Metric.GROWTH_RATE, 1.00)]
+    # Initialize ABC
+    abc = ABCPrecomputed(bdm_config, abc_config, targets, results_file="ARCADE_OUTPUT/simulation_metrics.csv")
 
 if __name__ == "__main__":
-    main()
+    run_abc_with_model()
+    #run_abc_precomputed()

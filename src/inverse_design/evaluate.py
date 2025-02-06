@@ -61,7 +61,7 @@ def evaluate_parameters(abc_instance, parameters: Dict[str, float]) -> Tuple[Dic
     metrics_calculator = MetricsFactory.create_metrics(
         abc_instance.model_type, grid_states, time_points, abc_instance.max_time
     )
-    metrics = abc_instance.calculate_metrics(metrics_calculator=metrics_calculator)
+    metrics = abc_instance.calculate_all_metrics(metrics_calculator=metrics_calculator)
     distance = abc_instance.calculate_distance(metrics, metrics_calculator.normalization_factors)
     return {"metrics": metrics, "distance": distance}
 

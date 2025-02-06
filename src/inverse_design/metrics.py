@@ -8,8 +8,9 @@ from abc import ABC, abstractmethod
 class Metric(Enum):
     DENSITY = "density"
     TIME_TO_EQUILIBRIUM = "time_to_equilibrium"
-    CLUSTER_SIZE = "cluster_size"  # Example additional metric
-    MIGRATION_SPEED = "migration_speed"  # Example additional metric
+    GROWTH_RATE = "growth_rate"
+    SYMMETRY = "symmetry"
+    ACTIVITY = "activity"
 
 
 @dataclass
@@ -46,7 +47,7 @@ class Metrics(ABC):
         self.time_points = time_points
         self._available_metrics = self.get_available_metrics()
 
-    def calculate_metric(self, metric: Metric, **kwargs) -> float:
+    def get_calculate_method(self, metric: Metric, **kwargs) -> float:
         """Calculate specified metric with given parameters
         Args:
             metric: The metric to calculate
@@ -83,15 +84,12 @@ class MetricsBDM(Metrics):
         """
         return {Metric.DENSITY, Metric.TIME_TO_EQUILIBRIUM}
 
-    # Normalization factors specific to BDM
-    normalization_factors = {
-        "density": 100.0,  # density is in percentage (0-100)
-        "time_to_equilibrium": None,  # To be set based on config or max_time
-    }
-
     def __init__(self, grid_states: List, time_points: List[float], max_time: float):
         super().__init__(grid_states, time_points)
-        self.normalization_factors["time_to_equilibrium"] = max_time
+        self.normalization_factors = {
+            "density": 100.0,
+            "time_to_equilibrium": max_time,
+        }
 
     def calculate_density(self, target_time: Optional[float] = None) -> float:
         """Calculate the cell density at a specific time point or at the final state.
@@ -157,17 +155,15 @@ class MetricsARCADE(Metrics):
     """
 
     def get_available_metrics(self) -> Set[Metric]:
-        return {Metric.DENSITY, Metric.CLUSTER_SIZE, Metric.MIGRATION_SPEED}
-
-    # Normalization factors specific to ARCADE
-    normalization_factors = {
-        "density": 100.0,  # Example normalization factor
-        "time_to_equilibrium": None,  # To be set based on config or max_time
-    }
+        return {Metric.GROWTH_RATE, Metric.SYMMETRY, Metric.ACTIVITY}
 
     def __init__(self, grid_states: List, time_points: List[float], max_time: float):
         super().__init__(grid_states, time_points)
-        self.normalization_factors["time_to_equilibrium"] = max_time
+        self.normalization_factors = {
+            "growth_rate": max_time,
+            "symmetry": 1.0,
+            "activity": 1.0,
+        }
 
     def calculate_density(self, target_time: Optional[float] = None) -> float:
         """Implementation specific to ARCADE model"""

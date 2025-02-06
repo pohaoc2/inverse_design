@@ -72,13 +72,13 @@ class ABCWithModel(ABCBase):
                 self.model_type, grid_states, time_points, self.max_time
             )
 
-            metrics = self.calculate_metrics(target_time, metrics_calculator)
-            distance = self.calculate_distance(metrics, metrics_calculator.normalization_factors)
+            all_metrics = self.calculate_all_metrics(target_time, metrics_calculator)
+            distance = self.calculate_distance(all_metrics, metrics_calculator.normalization_factors)
 
             # Format sample data using parameter handler with additional info
             accepted = distance < self.epsilon
             sample_data = self.parameter_handler.format_sample_data(
-                params, metrics, distance=distance, accepted=accepted
+                params, all_metrics, distance=distance, accepted=accepted
             )
             self.param_metrics_distances_results.append(sample_data)
 
