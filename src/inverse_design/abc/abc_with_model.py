@@ -42,9 +42,7 @@ class ABCWithModel(ABCBase):
         return params
 
     def run_inference(self):
-        """Run ABC inference with model simulations"""
-        target_time = self.max_time
-        
+        """Run ABC inference with model simulations"""        
         # Create model once
         model = ModelFactory.create_model(self.model_type, self.model_config)
         

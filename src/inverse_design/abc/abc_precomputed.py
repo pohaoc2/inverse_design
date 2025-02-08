@@ -31,13 +31,7 @@ class ABCPrecomputed(ABCBase):
             # Extract parameters and grid states from pre-computed results
             params = row
             metrics = self.metrics_df.iloc[i]
-
-            metrics_calculator = MetricsFactory.create_metrics(
-                self.model_type, grid_states, time_points, self.max_time
-            )
-
-            metrics = self.calculate_metrics(target_time, metrics_calculator)
-            distance = self.calculate_distance(metrics, metrics_calculator.normalization_factors)
+            distance = self.calculate_distance(metrics, self.normalization_factors)
 
             accepted = distance < self.epsilon
             sample_data = self.parameter_handler.format_sample_data(

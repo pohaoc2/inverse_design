@@ -12,6 +12,7 @@ from inverse_design.analyze import evaluate
 from inverse_design.vis.vis import plot_abc_results
 from inverse_design.utils.utils import get_samples_data
 from inverse_design.models.model_base import ModelRegistry
+from inverse_design.common.enum import Target, Metric
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
@@ -31,9 +32,18 @@ def run_abc_with_model(cfg: DictConfig):
 
     abc_config = ABCConfig.from_dictconfig(cfg.abc)
 
-    # Use model-specific targets or override with custom ones
-    targets = getattr(cfg.abc, 'targets', None)
-    if targets is None:
+    # Get targets from config or use model defaults
+    if hasattr(cfg.abc, 'targets') and cfg.abc.targets:
+        targets = [
+            Target(
+                metric=Metric(target.metric),  # Convert string to Metric enum
+                value=float(target.value),
+                weight=float(target.get('weight', 1.0))  # Default weight to 1.0
+            )
+            for target in cfg.abc.targets
+        ]
+    else:
+        # Use model defaults if no targets in config
         targets = model.get_default_targets()
 
     # Initialize ABC
@@ -192,7 +202,8 @@ def run_abc_precomputed(cfg: DictConfig):
     """
     # Get model implementation
     model = ModelRegistry.get_model(cfg.abc.model_type)
-    
+    abc_config = ABCConfig.from_dictconfig(cfg.abc)
+
     # Get model config using the appropriate config class
     config_class = model.get_config_class()
     model_config_key = cfg.abc.model_type.lower()
@@ -203,46 +214,21 @@ def run_abc_precomputed(cfg: DictConfig):
     # Convert to model-specific config class
     model_config = config_class.from_dictconfig(cfg[model_config_key])
 
-    # Use model-specific targets or override with custom ones
-    targets = getattr(cfg.abc, 'targets', None)
-    if targets is None:
-        targets = model.get_default_targets()
-
-    # Initialize ABC
-    abc = ABCWithModel(model_config, abc_config, targets)
-    try:
-        # Run inference on precomputed results
-        param_metrics_distances_results = abc.run_inference()
-
-        # Get accepted parameters using model-specific keys
-        param_keys = model.get_parameter_keys()
-        accepted_params = [
-            {key: sample[key] for key in param_keys}
-            for sample in param_metrics_distances_results
-            if sample["accepted"]
+    # Get targets from config or use model defaults
+    if hasattr(cfg.abc, 'targets') and cfg.abc.targets:
+        targets = [
+            Target(
+                metric=Metric(target.metric),  # Convert string to Metric enum
+                value=float(target.value),
+                weight=float(target.get('weight', 1.0))  # Default weight to 1.0
+            )
+            for target in cfg.abc.targets
         ]
+    else:
+        # Use model defaults if no targets in config
+        targets = model.get_default_targets()
+    abc = ABCPrecomputed(model_config, abc_config, targets)
 
-        # Get best parameters and metrics
-        best_sample = min(param_metrics_distances_results, key=lambda x: x["distance"])
-        best_params = {key: best_sample[key] for key in param_keys}
-        
-        metric_keys = model.get_metric_keys()
-        best_metrics = {
-            display_key: best_sample[metric_key]
-            for display_key, metric_key in metric_keys.items()
-        }
-
-        # Print results
-        print("\nBest Parameters:")
-        for param_name, value in best_params.items():
-            print(f"{param_name}: {value:.3f}")
-
-        print("\nBest Metrics:")
-        for metric_name, value in best_metrics.items():
-            print(f"{metric_name}: {value:.3f}")
-
-    except Exception as e:
-        print(f"Error running ABC inference: {str(e)}")
 
 if __name__ == "__main__":
     run_abc_with_model()
