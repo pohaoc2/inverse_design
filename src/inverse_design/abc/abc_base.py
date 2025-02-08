@@ -1,6 +1,6 @@
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union
 import pandas as pd
-from abc import ABC, abstractmethod
+from abc import ABC
 from inverse_design.conf.config import BDMConfig, ABCConfig, ARCADEConfig
 from inverse_design.common.enum import Metric, Target
 from inverse_design.utils.utils import get_samples_data

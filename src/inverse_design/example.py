@@ -36,9 +36,9 @@ def run_abc_with_model(cfg: DictConfig):
     if hasattr(cfg.abc, 'targets') and cfg.abc.targets:
         targets = [
             Target(
-                metric=Metric(target.metric),  # Convert string to Metric enum
+                metric=Metric(target.metric),
                 value=float(target.value),
-                weight=float(target.get('weight', 1.0))  # Default weight to 1.0
+                weight=float(target.weight)
             )
             for target in cfg.abc.targets
         ]
@@ -207,7 +207,6 @@ def run_abc_precomputed(cfg: DictConfig):
     # Get model config using the appropriate config class
     config_class = model.get_config_class()
     model_config_key = cfg.abc.model_type.lower()
-    
     if not hasattr(cfg, model_config_key):
         raise ValueError(f"Configuration for model type {cfg.abc.model_type} not found in config")
     
@@ -218,19 +217,25 @@ def run_abc_precomputed(cfg: DictConfig):
     if hasattr(cfg.abc, 'targets') and cfg.abc.targets:
         targets = [
             Target(
-                metric=Metric(target.metric),  # Convert string to Metric enum
+                metric=Metric(target.metric),
                 value=float(target.value),
-                weight=float(target.get('weight', 1.0))  # Default weight to 1.0
+                weight=float(target.weight)
             )
             for target in cfg.abc.targets
         ]
     else:
         # Use model defaults if no targets in config
         targets = model.get_default_targets()
-    abc = ABCPrecomputed(model_config, abc_config, targets)
-
+    param_file = "param_file.csv"
+    metrics_file = "metrics_file.csv"
+    abc = ABCPrecomputed(model_config,
+    abc_config,
+    targets,
+    param_file=param_file,
+    metrics_file=metrics_file)
+    param_metrics_distances_results = abc.run_inference()
+    print(param_metrics_distances_results)
 
 if __name__ == "__main__":
-    run_abc_with_model()
-    
-    #run_abc_precomputed()
+    #run_abc_with_model()
+    run_abc_precomputed()

@@ -1,11 +1,10 @@
 import logging
-from typing import Dict, Optional
+from typing import Dict
 import pandas as pd
 from inverse_design.abc.abc_base import ABCBase
-from inverse_design.metrics.metrics import MetricsFactory
 
 class ABCPrecomputed(ABCBase):
-    def __init__(self, *args, para_file: str, metrics_file: str, **kwargs):
+    def __init__(self, *args, param_file: str, metrics_file: str, **kwargs):
         """
         Initialize ABC for pre-computed results
         Args:
@@ -14,24 +13,31 @@ class ABCPrecomputed(ABCBase):
             *args, **kwargs: Arguments passed to ABCBase
         """
         super().__init__(*args, **kwargs)
-        self.para_file = para_file
+        self.param_file = param_file
         self.metrics_file = metrics_file
-        self.para_df = pd.read_csv(para_file)
+        self.param_df = pd.read_csv(param_file)
         self.metrics_df = pd.read_csv(metrics_file)
-        self.num_samples = len(self.para_df)
+        self.num_samples = len(self.param_df)
 
-    def run_inference(self, target_time: Optional[float] = None) -> Dict:
+    def run_inference(self,) -> Dict:
         """Run ABC inference on pre-computed results"""
         log = logging.getLogger(__name__)
         
         target_str = ", ".join([f"{t.metric.value}: {t.value}" for t in self.targets])
         log.info(f"Starting ABC inference on {self.num_samples} pre-computed samples for targets: {target_str}")
 
-        for i, row in self.para_df.iterrows():
-            # Extract parameters and grid states from pre-computed results
-            params = row
-            metrics = self.metrics_df.iloc[i]
-            distance = self.calculate_distance(metrics, self.normalization_factors)
+        for i, row in self.param_df.iterrows():
+            # Convert param Series to dict, excluding 'file_name'
+            params = row.drop('file_name').to_dict()
+            
+            # Convert metrics Series to dict, only including target metrics
+            metrics_row = self.metrics_df.iloc[i]
+            metrics = {
+                target.metric: metrics_row[target.metric.value]
+                for target in self.targets
+            }
+            
+            distance = self.calculate_distance(metrics)
 
             accepted = distance < self.epsilon
             sample_data = self.parameter_handler.format_sample_data(

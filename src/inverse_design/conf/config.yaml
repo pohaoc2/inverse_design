@@ -12,9 +12,29 @@ bdm:
   output:
     frequency: 100.0
     max_time: 2000.0
+
+arcade:
+  cellular:
+    volume_mu: 2250
+    volume_sigma: 200
+    apop_age_mu: 120960
+    apop_age_sigma: 10080
+    necrotic_fraction: 0.5
+    accuracy: 0.8
+    affinity: 0.5
+    compression_tolerance: 0
+  output:
+    frequency: 100.0
+    max_time: 14400.0
+
 abc:
   output_frequency: 10
   epsilon: 7
   sobol_power: 1
-  model_type: "BDM"
+  model_type: "ARCADE"
+  targets:
+    - metric: "activity"
+      value: 0.5
+      weight: 1.0
 
+      

@@ -71,13 +71,38 @@ class BDMConfig:
             verbose=cfg.verbose,
         )
 
+@dataclass
+class CellularConfig:
+    volume_mu: float
+    volume_sigma: float
+    apop_age_mu: float
+    apop_age_sigma: float
+    necrotic_fraction: float
+    accuracy: float
+    affinity: float
+    compression_tolerance: float
+    
+    def copy(self):
+        return copy.deepcopy(self)
+
 
 @dataclass
 class ARCADEConfig:
-    lattice: LatticeConfig
-    rates: RatesConfig
+    cellular: CellularConfig
     output: OutputConfig
-    verbose: bool
+
+    def copy(self):
+        return ARCADEConfig(
+            cellular=self.cellular.copy(),
+            output=self.output.copy(),
+        )
+
+    @classmethod
+    def from_dictconfig(cls, cfg: DictConfig) -> "ARCADEConfig":
+        return cls(
+            cellular=CellularConfig(**cfg.cellular),
+            output=OutputConfig(**cfg.output),
+        )
 
 
 @dataclass
@@ -110,6 +135,8 @@ class ABCConfig:
 
 cs = hydra.core.config_store.ConfigStore.instance()
 cs.store(name="bdm_config", node=BDMConfig)
+cs.store(name="arcade_config", node=ARCADEConfig)
+cs.store(name="abc_config", node=ABCConfig)
 
 
 @hydra.main(version_base=None, config_name="bdm_config")
