@@ -4,10 +4,10 @@ import copy
 import warnings
 from typing import Tuple, List
 import numpy as np
-from .config import BDMConfig
-from .models.grid import Grid
-from .models.cell import Cell
-from .models.location import Location
+from inverse_design.conf.config import BDMConfig
+from inverse_design.models.bdm.grid import Grid
+from inverse_design.models.bdm.cell import Cell
+from inverse_design.models.bdm.location import Location
 
 
 class Gillespie:

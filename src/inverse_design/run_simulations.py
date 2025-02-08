@@ -117,5 +117,5 @@ if __name__ == "__main__":
         input_dir="inputs/perturbed_inputs",
         output_dir="ARCADE_OUTPUT/",
         jar_path="arcade_v3.jar",
-        max_workers=4  # Adjust based on your CPU cores
+        max_workers=2  # Adjust based on your CPU cores
     ) 

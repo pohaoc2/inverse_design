@@ -1,6 +1,6 @@
-from ..config import BDMConfig, ARCADEConfig
-from .bdm import BDM
-from .arcade import ARCADE
+from conf.config import BDMConfig, ARCADEConfig
+from .bdm.bdm import BDM
+from .arcade.arcade import ARCADE
 from typing import Union
 
 

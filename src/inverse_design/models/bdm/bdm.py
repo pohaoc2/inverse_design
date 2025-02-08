@@ -9,12 +9,11 @@ from omegaconf import DictConfig, OmegaConf
 from typing import List
 import numpy as np
 
-from ..gillespie import Gillespie
-from ..vis import plot_grid, plot_cell_density, plot_combined_grid_and_density
-from .cell import Cell
-from .grid import Grid
-from ..config import BDMConfig
-
+from inverse_design.algorithms.gillespie import Gillespie
+from inverse_design.vis.vis import plot_grid, plot_cell_density, plot_combined_grid_and_density
+from inverse_design.conf.config import BDMConfig
+from inverse_design.models.bdm.cell import Cell
+from inverse_design.models.bdm.grid import Grid
 
 class BDM:
     def __init__(self, config: BDMConfig):

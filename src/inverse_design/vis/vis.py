@@ -6,8 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
 
-from models.grid import Grid
-from .abc import Metric, Target
+from inverse_design.models.bdm.grid import Grid
+from inverse_design.common.enum import Metric, Target
 
 
 def plot_grid(grid: Grid, time_point: float):

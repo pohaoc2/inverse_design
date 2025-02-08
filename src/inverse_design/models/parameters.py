@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from ..metrics import Metric
+from inverse_design.common.enum import Metric
 from abc import ABC, abstractmethod
 
 

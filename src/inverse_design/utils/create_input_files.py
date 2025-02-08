@@ -106,7 +106,7 @@ def generate_perturbed_parameters(
 # Example usage
 if __name__ == "__main__":
     generate_perturbed_parameters(
-        sobol_power=2,  # This will generate 2^4 = 16 samples
+        sobol_power=2,
         volume_mu_range=(1500, 3000),
         volume_sigma_range=(50, 150),
         apop_age_mu_range=(100000, 140000),

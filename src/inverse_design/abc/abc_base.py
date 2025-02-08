@@ -1,11 +1,12 @@
 from typing import Dict, List, Optional, Union
-from .config import BDMConfig, ABCConfig, ARCADEConfig
-from .metrics import Metric, Target
 import pandas as pd
-from .utils import get_samples_data
-from .models.parameters import ParameterFactory
+from abc import ABC, abstractmethod
+from inverse_design.conf.config import BDMConfig, ABCConfig, ARCADEConfig
+from inverse_design.common.enum import Metric, Target
+from inverse_design.utils.utils import get_samples_data
+from inverse_design.models.parameters import ParameterFactory
 
-class ABCBase:
+class ABCBase(ABC):
     def __init__(
         self,
         model_config: Union[BDMConfig, ARCADEConfig],

@@ -1,9 +1,9 @@
 import logging
 from typing import Dict, Optional
 import scipy
-from .abc_base import ABCBase
-from .models.models import ModelFactory
-from .metrics import MetricsFactory
+from inverse_design.abc.abc_base import ABCBase
+from inverse_design.models.models import ModelFactory
+from inverse_design.metrics.metrics import MetricsFactory
 
 class ABCWithModel(ABCBase):
     def __init__(self, *args, **kwargs):
@@ -71,7 +71,6 @@ class ABCWithModel(ABCBase):
             metrics_calculator = MetricsFactory.create_metrics(
                 self.model_type, grid_states, time_points, self.max_time
             )
-
             all_metrics = self.calculate_all_metrics(target_time, metrics_calculator)
             distance = self.calculate_distance(all_metrics, metrics_calculator.normalization_factors)
 

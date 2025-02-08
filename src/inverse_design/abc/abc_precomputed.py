@@ -1,8 +1,8 @@
 import logging
 from typing import Dict, Optional
 import pandas as pd
-from .abc_base import ABCBase
-from .metrics import MetricsFactory
+from inverse_design.abc.abc_base import ABCBase
+from inverse_design.metrics.metrics import MetricsFactory
 
 class ABCPrecomputed(ABCBase):
     def __init__(self, *args, results_file: str, **kwargs):

@@ -84,6 +84,22 @@ class SimulationMetrics:
         volumes = [cell['volume'] for cell in cells]
         return sum(volumes) / len(volumes)
 
+    def calculate_activity(self, cells: List[Dict[str, Any]]) -> float:
+        """Calculate cell activity (proliferative + migratory cells fraction)
+        
+        Args:
+            cells: List of cell dictionaries
+            
+        Returns:
+            Activity ratio between 0 and 1
+        """
+        if not cells:
+            return 0.0
+        
+        active_cells = sum(1 for cell in cells 
+                         if cell['state'] in ['PROLIFERATIVE', 'MIGRATORY'])
+        return active_cells / len(cells)
+
     def analyze_simulation(self, 
                          folder_path: Path, 
                          t1: str, 
@@ -110,6 +126,8 @@ class SimulationMetrics:
                     'avg_volumes_t2': [],
                     'num_cells_t1': [],
                     'num_cells_t2': [],
+                    'activity_t1': [],
+                    'activity_t2': [],
                     'seed_count': 0
                 }
             
@@ -125,6 +143,12 @@ class SimulationMetrics:
             )
             metrics_by_exp[exp_key]['num_cells_t1'].append(len(cells_t1))
             metrics_by_exp[exp_key]['num_cells_t2'].append(len(cells_t2))
+            metrics_by_exp[exp_key]['activity_t1'].append(
+                self.calculate_activity(cells_t1)
+            )
+            metrics_by_exp[exp_key]['activity_t2'].append(
+                self.calculate_activity(cells_t2)
+            )
             metrics_by_exp[exp_key]['seed_count'] += 1
         
         # Average metrics across seeds
@@ -141,6 +165,10 @@ class SimulationMetrics:
                 'avg_volume_t2_std': np.std(metrics['avg_volumes_t2']),
                 'num_cells_t1': sum(metrics['num_cells_t1']) / len(metrics['num_cells_t1']),
                 'num_cells_t2': sum(metrics['num_cells_t2']) / len(metrics['num_cells_t2']),
+                'activity_t1': sum(metrics['activity_t1']) / len(metrics['activity_t1']),
+                'activity_t1_std': np.std(metrics['activity_t1']),
+                'activity_t2': sum(metrics['activity_t2']) / len(metrics['activity_t2']),
+                'activity_t2_std': np.std(metrics['activity_t2']),
                 'seed_count': metrics['seed_count']
             })
         

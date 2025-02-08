@@ -1,37 +1,10 @@
 from typing import List, Optional, Set
-from dataclasses import dataclass
-from enum import Enum
 import numpy as np
-from abc import ABC, abstractmethod
+from inverse_design.common.enum import Metric
 
-
-class Metric(Enum):
-    DENSITY = "density"
-    TIME_TO_EQUILIBRIUM = "time_to_equilibrium"
-    GROWTH_RATE = "growth_rate"
-    SYMMETRY = "symmetry"
-    ACTIVITY = "activity"
-
-
-@dataclass
-class Target:
-    """
-    Target class for multi-objective optimization
-    Attributes:
-        metric: The metric to target (density, time to equilibrium, etc.)
-        value: The desired value for this metric
-        weight: Weight for multi-objective optimization (default: 1.0)
-    """
-
-    metric: Metric
-    value: float
-    weight: float = 1.0
-
-
-class Metrics(ABC):
+class Metrics():
     """Abstract base class for model metrics calculations"""
 
-    @abstractmethod
     def get_available_metrics(self) -> Set[Metric]:
         """Returns set of metrics available for this model"""
         pass
@@ -48,15 +21,8 @@ class Metrics(ABC):
         self._available_metrics = self.get_available_metrics()
 
     def get_calculate_method(self, metric: Metric, **kwargs) -> float:
-        """Calculate specified metric with given parameters
-        Args:
-            metric: The metric to calculate
-            **kwargs: Additional parameters needed for the calculation
-        Returns:
-            Calculated metric value
-        Raises:
-            ValueError: If metric is not available for this model
-        """
+        """Calculate specified metric with given parameters"""
+        
         if metric not in self._available_metrics:
             raise ValueError(f"Metric {metric.value} is not available for this model")
 
@@ -82,10 +48,23 @@ class MetricsBDM(Metrics):
         Returns:
             Set[Metric]: Available metrics for BDM model (density and time to equilibrium)
         """
-        return {Metric.DENSITY, Metric.TIME_TO_EQUILIBRIUM}
+        metrics = {Metric.DENSITY, Metric.TIME_TO_EQUILIBRIUM}
+        print("in get_available_metrics")
+        print(Metric.DENSITY)
+        print(Metric.DENSITY in metrics)
+        print(metrics)
+        return metrics
 
     def __init__(self, grid_states: List, time_points: List[float], max_time: float):
+        """Initialize MetricsBDM
+        
+        Args:
+            grid_states: List of states at different time points
+            time_points: List of corresponding time points
+            max_time: Maximum simulation time
+        """
         super().__init__(grid_states, time_points)
+        self._available_metrics = self.get_available_metrics()  # Make sure this is set
         self.normalization_factors = {
             "density": 100.0,
             "time_to_equilibrium": max_time,

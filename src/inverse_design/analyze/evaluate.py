@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import stats
 from typing import Dict, List, Tuple
-from .metrics import MetricsFactory
+from metrics.metrics import MetricsFactory
 
 
 def estimate_pdfs(accepted_params: List[Dict]) -> Dict:
@@ -50,8 +50,7 @@ def evaluate_parameters(abc_instance, parameters: Dict[str, float]) -> Tuple[Dic
     Returns:
         Tuple of (metrics, distance)
     """
-    # Import BDM here to avoid circular import
-    from .models.bdm import BDM
+    from inverse_design.models.bdm.bdm import BDM
 
     config = abc_instance.model_config.copy()
     for param_name, value in parameters.items():
