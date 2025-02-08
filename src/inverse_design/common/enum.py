@@ -9,7 +9,6 @@ class Metric(Enum):
     ACTIVITY = "activity"
 
     def __eq__(self, other):
-        # Compare by name and value to handle different enum instances
         if hasattr(other, 'name') and hasattr(other, 'value'):
             return self.name == other.name and self.value == other.value
         return False

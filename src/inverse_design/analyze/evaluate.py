@@ -56,12 +56,13 @@ def evaluate_parameters(abc_instance, parameters: Dict[str, float]) -> Tuple[Dic
     for param_name, value in parameters.items():
         setattr(config.rates, param_name, value)
     model = BDM(config)
-    time_points, _, grid_states = model.step()
+    model_output = model.step()
     metrics_calculator = MetricsFactory.create_metrics(
-        abc_instance.model_type, grid_states, time_points, abc_instance.max_time
+        abc_instance.model_type,
+        model_output,
     )
     metrics = abc_instance.calculate_all_metrics(metrics_calculator=metrics_calculator)
-    distance = abc_instance.calculate_distance(metrics, metrics_calculator.normalization_factors)
+    distance = abc_instance.calculate_distance(metrics)
     return {"metrics": metrics, "distance": distance}
 
 

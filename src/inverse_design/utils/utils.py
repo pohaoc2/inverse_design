@@ -21,7 +21,7 @@ def get_samples_data(
         columns = [
             "proliferate",
             "death",
-            "migratory",
+            "migrate",
             "cell_density",
             "time_to_eq",
             "distance",

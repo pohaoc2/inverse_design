@@ -1,6 +1,8 @@
 epsilon: 0.05
 output_frequency: 100
 sobol_power: 5.0
+para_file: "para_file.csv"
+metrics_file: "metrics_file.csv"
 output_dir: abc_results/
 model_type: "BDM"
 parameter_ranges:

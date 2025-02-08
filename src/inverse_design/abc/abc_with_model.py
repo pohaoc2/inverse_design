@@ -41,55 +41,75 @@ class ABCWithModel(ABCBase):
 
         return params
 
-    def run_inference(self, target_time: Optional[float] = None) -> Dict:
-        """Run ABC inference to find parameters that achieve targets
-
-        Args:
-            target_time: Optional time point for density calculation
-
-        Returns:
-            Dictionary containing all samples with their metrics and acceptance status
-        """
-        log = logging.getLogger(__name__)
-
-        target_str = ", ".join([f"{t.metric.value}: {t.value}" for t in self.targets])
-        log.info(
-            f"Starting ABC inference for targets: {target_str}, Total samples: {self.num_samples}"
-        )
-
-        self.param_metrics_distances_results = []
-
+    def run_inference(self):
+        """Run ABC inference with model simulations"""
+        target_time = self.max_time
+        
+        # Create model once
+        model = ModelFactory.create_model(self.model_type, self.model_config)
+        
+        # First phase: Calculate all metrics
+        all_samples = []
+        print("Phase 1: Calculating metrics for all samples...")
+        
         for i in range(self.num_samples):
             params = self.sample_parameters()
-
             config = self.model_config.copy()
             config = self.parameter_handler.update_config(config, params)
+            
+            model.update_config(config)
+            model_output = model.step()
 
-            model = ModelFactory.create_model(self.model_type, config)
-            time_points, _, grid_states = model.step()
-
+            # Calculate metrics
             metrics_calculator = MetricsFactory.create_metrics(
-                self.model_type, grid_states, time_points, self.max_time
+                self.model_type, model_output
             )
-            all_metrics = self.calculate_all_metrics(target_time, metrics_calculator)
-            distance = self.calculate_distance(all_metrics, metrics_calculator.normalization_factors)
+            metrics = self.calculate_all_metrics(metrics_calculator)
+            
+            # Store parameters and metrics
+            all_samples.append({
+                'params': params,
+                'metrics': metrics
+            })
 
-            # Format sample data using parameter handler with additional info
-            accepted = distance < self.epsilon
+            if i % self.output_frequency == 0:
+                print(f"Completed {i}/{self.num_samples} samples")
+
+        # Second phase: Calculate normalization factors if not provided
+        print("\nPhase 2: Computing normalization factors...")
+        if self.normalization_factors is None:
+            # Collect all values for each metric
+            metric_values = {
+                metric.value: [
+                    sample['metrics'][metric] 
+                    for sample in all_samples
+                ]
+                for metric in next(iter(all_samples))['metrics'].keys()
+            }
+            
+            # Calculate ranges for normalization
+            self.normalization_factors = {
+                metric_name: max(values) - min(values) if len(values) > 0 else 1.0
+                for metric_name, values in metric_values.items()
+            }
+            print(f"Computed normalization factors: {self.normalization_factors}")
+
+        # Third phase: Calculate distances and format results
+        print("\nPhase 3: Computing distances and formatting results...")
+        self.param_metrics_distances_results = []
+        
+        for sample in all_samples:
+            # Calculate distance using normalized metrics
+            distance = self.calculate_distance(sample['metrics'])
+            
+            # Format and store results
             sample_data = self.parameter_handler.format_sample_data(
-                params, all_metrics, distance=distance, accepted=accepted
+                sample['params'], 
+                sample['metrics'], 
+                distance, 
+                distance <= self.epsilon
             )
             self.param_metrics_distances_results.append(sample_data)
 
-            if (i + 1) % self.output_frequency == 0:
-                accepted_count = sum(
-                    1 for sample in self.param_metrics_distances_results if sample["accepted"]
-                )
-                log.info(f"Processed {i + 1} samples, accepted {accepted_count}")
-
-        accepted_count = sum(
-            1 for sample in self.param_metrics_distances_results if sample["accepted"]
-        )
-        log.info(f"Inference complete. Accepted {accepted_count} parameter sets")
-
+        print("\nABC inference completed!")
         return self.param_metrics_distances_results

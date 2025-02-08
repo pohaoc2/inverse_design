@@ -32,7 +32,7 @@ class BDMParameters(ModelParameters):
         return {
             "proliferate": round(params.get("proliferate", None), 3),
             "death": round(params.get("death", None), 3),
-            "migratory": round(params.get("migrate", None), 3),
+            "migrate": round(params.get("migrate", None), 3),
             "cell_density": round(metrics.get(Metric.DENSITY, None), 3),
             "time_to_eq": round(metrics.get(Metric.TIME_TO_EQUILIBRIUM, None), 3),
             "distance": round(distance, 3) if distance is not None else None,

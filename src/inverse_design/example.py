@@ -7,27 +7,37 @@ import numpy as np
 
 from inverse_design.abc.abc_with_model import ABCWithModel
 from inverse_design.abc.abc_precomputed import ABCPrecomputed
-from inverse_design.conf.config import BDMConfig, ABCConfig
-from inverse_design.common.enum import Metric, Target
+from inverse_design.conf.config import BDMConfig, ABCConfig, ARCADEConfig
 from inverse_design.analyze import evaluate
 from inverse_design.vis.vis import plot_abc_results
 from inverse_design.utils.utils import get_samples_data
+from inverse_design.models.model_base import ModelRegistry
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def run_abc_with_model(cfg: DictConfig):
     """Example script demonstrating how to use the ABC inference"""
 
-    # Load configurations
-    bdm_config = BDMConfig.from_dictconfig(cfg.bdm)
+    model = ModelRegistry.get_model(cfg.abc.model_type)
+
+    if cfg.abc.model_type == "BDM":
+        model_config = BDMConfig.from_dictconfig(cfg.bdm)
+    elif cfg.abc.model_type == "ARCADE":
+        model_config = ARCADEConfig.from_dictconfig(cfg.arcade)
+    else:
+        # For custom models, get the appropriate config class from the model
+        config_class = model.get_config_class()
+        model_config = config_class.from_dictconfig(cfg.get(cfg.abc.model_type.lower()))
+
     abc_config = ABCConfig.from_dictconfig(cfg.abc)
 
-    # Define targets
-    targets = [Target(Metric.DENSITY, 70.0), Target(Metric.TIME_TO_EQUILIBRIUM, 1400.0)]
+    # Use model-specific targets or override with custom ones
+    targets = getattr(cfg.abc, 'targets', None)
+    if targets is None:
+        targets = model.get_default_targets()
 
     # Initialize ABC
-    # abc = ABC(bdm_config, abc_config, targets)
-    abc = ABCWithModel(bdm_config, abc_config, targets)
+    abc = ABCWithModel(model_config, abc_config, targets)
     try:
         # Create output directory with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -43,32 +53,29 @@ def run_abc_with_model(cfg: DictConfig):
             model_type=abc_config.model_type,
             save_path=os.path.join(output_dir, "all_samples_metrics.csv"),
         )
+
+        # Get accepted parameters using model-specific keys
+        param_keys = model.get_parameter_keys()
         accepted_params = [
-            {
-                "proliferate": sample["proliferate"],
-                "death": sample["death"],
-                "migrate": sample["migratory"],
-            }
+            {key: sample[key] for key in param_keys}
             for sample in param_metrics_distances_results
             if sample["accepted"]
         ]
+
         # Get best parameters
         best_sample = min(param_metrics_distances_results, key=lambda x: x["distance"])
+        best_params = {key: best_sample[key] for key in param_keys}
 
-        best_params = {
-            "proliferate": best_sample["proliferate"],
-            "death": best_sample["death"],
-            "migrate": best_sample["migratory"],
-        }
+        # Get best metrics using model-specific keys
+        metric_keys = model.get_metric_keys()
         best_metrics = {
-            "cell_density": best_sample["cell_density"],
-            "time_to_eq": best_sample["time_to_eq"],
+            display_key: best_sample[metric_key]
+            for display_key, metric_key in metric_keys.items()
         }
-        # Print best parameters
+
         for param_name, value in best_params.items():
             print(f"{param_name}: {value:.3f}")
 
-        # Save configuration and results
         config_dict = {
             "timestamp": timestamp,
             "targets": [
@@ -76,8 +83,8 @@ def run_abc_with_model(cfg: DictConfig):
             ],
             "best_parameters": best_params,
             "best_metrics": best_metrics,
-            "bdm_config": OmegaConf.to_container(cfg.bdm, resolve=True),
-            "abc_config": OmegaConf.to_container(cfg.abc, resolve=True),
+            "model_config": OmegaConf.to_container(OmegaConf.create(model_config.__dict__), resolve=True),
+            "abc_config": OmegaConf.to_container(OmegaConf.create(abc_config.__dict__), resolve=True),
         }
 
         with open(os.path.join(output_dir, "config.json"), "w") as f:
@@ -166,7 +173,7 @@ def run_abc_with_model(cfg: DictConfig):
             accepted_metrics=accepted_metrics,
             targets=targets,
             abc_config=abc_config,
-            model_config=bdm_config,
+            model_config=model_config,
             save_dir=output_dir,
         )
 
@@ -177,21 +184,67 @@ def run_abc_with_model(cfg: DictConfig):
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def run_abc_precomputed(cfg: DictConfig):
-    """Example script demonstrating how to use the ABC inference"""
+    """Example script demonstrating how to use the ABC inference with precomputed results
+    
+    The precomputed results file should contain:
+    - All parameter variations
+    - All calculated metrics for each parameter set
+    """
+    # Get model implementation
+    model = ModelRegistry.get_model(cfg.abc.model_type)
+    
+    # Get model config using the appropriate config class
+    config_class = model.get_config_class()
+    model_config_key = cfg.abc.model_type.lower()
+    
+    if not hasattr(cfg, model_config_key):
+        raise ValueError(f"Configuration for model type {cfg.abc.model_type} not found in config")
+    
+    # Convert to model-specific config class
+    model_config = config_class.from_dictconfig(cfg[model_config_key])
 
-    # Load configurations
-    bdm_config = BDMConfig.from_dictconfig(cfg.bdm)
-    abc_config = ABCConfig.from_dictconfig(cfg.abc)
+    # Use model-specific targets or override with custom ones
+    targets = getattr(cfg.abc, 'targets', None)
+    if targets is None:
+        targets = model.get_default_targets()
 
-    targets = [Target(Metric.ACTIVITY, 1.00)]
     # Initialize ABC
-    abc = ABCPrecomputed(
-        bdm_config, 
-        abc_config, 
-        targets, 
-        results_file="ARCADE_OUTPUT/simulation_metrics.csv"
-    )
+    abc = ABCWithModel(model_config, abc_config, targets)
+    try:
+        # Run inference on precomputed results
+        param_metrics_distances_results = abc.run_inference()
+
+        # Get accepted parameters using model-specific keys
+        param_keys = model.get_parameter_keys()
+        accepted_params = [
+            {key: sample[key] for key in param_keys}
+            for sample in param_metrics_distances_results
+            if sample["accepted"]
+        ]
+
+        # Get best parameters and metrics
+        best_sample = min(param_metrics_distances_results, key=lambda x: x["distance"])
+        best_params = {key: best_sample[key] for key in param_keys}
+        
+        metric_keys = model.get_metric_keys()
+        best_metrics = {
+            display_key: best_sample[metric_key]
+            for display_key, metric_key in metric_keys.items()
+        }
+
+        # Print results
+        print("\nBest Parameters:")
+        for param_name, value in best_params.items():
+            print(f"{param_name}: {value:.3f}")
+
+        print("\nBest Metrics:")
+        for metric_name, value in best_metrics.items():
+            print(f"{metric_name}: {value:.3f}")
+
+    except Exception as e:
+        print(f"Error running ABC inference: {str(e)}")
 
 if __name__ == "__main__":
     run_abc_with_model()
+    
     #run_abc_precomputed()

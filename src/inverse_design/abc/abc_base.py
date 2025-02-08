@@ -25,35 +25,41 @@ class ABCBase(ABC):
         self.max_time = self.model_config.output.max_time
         self.parameter_handler = ParameterFactory.create_parameter_handler(self.model_type)
         self.param_metrics_distances_results = []
+        self.normalization_factors = self._get_normalization_factors()
 
-    def calculate_distance(
-        self, metrics: Dict[Metric, float], normalization_factors: Dict[str, float]
-    ) -> float:
-        """
-        Calculate weighted distance between calculated metrics and targets
-        Args:
-            metrics: Dictionary of calculated metric values
-            normalization_factors: Dictionary of normalization factors for each metric
-        Returns:
-            Total weighted distance using normalized metrics
-        """
+    def _get_normalization_factors(self) -> Dict[str, float]:
+        """Get normalization factors for distance calculation based on model type and targets"""
+        if self.model_type == "BDM":
+            return {
+                Metric.DENSITY.value: 100.0,
+                Metric.TIME_TO_EQUILIBRIUM.value: self.max_time,
+            }
+        elif self.model_type == "ARCADE":
+            return {
+                Metric.GROWTH_RATE.value: 1.0,
+                Metric.SYMMETRY.value: 1.0,
+                Metric.ACTIVITY.value: 1.0,
+            }
+        else:
+            return None
+    def calculate_distance(self, metrics: Dict[Metric, float]) -> float:
+        """Calculate weighted distance between calculated metrics and targets"""
         total_distance = 0.0
         total_weight = sum(target.weight for target in self.targets)
 
         for target in self.targets:
             value = metrics[target.metric]
-            norm_factor = normalization_factors.get(target.metric.value.lower(), 1.0)
+            norm_factor = self.normalization_factors.get(target.metric.value, 1.0)
             normalized_distance = abs(value - target.value) / norm_factor
             total_distance += (normalized_distance * target.weight) / total_weight
 
         return total_distance
 
     def calculate_all_metrics(
-        self, target_time: Optional[float] = None, metrics_calculator=None
+        self, metrics_calculator=None
     ) -> Dict[Metric, float]:
         """Calculate all required metrics from grid states
         Args:
-            target_time: Time point at which to calculate metrics (only used for density)
             metrics_calculator: Instance of Metrics class to calculate metrics
         Returns:
             Dictionary mapping metrics to their calculated values
@@ -64,16 +70,7 @@ class ABCBase(ABC):
         metrics = {}
         for target in self.targets:
             try:
-                if target.metric == Metric.DENSITY:
-                    kwargs = {"target_time": target_time}
-                elif target.metric == Metric.TIME_TO_EQUILIBRIUM:
-                    kwargs = {"threshold": self.model_config.metrics.equilibrium_threshold}
-                else:
-                    kwargs = {}
-
-                metrics[target.metric] = metrics_calculator.get_calculate_method(
-                    target.metric, **kwargs
-                )
+                metrics[target.metric] = metrics_calculator.calculate_metric(target.metric)
             except ValueError as e:
                 raise ValueError(
                     f"Cannot calculate {target.metric.value} for model type {self.model_type}: {str(e)}"

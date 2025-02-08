@@ -9,7 +9,7 @@ from omegaconf import DictConfig, OmegaConf
 from typing import List
 import numpy as np
 
-from inverse_design.algorithms.gillespie import Gillespie
+from inverse_design.models.algorithms.gillespie import Gillespie
 from inverse_design.vis.vis import plot_grid, plot_cell_density, plot_combined_grid_and_density
 from inverse_design.conf.config import BDMConfig
 from inverse_design.models.bdm.cell import Cell
@@ -105,7 +105,12 @@ class BDM:
             self.grid, self.max_time, frequency=self.output_frequency
         )
         self.current_time += max(time_points)
-        return time_points, events, grid_states
+        model_output = {
+            "time_points": time_points,
+            "events": events,
+            "grid_states": grid_states,
+        }
+        return model_output
 
     def analyze_events_by_timeunit(
         self,
@@ -161,6 +166,13 @@ class BDM:
         final_density = grid_states[-1].num_cells / (self.lattice_size**2) * 100
         return final_density
 
+    def update_config(self, config: BDMConfig):
+        """Update the model configuration"""
+        self.lattice_size = config.lattice.size
+        self.initial_density = config.lattice.initial_density
+        self.proliferate_rate = config.rates.proliferate
+        self.death_rate = config.rates.death
+        self.migrate_rate = config.rates.migrate
 
 @hydra.main(version_base=None, config_path="conf/bdm", config_name="default")
 def main(cfg: DictConfig) -> None:
