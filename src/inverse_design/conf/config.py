@@ -71,6 +71,7 @@ class BDMConfig:
             verbose=cfg.verbose,
         )
 
+
 @dataclass
 class CellularConfig:
     volume_mu: float
@@ -81,7 +82,7 @@ class CellularConfig:
     accuracy: float
     affinity: float
     compression_tolerance: float
-    
+
     def copy(self):
         return copy.deepcopy(self)
 

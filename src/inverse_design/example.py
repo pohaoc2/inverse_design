@@ -33,12 +33,10 @@ def run_abc_with_model(cfg: DictConfig):
     abc_config = ABCConfig.from_dictconfig(cfg.abc)
 
     # Get targets from config or use model defaults
-    if hasattr(cfg.abc, 'targets') and cfg.abc.targets:
+    if hasattr(cfg.abc, "targets") and cfg.abc.targets:
         targets = [
             Target(
-                metric=Metric(target.metric),
-                value=float(target.value),
-                weight=float(target.weight)
+                metric=Metric(target.metric), value=float(target.value), weight=float(target.weight)
             )
             for target in cfg.abc.targets
         ]
@@ -79,8 +77,7 @@ def run_abc_with_model(cfg: DictConfig):
         # Get best metrics using model-specific keys
         metric_keys = model.get_metric_keys()
         best_metrics = {
-            display_key: best_sample[metric_key]
-            for display_key, metric_key in metric_keys.items()
+            display_key: best_sample[metric_key] for display_key, metric_key in metric_keys.items()
         }
 
         for param_name, value in best_params.items():
@@ -93,8 +90,12 @@ def run_abc_with_model(cfg: DictConfig):
             ],
             "best_parameters": best_params,
             "best_metrics": best_metrics,
-            "model_config": OmegaConf.to_container(OmegaConf.create(model_config.__dict__), resolve=True),
-            "abc_config": OmegaConf.to_container(OmegaConf.create(abc_config.__dict__), resolve=True),
+            "model_config": OmegaConf.to_container(
+                OmegaConf.create(model_config.__dict__), resolve=True
+            ),
+            "abc_config": OmegaConf.to_container(
+                OmegaConf.create(abc_config.__dict__), resolve=True
+            ),
         }
 
         with open(os.path.join(output_dir, "config.json"), "w") as f:
@@ -192,10 +193,11 @@ def run_abc_with_model(cfg: DictConfig):
     except ValueError as e:
         print(f"Error: {e}")
 
+
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def run_abc_precomputed(cfg: DictConfig):
     """Example script demonstrating how to use the ABC inference with precomputed results
-    
+
     The precomputed results file should contain:
     - All parameter variations
     - All calculated metrics for each parameter set
@@ -209,17 +211,15 @@ def run_abc_precomputed(cfg: DictConfig):
     model_config_key = cfg.abc.model_type.lower()
     if not hasattr(cfg, model_config_key):
         raise ValueError(f"Configuration for model type {cfg.abc.model_type} not found in config")
-    
+
     # Convert to model-specific config class
     model_config = config_class.from_dictconfig(cfg[model_config_key])
 
     # Get targets from config or use model defaults
-    if hasattr(cfg.abc, 'targets') and cfg.abc.targets:
+    if hasattr(cfg.abc, "targets") and cfg.abc.targets:
         targets = [
             Target(
-                metric=Metric(target.metric),
-                value=float(target.value),
-                weight=float(target.weight)
+                metric=Metric(target.metric), value=float(target.value), weight=float(target.weight)
             )
             for target in cfg.abc.targets
         ]
@@ -228,14 +228,13 @@ def run_abc_precomputed(cfg: DictConfig):
         targets = model.get_default_targets()
     param_file = "param_file.csv"
     metrics_file = "metrics_file.csv"
-    abc = ABCPrecomputed(model_config,
-    abc_config,
-    targets,
-    param_file=param_file,
-    metrics_file=metrics_file)
+    abc = ABCPrecomputed(
+        model_config, abc_config, targets, param_file=param_file, metrics_file=metrics_file
+    )
     param_metrics_distances_results = abc.run_inference()
     print(param_metrics_distances_results)
 
+
 if __name__ == "__main__":
-    #run_abc_with_model()
+    # run_abc_with_model()
     run_abc_precomputed()

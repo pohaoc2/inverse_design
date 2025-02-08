@@ -5,10 +5,11 @@ from inverse_design.abc.abc_base import ABCBase
 from inverse_design.models.models import ModelFactory
 from inverse_design.metrics.metrics import MetricsFactory
 
+
 class ABCWithModel(ABCBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+
         # Initialize Sobol sampling
         self.sobol_power = self.abc_config.sobol_power
         self.parameter_ranges = self.abc_config.parameter_ranges
@@ -42,33 +43,28 @@ class ABCWithModel(ABCBase):
         return params
 
     def run_inference(self):
-        """Run ABC inference with model simulations"""        
+        """Run ABC inference with model simulations"""
         # Create model once
         model = ModelFactory.create_model(self.model_type, self.model_config)
-        
+
         # First phase: Calculate all metrics
         all_samples = []
         print("Phase 1: Calculating metrics for all samples...")
-        
+
         for i in range(self.num_samples):
             params = self.sample_parameters()
             config = self.model_config.copy()
             config = self.parameter_handler.update_config(config, params)
-            
+
             model.update_config(config)
             model_output = model.step()
 
             # Calculate metrics
-            metrics_calculator = MetricsFactory.create_metrics(
-                self.model_type, model_output
-            )
+            metrics_calculator = MetricsFactory.create_metrics(self.model_type, model_output)
             metrics = self.calculate_all_metrics(metrics_calculator)
-            
+
             # Store parameters and metrics
-            all_samples.append({
-                'params': params,
-                'metrics': metrics
-            })
+            all_samples.append({"params": params, "metrics": metrics})
 
             if i % self.output_frequency == 0:
                 print(f"Completed {i}/{self.num_samples} samples")
@@ -78,13 +74,10 @@ class ABCWithModel(ABCBase):
         if self.normalization_factors is None:
             # Collect all values for each metric
             metric_values = {
-                metric.value: [
-                    sample['metrics'][metric] 
-                    for sample in all_samples
-                ]
-                for metric in next(iter(all_samples))['metrics'].keys()
+                metric.value: [sample["metrics"][metric] for sample in all_samples]
+                for metric in next(iter(all_samples))["metrics"].keys()
             }
-            
+
             # Calculate ranges for normalization
             self.normalization_factors = {
                 metric_name: max(values) - min(values) if len(values) > 0 else 1.0
@@ -95,17 +88,14 @@ class ABCWithModel(ABCBase):
         # Third phase: Calculate distances and format results
         print("\nPhase 3: Computing distances and formatting results...")
         self.param_metrics_distances_results = []
-        
+
         for sample in all_samples:
             # Calculate distance using normalized metrics
-            distance = self.calculate_distance(sample['metrics'])
-            
+            distance = self.calculate_distance(sample["metrics"])
+
             # Format and store results
             sample_data = self.parameter_handler.format_sample_data(
-                sample['params'], 
-                sample['metrics'], 
-                distance, 
-                distance <= self.epsilon
+                sample["params"], sample["metrics"], distance, distance <= self.epsilon
             )
             self.param_metrics_distances_results.append(sample_data)
 

@@ -6,6 +6,7 @@ from inverse_design.common.enum import Metric, Target
 from inverse_design.utils.utils import get_samples_data
 from inverse_design.models.parameters import ParameterFactory
 
+
 class ABCBase(ABC):
     def __init__(
         self,
@@ -17,7 +18,7 @@ class ABCBase(ABC):
         self.model_config = model_config
         self.abc_config = abc_config
         self.targets = [targets] if isinstance(targets, Target) else targets
-        
+
         # Get ABC parameters from config
         self.epsilon = abc_config.epsilon
         self.output_frequency = abc_config.output_frequency
@@ -42,6 +43,7 @@ class ABCBase(ABC):
             }
         else:
             return None
+
     def calculate_distance(self, metrics: Dict[Metric, float]) -> float:
         """Calculate weighted distance between calculated metrics and targets"""
         total_distance = 0.0
@@ -55,9 +57,7 @@ class ABCBase(ABC):
 
         return total_distance
 
-    def calculate_all_metrics(
-        self, metrics_calculator=None
-    ) -> Dict[Metric, float]:
+    def calculate_all_metrics(self, metrics_calculator=None) -> Dict[Metric, float]:
         """Calculate all required metrics from grid states
         Args:
             metrics_calculator: Instance of Metrics class to calculate metrics

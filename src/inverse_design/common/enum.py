@@ -1,6 +1,7 @@
 from enum import Enum
 from dataclasses import dataclass
 
+
 class Metric(Enum):
     DENSITY = "density"
     TIME_TO_EQUILIBRIUM = "time_to_equilibrium"
@@ -9,7 +10,7 @@ class Metric(Enum):
     ACTIVITY = "activity"
 
     def __eq__(self, other):
-        if hasattr(other, 'name') and hasattr(other, 'value'):
+        if hasattr(other, "name") and hasattr(other, "value"):
             return self.name == other.name and self.value == other.value
         return False
 
@@ -26,6 +27,7 @@ class Target:
         value: The desired value for this metric
         weight: Weight for multi-objective optimization (default: 1.0)
     """
+
     metric: Metric
     value: float
-    weight: float = 1.0 
+    weight: float = 1.0

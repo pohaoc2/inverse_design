@@ -3,6 +3,7 @@ from typing import Dict
 import pandas as pd
 from inverse_design.abc.abc_base import ABCBase
 
+
 class ABCPrecomputed(ABCBase):
     def __init__(self, *args, param_file: str, metrics_file: str, **kwargs):
         """
@@ -19,24 +20,25 @@ class ABCPrecomputed(ABCBase):
         self.metrics_df = pd.read_csv(metrics_file)
         self.num_samples = len(self.param_df)
 
-    def run_inference(self,) -> Dict:
+    def run_inference(
+        self,
+    ) -> Dict:
         """Run ABC inference on pre-computed results"""
         log = logging.getLogger(__name__)
-        
+
         target_str = ", ".join([f"{t.metric.value}: {t.value}" for t in self.targets])
-        log.info(f"Starting ABC inference on {self.num_samples} pre-computed samples for targets: {target_str}")
+        log.info(
+            f"Starting ABC inference on {self.num_samples} pre-computed samples for targets: {target_str}"
+        )
 
         for i, row in self.param_df.iterrows():
             # Convert param Series to dict, excluding 'file_name'
-            params = row.drop('file_name').to_dict()
-            
+            params = row.drop("file_name").to_dict()
+
             # Convert metrics Series to dict, only including target metrics
             metrics_row = self.metrics_df.iloc[i]
-            metrics = {
-                target.metric: metrics_row[target.metric.value]
-                for target in self.targets
-            }
-            
+            metrics = {target.metric: metrics_row[target.metric.value] for target in self.targets}
+
             distance = self.calculate_distance(metrics)
 
             accepted = distance < self.epsilon
@@ -46,7 +48,9 @@ class ABCPrecomputed(ABCBase):
             self.param_metrics_distances_results.append(sample_data)
 
             if (i + 1) % self.output_frequency == 0:
-                accepted_count = sum(1 for sample in self.param_metrics_distances_results if sample["accepted"])
+                accepted_count = sum(
+                    1 for sample in self.param_metrics_distances_results if sample["accepted"]
+                )
                 log.info(f"Processed {i + 1} samples, accepted {accepted_count}")
 
         return self.param_metrics_distances_results
@@ -64,4 +68,4 @@ class ABCPrecomputed(ABCBase):
     def _extract_time_points(self, row):
         """Extract time points from pre-computed results row"""
         # Implementation depends on your data format
-        pass 
+        pass

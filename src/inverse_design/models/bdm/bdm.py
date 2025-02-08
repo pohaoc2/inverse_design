@@ -15,6 +15,7 @@ from inverse_design.conf.config import BDMConfig
 from inverse_design.models.bdm.cell import Cell
 from inverse_design.models.bdm.grid import Grid
 
+
 class BDM:
     def __init__(self, config: BDMConfig):
         """
@@ -173,6 +174,7 @@ class BDM:
         self.proliferate_rate = config.rates.proliferate
         self.death_rate = config.rates.death
         self.migrate_rate = config.rates.migrate
+
 
 @hydra.main(version_base=None, config_path="conf/bdm", config_name="default")
 def main(cfg: DictConfig) -> None:

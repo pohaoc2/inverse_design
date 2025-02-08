@@ -6,6 +6,7 @@ from typing import Union
 
 class ModelFactory:
     """Factory class for creating model instances"""
+
     _model_instances = {}  # Cache for model instances
 
     @classmethod
@@ -21,5 +22,5 @@ class ModelFactory:
         else:
             # Update existing model's configuration
             cls._model_instances[model_type].update_config(config)
-            
+
         return cls._model_instances[model_type]
