@@ -236,5 +236,5 @@ def run_abc_precomputed(cfg: DictConfig):
 
 
 if __name__ == "__main__":
-    # run_abc_with_model()
-    run_abc_precomputed()
+    run_abc_with_model()
+    #run_abc_precomputed()

@@ -113,48 +113,6 @@ class BDM:
         }
         return model_output
 
-    def analyze_events_by_timeunit(
-        self,
-        time_points: List[float],
-        events: List[tuple[str, int, int]],
-        time_unit: float = 1.0,
-    ) -> None:
-        """
-        Analyze and output events grouped by time unit
-        Args:
-            time_points: List of event times
-            events: List of (event_type, i, j) tuples
-            time_unit: Size of time interval for analysis
-        """
-        log = logging.getLogger(__name__)
-        current_unit = time_unit
-
-        # Group events by time unit
-        while True:
-            # Find events in current time interval
-            events_in_interval = [(t, e) for t, e in zip(time_points, events) if t <= current_unit]
-
-            if not events_in_interval:
-                break
-
-            # Count event types
-            event_counts = {}
-            for _, event_type in events_in_interval:
-                event_counts[event_type] = event_counts.get(event_type, 0) + 1
-
-            # Log summary
-            log.info(f"Time unit {current_unit}:")
-            log.info(f"  Total events: {len(events_in_interval)}")
-            for event_type, count in event_counts.items():
-                log.info(f"  - {event_type}: {count}")
-
-            # Remove processed events
-            remaining_indices = [i for i, t in enumerate(time_points) if t > current_unit]
-            time_points = [time_points[i] for i in remaining_indices]
-            events = [events[i] for i in remaining_indices]
-
-            current_unit += time_unit
-
     def evaluate(self, max_time: float = 2500.0) -> float:
         """
         Evaluate the model by running a simulation and returning the final cell density
@@ -228,9 +186,7 @@ def main(cfg: DictConfig) -> None:
             )
 
     log.info(f"Simulation completed with {len(events)} total events")
-    # Analyze events by time unit
-    # log.info("\nAnalyzing events by time unit:")
-    # bdm.analyze_events_by_timeunit(time_points.copy(), events.copy(), time_unit)
+
 
 
 if __name__ == "__main__":

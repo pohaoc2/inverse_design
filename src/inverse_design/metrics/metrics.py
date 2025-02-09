@@ -2,8 +2,7 @@ from typing import List, Optional, Set
 import numpy as np
 from inverse_design.common.enum import Metric
 
-
-class Metrics:
+class Metrics():
     """Abstract base class for model metrics calculations"""
 
     def get_available_metrics(self) -> Set[Metric]:
@@ -21,7 +20,7 @@ class Metrics:
 
     def calculate_metric(self, metric: Metric) -> float:
         """Calculate specified metric with given parameters"""
-
+        
         if metric not in self._available_metrics:
             raise ValueError(f"Metric {metric.value} is not available for this model")
 
@@ -36,14 +35,14 @@ class Metrics:
 
 class MetricsBDM(Metrics):
     """Class for calculating various metrics from BDM (Biocellular Dynamic Model) grid states.
-
+    
     This class implements specific metric calculations for the BDM model, including density
     and time to equilibrium measurements.
     """
 
     def get_available_metrics(self) -> Set[Metric]:
         """Returns the set of metrics that can be calculated for BDM simulations.
-
+        
         Returns:
             Set[Metric]: Available metrics for BDM model (density and time to equilibrium)
         """
@@ -52,7 +51,7 @@ class MetricsBDM(Metrics):
 
     def __init__(self, model_output: dict):
         """Initialize MetricsBDM
-
+        
         Args:
             model_output (dict): Output from model
         """
@@ -61,35 +60,33 @@ class MetricsBDM(Metrics):
 
     def calculate_density(self, target_time: Optional[float] = None) -> float:
         """Calculate the cell density at a specific time point or at the final state.
-
+        
         Args:
             target_time (Optional[float]): Time point at which to calculate density.
                 If None, uses the final state.
-
+        
         Returns:
             float: Cell density as a percentage (0-100) of occupied grid points.
         """
 
         if target_time is None:
             target_time = self.model_output["time_points"][-1]
-        target_time_idx = np.argmin(
-            np.abs(np.array(self.model_output["time_points"]) - target_time)
-        )
+        target_time_idx = np.argmin(np.abs(np.array(self.model_output["time_points"]) - target_time))
 
         grid = self.model_output["grid_states"][target_time_idx]
         return grid.num_cells / (grid.lattice_size**2) * 100
 
     def calculate_time_to_equilibrium(self, threshold: float = 0.05) -> float:
         """Calculate the time required for the system to reach equilibrium.
-
+        
         Equilibrium is determined by measuring density fluctuations over a sliding window.
         The system is considered at equilibrium when relative density fluctuations fall
         below the threshold.
-
+        
         Args:
             threshold (float): Maximum allowed relative density fluctuation to consider
                 the system at equilibrium. Defaults to 0.05 (5%).
-
+        
         Returns:
             float: Time at which equilibrium was reached, or final time point if
                 equilibrium was not reached.
@@ -119,7 +116,7 @@ class MetricsBDM(Metrics):
 
 class MetricsARCADE(Metrics):
     """Class for calculating various metrics from ARCADE model states.
-
+    
     This class implements specific metric calculations for the ARCADE model, including
     density, cluster size, and migration speed measurements.
     """
@@ -127,9 +124,7 @@ class MetricsARCADE(Metrics):
     def get_available_metrics(self) -> Set[Metric]:
         return {Metric.GROWTH_RATE, Metric.SYMMETRY, Metric.ACTIVITY}
 
-    def __init__(
-        self,
-    ):
+    def __init__(self,):
         super().__init__()
 
     def calculate_density(self, target_time: Optional[float] = None) -> float:
@@ -147,18 +142,20 @@ class MetricsARCADE(Metrics):
 
 class MetricsFactory:
     """Factory class for creating appropriate metrics calculator based on model type."""
-
+    
     @staticmethod
-    def create_metrics(model_type: str, model_output: dict) -> Metrics:
+    def create_metrics(
+        model_type: str, model_output: dict
+    ) -> Metrics:
         """Create and return appropriate metrics calculator for the given model type.
-
+        
         Args:
             model_type (str): Type of model ('BDM' or 'ARCADE')
             model_output (dict): Output from model
-
+        
         Returns:
             Metrics: Appropriate metrics calculator instance
-
+            
         Raises:
             ValueError: If model_type is not recognized
         """
