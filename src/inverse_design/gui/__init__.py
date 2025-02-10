@@ -1,4 +1,4 @@
-from .abc_gui import ABCPrecomputedGUI
+from .abc_precomputed_gui import ABCPrecomputedGUI
 from .parameter_selection_dialog import ParameterSelectionDialog
 from .visualization_window import VisualizationWindow
 

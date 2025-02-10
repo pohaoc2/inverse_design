@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import stats
 from typing import Dict, List, Tuple
-from metrics.metrics import MetricsFactory
+from inverse_design.metrics.metrics import MetricsFactory
 
 
 def estimate_pdfs(params: List[Dict]) -> Dict:
