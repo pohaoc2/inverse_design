@@ -113,8 +113,6 @@ dmypy.json
 
 # data
 data/
-*.png
-*.gif
 *.csv
 __pycache__/
 .ipynb_checkpoints/
