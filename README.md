@@ -66,7 +66,7 @@ As expected, the equilibrium cell densities increase as the desired cell density
 ### Graphical user interface (GUI) for ARCADE accelerates the development of ABMs
 The GUI-enabled ABC framework allows users to upload files for model parameters, metrics, and configuration settings. Users only need to provide the model parameter files and corresponding simulation metrics results. Then, users can specify target metrics and assign weights to guide parameter estimation. The interface visualizes both prior and posterior distributions obtained through ABC, providing an intuitive way to explore how parameter adjustments influence model outcomes. Demo can be found below:
 
-![ARCADE GUI](images/ABC_demo.gif)
+![ARCADE GUI](images/abc_demo.gif)
 
 
 ## References
