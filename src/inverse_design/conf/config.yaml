@@ -36,5 +36,11 @@ abc:
     - metric: "activity"
       value: 0.5
       weight: 1.0
-
+  parameter_ranges:
+    accuracy:
+      min: 0.0
+      max: 1.0
+    affinity:
+      min: 0.0
+      max: 1.0
       

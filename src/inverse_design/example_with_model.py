@@ -6,7 +6,6 @@ from datetime import datetime
 import numpy as np
 
 from inverse_design.abc.abc_with_model import ABCWithModel
-from inverse_design.abc.abc_precomputed import ABCPrecomputed
 from inverse_design.conf.config import BDMConfig, ABCConfig, ARCADEConfig
 from inverse_design.analyze import evaluate
 from inverse_design.vis.vis import plot_abc_results
@@ -69,7 +68,6 @@ def run_abc_with_model(cfg: DictConfig):
             for sample in param_metrics_distances_results
             if sample["accepted"]
         ]
-
         # Get best parameters
         best_sample = min(param_metrics_distances_results, key=lambda x: x["distance"])
         best_params = {key: best_sample[key] for key in param_keys}
@@ -176,7 +174,8 @@ def run_abc_with_model(cfg: DictConfig):
         accepted_metrics += [
             sample["time_to_eq"] for sample in param_metrics_distances_results if sample["accepted"]
         ]
-
+        print(parameter_pdfs)
+        asd()
         plot_abc_results(
             accepted_params=accepted_params,
             pdf_results=parameter_pdfs,
@@ -194,47 +193,5 @@ def run_abc_with_model(cfg: DictConfig):
         print(f"Error: {e}")
 
 
-@hydra.main(version_base=None, config_path="conf", config_name="config")
-def run_abc_precomputed(cfg: DictConfig):
-    """Example script demonstrating how to use the ABC inference with precomputed results
-
-    The precomputed results file should contain:
-    - All parameter variations
-    - All calculated metrics for each parameter set
-    """
-    # Get model implementation
-    model = ModelRegistry.get_model(cfg.abc.model_type)
-    abc_config = ABCConfig.from_dictconfig(cfg.abc)
-
-    # Get model config using the appropriate config class
-    config_class = model.get_config_class()
-    model_config_key = cfg.abc.model_type.lower()
-    if not hasattr(cfg, model_config_key):
-        raise ValueError(f"Configuration for model type {cfg.abc.model_type} not found in config")
-
-    # Convert to model-specific config class
-    model_config = config_class.from_dictconfig(cfg[model_config_key])
-
-    # Get targets from config or use model defaults
-    if hasattr(cfg.abc, "targets") and cfg.abc.targets:
-        targets = [
-            Target(
-                metric=Metric(target.metric), value=float(target.value), weight=float(target.weight)
-            )
-            for target in cfg.abc.targets
-        ]
-    else:
-        # Use model defaults if no targets in config
-        targets = model.get_default_targets()
-    param_file = "param_file.csv"
-    metrics_file = "metrics_file.csv"
-    abc = ABCPrecomputed(
-        model_config, abc_config, targets, param_file=param_file, metrics_file=metrics_file
-    )
-    param_metrics_distances_results = abc.run_inference()
-    print(param_metrics_distances_results)
-
-
 if __name__ == "__main__":
     run_abc_with_model()
-    #run_abc_precomputed()

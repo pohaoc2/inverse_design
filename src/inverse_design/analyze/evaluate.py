@@ -4,11 +4,11 @@ from typing import Dict, List, Tuple
 from metrics.metrics import MetricsFactory
 
 
-def estimate_pdfs(accepted_params: List[Dict]) -> Dict:
+def estimate_pdfs(params: List[Dict]) -> Dict:
     """
     Estimate PDFs for each parameter independently and jointly using multivariate normal
     Args:
-        accepted_params: List of accepted parameter dictionaries
+        params: List of parameter dictionaries
     Returns:
         Dictionary containing:
             'independent': Dict mapping parameter names to their KDE objects
@@ -16,12 +16,12 @@ def estimate_pdfs(accepted_params: List[Dict]) -> Dict:
             'joint_cov': Covariance matrix of parameters
             'param_names': List of parameter names
     """
-    if not accepted_params:
+    if not params:
         return {}
 
     # Extract parameter values into arrays
-    param_names = list(accepted_params[0].keys())
-    param_arrays = {param: np.array([p[param] for p in accepted_params]) for param in param_names}
+    param_names = list(params[0].keys())
+    param_arrays = {param: np.array([p[param] for p in params]) for param in param_names}
 
     # Compute independent KDEs for each parameter
     param_pdfs = {}
@@ -30,7 +30,7 @@ def estimate_pdfs(accepted_params: List[Dict]) -> Dict:
         param_pdfs[param_name] = kde
 
     # Compute joint distribution parameters
-    X = np.array([list(p.values()) for p in accepted_params])
+    X = np.array([list(p.values()) for p in params])
     joint_mean = np.mean(X, axis=0)
     joint_cov = np.cov(X, rowvar=False)
 
