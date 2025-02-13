@@ -53,12 +53,13 @@ class ABCPrecomputedGUI:
                        command=self.update_available_metrics).grid(row=0, column=0, padx=5)
         ttk.Radiobutton(model_frame, text="ARCADE", variable=self.model_type, value="ARCADE", 
                        command=self.update_available_metrics).grid(row=0, column=1, padx=5)
+        ttk.Radiobutton(model_frame, text="Custom", variable=self.model_type, value="Custom", 
+                       command=self.update_available_metrics).grid(row=0, column=2, padx=5)
         
         self.targets_frame = ttk.LabelFrame(self.root, text="Select Targets", padding=10)
         self.targets_frame.grid(row=2, column=0, padx=10, pady=5, sticky="nsew")
         
         self.setup_target_options()
-        
         button_frame = ttk.Frame(self.root, padding=10)
         button_frame.grid(row=3, column=0, pady=5)
         
@@ -145,11 +146,22 @@ class ABCPrecomputedGUI:
             weight_entry.grid(row=i, column=4, padx=5)
             self.target_weights[metric] = weight_entry
 
+    def load_metrics_from_file(self):
+        """Load metrics from the metrics CSV file"""
+        try:
+            Metric.load_from_file(self.metrics_file_path.get())
+            return Metric.get_all_metrics()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load metrics file: {str(e)}")
+            return []
+
     def get_available_metrics(self):
         if self.model_type.get() == "BDM":
-            return [m for m in Metric if m in [Metric.DENSITY, Metric.TIME_TO_EQUILIBRIUM]]
+            return [Metric.get("density"), Metric.get("time_to_equilibrium")]
         elif self.model_type.get() == "ARCADE":
-            return [m for m in Metric if m in [Metric.GROWTH_RATE, Metric.SYMMETRY, Metric.ACTIVITY]]
+            return [Metric.get("growth_rate"), Metric.get("symmetry"), Metric.get("activity")]
+        elif self.model_type.get() == "Custom":
+            return self.load_metrics_from_file()
         else:
             return []
     
@@ -227,11 +239,3 @@ class ABCPrecomputedGUI:
             
         except Exception as e:
             messagebox.showerror("Error", f"An error occurred: {str(e)}")
-
-def main():
-    root = tk.Tk()
-    app = ABCPrecomputedGUI(root)
-    root.mainloop()
-
-if __name__ == "__main__":
-    main() 
