@@ -208,7 +208,6 @@ class SimulationMetrics:
             metrics["activity_t2"] = filtered_metrics[4]
             metrics["doubling_time"] = filtered_metrics[5]
             metrics["seed_count"] = len(valid_indices)
-            print("="*15)
             
             avg_cells_t1 = sum(metrics["num_cells_t1"]) / len(metrics["num_cells_t1"])
             avg_cells_t2 = sum(metrics["num_cells_t2"]) / len(metrics["num_cells_t2"])
@@ -243,7 +242,7 @@ class SimulationMetrics:
         results = []
 
         # Find all simulation folders
-        sim_folders = [f for f in self.base_output_dir.glob("in_*")]
+        sim_folders = [f for f in self.base_output_dir.glob("input_*")]
         for folder in sim_folders:
             try:
                 metrics = self.analyze_simulation(folder, t1, t2, time_difference)
