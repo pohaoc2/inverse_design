@@ -29,21 +29,29 @@ arcade:
 
 abc:
   output_frequency: 10
-  epsilon: 7
+  epsilon: 1
   sobol_power: 1
   model_type: "ARCADE"
   targets:
-    - metric: "activity"
-      value: 0.5
+    - metric: "doubling_time"
+      value: 30
       weight: 1.0
   parameter_ranges:
+    volume_sigma_range:
+      min: 50
+      max: 500
+    apop_age_sigma_range:
+      min: 5040
+      max: 20160
+    necrotic_fraction_range:
+      min: 0.2
+      max: 0.8
     accuracy:
-      min: 0.0
+      min: 0.5
       max: 1.0
     affinity:
-      min: 0.0
-      max: 1.0
+      min: 0.3
+      max: 0.7
     compression_tolerance:
-      min: 0.0
-      max: 1.0
-      
+      min: 4.35
+      max: 4.35      

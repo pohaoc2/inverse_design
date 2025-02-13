@@ -10,6 +10,7 @@ from inverse_design.models.model_base import ModelRegistry
 from inverse_design.common.enum import Target, Metric
 from inverse_design.analyze import evaluate
 from .parameter_selection_dialog import ParameterSelectionDialog
+from .metrics_vis_window import MetricsVisualizationWindow
 
 class ABCPrecomputedGUI:
     def __init__(self, root):
@@ -65,6 +66,7 @@ class ABCPrecomputedGUI:
         
         ttk.Button(button_frame, text="Run ABC", command=self.run_abc).grid(row=0, column=0, padx=5)
         ttk.Button(button_frame, text="Create Visualization", command=self.create_visualization).grid(row=0, column=1, padx=5)
+        ttk.Button(button_frame, text="Metrics KDE", command=self.show_metrics_kde).grid(row=0, column=2, padx=5)
         
         self.status_label.grid(row=4, column=0, pady=5)
     
@@ -159,7 +161,7 @@ class ABCPrecomputedGUI:
         if self.model_type.get() == "BDM":
             return [Metric.get("density"), Metric.get("time_to_equilibrium")]
         elif self.model_type.get() == "ARCADE":
-            return [Metric.get("growth_rate"), Metric.get("symmetry"), Metric.get("activity")]
+            return [Metric.get("growth_rate"), Metric.get("symmetry"), Metric.get("activity"), Metric.get("doubling_time")]
         elif self.model_type.get() == "Custom":
             return self.load_metrics_from_file()
         else:
@@ -218,7 +220,12 @@ class ABCPrecomputedGUI:
                 metrics_file=self.metrics_file_path.get()
             )
             self.results = abc.run_inference()
-            self.status_label.config(text="ABC inference completed successfully!")
+            # Calculate accepted samples and average distance
+            accepted_samples = [result for result in self.results if result["accepted"]]
+            accepted_count = len(accepted_samples)
+            average_distance = sum(result["distance"] for result in accepted_samples) / accepted_count if accepted_count > 0 else 0
+            
+            self.status_label.config(text=f"ABC inference completed successfully!\nAccepted samples: {accepted_count}/{abc.num_samples}, Avg Distance: {average_distance:.2f}")
             
         except Exception as e:
             self.status_label.config(text=f"Error: {str(e)}")
@@ -236,6 +243,29 @@ class ABCPrecomputedGUI:
             
             param_dialog = ParameterSelectionDialog(self, param_names)
             self.root.wait_window(param_dialog.dialog)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {str(e)}")
+
+    def show_metrics_kde(self):
+        if not hasattr(self, 'results'):
+            messagebox.showerror("Error", "Please run ABC inference first")
+            return
+            
+        try:
+            # Load metrics data
+            metrics_df = pd.read_csv(self.metrics_file_path.get())
+            
+            # Get indices of accepted samples
+            accepted_indices = [i for i, result in enumerate(self.results) if result["accepted"]]
+            
+            # Get metric names and target values from the selected targets
+            selected_targets = self.get_selected_targets()
+            metric_names = [target.metric.value for target in selected_targets]
+            target_values = {target.metric: target.value for target in selected_targets}  # Store target values
+            
+            # Create visualization window
+            MetricsVisualizationWindow(self.root, metrics_df, accepted_indices, metric_names, target_values)
             
         except Exception as e:
             messagebox.showerror("Error", f"An error occurred: {str(e)}")

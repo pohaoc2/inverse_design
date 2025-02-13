@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from .visualization_window import VisualizationWindow
+from .param_vis_window import VisualizationWindow
 from inverse_design.analyze import evaluate
 
 class ParameterSelectionDialog:

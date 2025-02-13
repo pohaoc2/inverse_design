@@ -1,5 +1,5 @@
 from .abc_precomputed_gui import ABCPrecomputedGUI
 from .parameter_selection_dialog import ParameterSelectionDialog
-from .visualization_window import VisualizationWindow
-
-__all__ = ['ABCPrecomputedGUI', 'ParameterSelectionDialog', 'VisualizationWindow'] 
+from .param_vis_window import VisualizationWindow
+from .metrics_vis_window import MetricsVisualizationWindow
+__all__ = ['ABCPrecomputedGUI', 'ParameterSelectionDialog', 'VisualizationWindow', 'MetricsVisualizationWindow'] 

@@ -14,20 +14,30 @@ class ABCPrecomputed(ABCBase):
             *args, **kwargs: Arguments passed to ABCBase
         """
         super().__init__(*args, **kwargs)
+        self.log = logging.getLogger(__name__)
         self.param_file = param_file
         self.metrics_file = metrics_file
         self.param_df = pd.read_csv(param_file)
         self.metrics_df = pd.read_csv(metrics_file)
+
+        # Check lengths of param_df and metrics_df
+        if len(self.param_df) != len(self.metrics_df):
+            self.log.warning("Length mismatch: param_df has %d samples, metrics_df has %d samples", len(self.param_df), len(self.metrics_df))
+            min_length = min(len(self.param_df), len(self.metrics_df))
+            self.param_df = self.param_df.iloc[:min_length]
+            self.metrics_df = self.metrics_df.iloc[:min_length]
         self.num_samples = len(self.param_df)
+        
+
 
     def run_inference(
         self,
     ) -> Dict:
         """Run ABC inference on pre-computed results"""
-        log = logging.getLogger(__name__)
+        
 
         target_str = ", ".join([f"{t.metric.value}: {t.value}" for t in self.targets])
-        log.info(
+        self.log.info(
             f"Starting ABC inference on {self.num_samples} pre-computed samples for targets: {target_str}"
         )
 
@@ -40,7 +50,6 @@ class ABCPrecomputed(ABCBase):
             metrics = {target.metric: metrics_row[target.metric.value] for target in self.targets}
 
             distance = self.calculate_distance(metrics)
-
             accepted = distance < self.epsilon
             sample_data = self.parameter_handler.format_sample_data(
                 params, metrics, distance=distance, accepted=accepted
@@ -51,8 +60,9 @@ class ABCPrecomputed(ABCBase):
                 accepted_count = sum(
                     1 for sample in self.param_metrics_distances_results if sample["accepted"]
                 )
-                log.info(f"Processed {i + 1} samples, accepted {accepted_count}")
-
+                self.log.info(f"Processed {i + 1} samples, accepted {accepted_count}")
+        #for result in self.param_metrics_distances_results:
+            #print("distance: ", result["distance"])
         return self.param_metrics_distances_results
 
     def _extract_parameters(self, row):
