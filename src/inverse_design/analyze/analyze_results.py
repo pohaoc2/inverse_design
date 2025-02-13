@@ -101,6 +101,22 @@ class SimulationMetrics:
         active_cells = sum(1 for cell in cells if cell["state"] in ["PROLIFERATIVE", "MIGRATORY"])
         return active_cells / len(cells)
 
+    def calculate_doubling_time(self, n1: float, n2: float, time_difference: float) -> float:
+        """Calculate cell population doubling time based on initial and final cell counts
+
+        Args:
+            n1: Initial cell count
+            n2: Final cell count
+            time_difference: Time elapsed between counts (minutes)
+
+        Returns:
+            Doubling time in hours. Returns float('inf') if no growth or negative growth.
+        """
+        if n2 <= n1 or n1 <= 0:
+            return float('inf')
+        doubling_time = time_difference * np.log(2) / np.log(n2/n1)
+        return doubling_time / 60
+
     def analyze_simulation(
         self, folder_path: Path, t1: str, t2: str, time_difference: float
     ) -> Dict[str, float]:
@@ -131,6 +147,7 @@ class SimulationMetrics:
                     "activity_t1": [],
                     "activity_t2": [],
                     "seed_count": 0,
+                    "doubling_time": [],
                 }
 
             # Calculate metrics for this seed
@@ -148,21 +165,64 @@ class SimulationMetrics:
             metrics_by_exp[exp_key]["activity_t1"].append(self.calculate_activity(cells_t1))
             metrics_by_exp[exp_key]["activity_t2"].append(self.calculate_activity(cells_t2))
             metrics_by_exp[exp_key]["seed_count"] += 1
-
+            metrics_by_exp[exp_key]["doubling_time"].append(self.calculate_doubling_time(len(cells_t1), len(cells_t2), time_difference))
+            if metrics_by_exp[exp_key]["seed_count"] == 20:
+                break
         # Average metrics across seeds
         averaged_metrics = {}
+        def filter_valid_metrics(metrics_list):
+            """Filter out seeds with NaN or inf values from a list of metrics"""
+            valid_indices = []
+            for i in range(len(metrics_list[0])):
+                has_invalid = any(
+                    np.isnan(metric[i]) or np.isinf(metric[i])
+                    for metric in metrics_list
+                )
+                if not has_invalid:
+                    valid_indices.append(i)
+            return valid_indices, [
+                [metric[i] for i in valid_indices]
+                for metric in metrics_list
+            ]
+
         for (exp_group, exp_name), metrics in metrics_by_exp.items():
+            # Filter out seeds with NaN or inf values
+            metrics_to_check = [
+                metrics["growth_rates"],
+                metrics["avg_volumes_t1"],
+                metrics["avg_volumes_t2"],
+                metrics["activity_t1"],
+                metrics["activity_t2"],
+                metrics["doubling_time"]
+            ]
+            
+            valid_indices, filtered_metrics = filter_valid_metrics(metrics_to_check)
+            
+            # Update metrics with filtered values
+            metrics["growth_rates"] = filtered_metrics[0]
+            metrics["avg_volumes_t1"] = filtered_metrics[1]
+            metrics["avg_volumes_t2"] = filtered_metrics[2]
+            metrics["num_cells_t1"] = [metrics["num_cells_t1"][i] for i in valid_indices]
+            metrics["num_cells_t2"] = [metrics["num_cells_t2"][i] for i in valid_indices]
+            metrics["activity_t1"] = filtered_metrics[3]
+            metrics["activity_t2"] = filtered_metrics[4]
+            metrics["doubling_time"] = filtered_metrics[5]
+            metrics["seed_count"] = len(valid_indices)
+            print("="*15)
+            
+            avg_cells_t1 = sum(metrics["num_cells_t1"]) / len(metrics["num_cells_t1"])
+            avg_cells_t2 = sum(metrics["num_cells_t2"]) / len(metrics["num_cells_t2"])
             averaged_metrics.update(
                 {
                     "exp_group": exp_group,
                     "exp_name": exp_name,
                     "growth_rate": sum(metrics["growth_rates"]) / len(metrics["growth_rates"]),
                     "growth_rate_std": np.std(metrics["growth_rates"]),
-                    "avg_volume_t1": sum(metrics["avg_volumes_t1"])
-                    / len(metrics["avg_volumes_t1"]),
+                    "doubling_time": sum(metrics["doubling_time"]) / len(metrics["doubling_time"]),
+                    "doubling_time_std": np.std(metrics["doubling_time"]),
+                    "avg_volume_t1": sum(metrics["avg_volumes_t1"]) / len(metrics["avg_volumes_t1"]),
                     "avg_volume_t1_std": np.std(metrics["avg_volumes_t1"]),
-                    "avg_volume_t2": sum(metrics["avg_volumes_t2"])
-                    / len(metrics["avg_volumes_t2"]),
+                    "avg_volume_t2": sum(metrics["avg_volumes_t2"]) / len(metrics["avg_volumes_t2"]),
                     "avg_volume_t2_std": np.std(metrics["avg_volumes_t2"]),
                     "num_cells_t1": sum(metrics["num_cells_t1"]) / len(metrics["num_cells_t1"]),
                     "num_cells_t2": sum(metrics["num_cells_t2"]) / len(metrics["num_cells_t2"]),
@@ -183,8 +243,7 @@ class SimulationMetrics:
         results = []
 
         # Find all simulation folders
-        sim_folders = [f for f in self.base_output_dir.glob("input_*")]
-
+        sim_folders = [f for f in self.base_output_dir.glob("in_*")]
         for folder in sim_folders:
             try:
                 metrics = self.analyze_simulation(folder, t1, t2, time_difference)
@@ -208,7 +267,8 @@ def main():
 
     # Example usage
     metrics_calculator = SimulationMetrics("ARCADE_OUTPUT/")
-    df = metrics_calculator.analyze_all_simulations(t1="000000", t2="000720", time_difference=720.0)
+    #metrics_calculator = SimulationMetrics("~/ARCADE/outputs/")
+    df = metrics_calculator.analyze_all_simulations(t1="000000", t2="010080", time_difference=10080)
 
     # Print summary statistics
     print("\nSummary Statistics:")

@@ -100,6 +100,6 @@ if __name__ == "__main__":
     run_simulations(
         input_dir="inputs/perturbed_inputs",
         output_dir="ARCADE_OUTPUT/",
-        jar_path="models/arcade_v3.jar",
-        max_workers=2,
+        jar_path="models/arcade-test-cycle.jar",
+        max_workers=4,
     )
