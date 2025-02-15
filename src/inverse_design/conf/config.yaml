@@ -28,22 +28,28 @@ arcade:
     max_time: 14400.0
 
 abc:
-  output_frequency: 10
-  epsilon: 1
+  output_frequency: 100
+  epsilon: 0.1
   sobol_power: 1
   model_type: "ARCADE"
   targets:
     - metric: "doubling_time"
       value: 30
       weight: 1.0
+    - metric: "activity"
+      value: 0.5
+      weight: 1.0
+    - metric: "colony_growth_rate"
+      value: 1.0
+      weight: 1.0
   parameter_ranges:
-    volume_sigma_range:
+    volume_sigma:
       min: 50
       max: 500
-    apop_age_sigma_range:
+    apop_age_sigma:
       min: 5040
       max: 20160
-    necrotic_fraction_range:
+    necrotic_fraction:
       min: 0.2
       max: 0.8
     accuracy:
@@ -52,6 +58,3 @@ abc:
     affinity:
       min: 0.3
       max: 0.7
-    compression_tolerance:
-      min: 4.35
-      max: 4.35      

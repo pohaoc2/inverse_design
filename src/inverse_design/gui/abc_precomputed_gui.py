@@ -17,9 +17,9 @@ class ABCPrecomputedGUI:
         self.root = root
         self.root.title("ABC Precomputed Interface")
         
-        self.param_file_path = tk.StringVar()
-        self.metrics_file_path = tk.StringVar()
-        self.config_file_path = tk.StringVar()
+        self.param_file_path = tk.StringVar(value="./completed_params.csv")
+        self.metrics_file_path = tk.StringVar(value="./completed_doubling.csv")
+        self.config_file_path = tk.StringVar(value="./conf/config.yaml")
         
         self.model_type = tk.StringVar(value="BDM")
         
@@ -28,7 +28,6 @@ class ABCPrecomputedGUI:
         self.target_weights = {}
         
         self.status_label = ttk.Label(self.root, text="")
-        
         self.setup_gui()
     
     def setup_gui(self):
@@ -211,7 +210,8 @@ class ABCPrecomputedGUI:
             self.config_class = self.model.get_config_class()
             self.model_config_key = self.cfg.abc.model_type.lower()
             self.model_config = self.config_class.from_dictconfig(self.cfg[self.model_config_key])
-            
+            params_df = pd.read_csv(self.param_file_path.get())
+            param_names = params_df.columns.tolist()
             abc = ABCPrecomputed(
                 self.model_config,
                 self.abc_config,
@@ -220,6 +220,14 @@ class ABCPrecomputedGUI:
                 metrics_file=self.metrics_file_path.get()
             )
             self.results = abc.run_inference()
+            for i, result in enumerate(self.results[:10]):
+                print(f"--- Result {i+1} ---")
+                for key, value in result.items():
+                    # if key in params, do not print
+                    if key in param_names:
+                        continue
+                    print(f"{key}: {value}")
+
             # Calculate accepted samples and average distance
             accepted_samples = [result for result in self.results if result["accepted"]]
             accepted_count = len(accepted_samples)

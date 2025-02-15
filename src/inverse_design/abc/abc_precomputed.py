@@ -28,7 +28,22 @@ class ABCPrecomputed(ABCBase):
             self.metrics_df = self.metrics_df.iloc[:min_length]
         self.num_samples = len(self.param_df)
         
+        # Calculate dynamic normalization factors for metrics not in static factors
+        self._calculate_dynamic_normalization_factors()
 
+    def _calculate_dynamic_normalization_factors(self):
+        """Calculate normalization factors based on metrics range for undefined metrics"""
+        for target in self.targets:
+            if target.metric.value not in self.normalization_factors:
+                metric_values = self.metrics_df[target.metric.value]
+                metric_range = metric_values.max() - metric_values.min()
+                if metric_range > 0:
+                    self.dynamic_normalization_factors[target.metric.value] = metric_range
+                else:
+                    self.log.warning(
+                        f"Zero range for metric {target.metric.value}, using 1.0 as normalization factor"
+                    )
+                    self.dynamic_normalization_factors[target.metric.value] = 1.0
 
     def run_inference(
         self,
@@ -61,21 +76,9 @@ class ABCPrecomputed(ABCBase):
                     1 for sample in self.param_metrics_distances_results if sample["accepted"]
                 )
                 self.log.info(f"Processed {i + 1} samples, accepted {accepted_count}")
-        #for result in self.param_metrics_distances_results:
-            #print("distance: ", result["distance"])
+        accepted_count = sum(
+            1 for sample in self.param_metrics_distances_results if sample["accepted"]
+        )
+        self.log.info(f"Finished ABC inference on {self.num_samples} pre-computed samples for targets: {target_str}")
+        self.log.info(f"Accepted {accepted_count} samples")
         return self.param_metrics_distances_results
-
-    def _extract_parameters(self, row):
-        """Extract parameters from pre-computed results row"""
-        # Implementation depends on your data format
-        pass
-
-    def _extract_grid_states(self, row):
-        """Extract grid states from pre-computed results row"""
-        # Implementation depends on your data format
-        pass
-
-    def _extract_time_points(self, row):
-        """Extract time points from pre-computed results row"""
-        # Implementation depends on your data format
-        pass

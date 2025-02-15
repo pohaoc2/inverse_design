@@ -27,19 +27,20 @@ class ABCBase(ABC):
         self.parameter_handler = ParameterFactory.create_parameter_handler(self.model_type)
         self.param_metrics_distances_results = []
         self.normalization_factors = self._get_normalization_factors()
+        self.dynamic_normalization_factors = {}
 
     def _get_normalization_factors(self) -> Dict[str, float]:
         """Get normalization factors for distance calculation based on model type and targets"""
         if self.model_type == "BDM":
             return {
-                Metric.DENSITY.value: 100.0,
-                Metric.TIME_TO_EQUILIBRIUM.value: self.max_time,
+                Metric.get("density").value: 100.0,
+                Metric.get("time_to_equilibrium").value: self.max_time,
             }
         elif self.model_type == "ARCADE":
             return {
-                Metric.GROWTH_RATE.value: 1.0,
-                Metric.SYMMETRY.value: 1.0,
-                Metric.ACTIVITY.value: 1.0,
+                Metric.get("growth_rate").value: 1.0,
+                Metric.get("symmetry").value: 1.0,
+                Metric.get("activity").value: 1.0,
             }
         else:
             return None
@@ -51,7 +52,10 @@ class ABCBase(ABC):
 
         for target in self.targets:
             value = metrics[target.metric]
-            norm_factor = self.normalization_factors.get(target.metric.value, 1.0)
+            norm_factor = self.normalization_factors.get(
+                target.metric.value,
+                self.dynamic_normalization_factors.get(target.metric.value, 1.0)
+            )
             normalized_distance = abs(value - target.value) / norm_factor
             total_distance += (normalized_distance * target.weight) / total_weight
 

@@ -4,7 +4,7 @@ import json
 from omegaconf import DictConfig, OmegaConf
 from datetime import datetime
 import numpy as np
-
+import pandas as pd
 from inverse_design.abc.abc_precomputed import ABCPrecomputed
 from inverse_design.conf.config import ABCConfig
 from inverse_design.models.model_base import ModelRegistry
@@ -45,30 +45,38 @@ def run_abc_precomputed(cfg: DictConfig):
     else:
         # Use model defaults if no targets in config
         targets = model.get_default_targets()
-    param_file = "param_file.csv"
-    metrics_file = "metrics_file.csv"
+    param_file = "completed_params.csv"
+    metrics_file = "completed_doubling.csv"
     abc = ABCPrecomputed(
         model_config, abc_config, targets, param_file=param_file, metrics_file=metrics_file
     )
     param_metrics_distances_results = abc.run_inference()
-    # print(param_metrics_distances_results)
-
+    param_df = pd.read_csv(param_file)
+    constant_columns = param_df.columns[param_df.nunique() == 1]
+    param_df = param_df.drop(columns=constant_columns)
+    param_names = param_df.columns.tolist()
     param_keys = list(param_metrics_distances_results[0].keys())
-    param_keys = ["accuracy", "affinity"]
     params = [
         {key: sample[key] for key in param_keys}
         for sample in param_metrics_distances_results
     ]
 
     accepted_params = [
-        {key: sample[key] for key in param_keys}
+        {key: sample[key] for key in param_keys if key in param_names}
         for sample in param_metrics_distances_results
         if sample["accepted"]
     ]
-    #print(accepted_params)
-    parameter_pdfs = evaluate.estimate_pdfs(accepted_params)
-    save_path = "parameter_pdfs.png"
-    plot_parameter_kde(parameter_pdfs, abc_config, save_path)
+    if 0:
+        for sample in param_metrics_distances_results:
+            print("--------------------------------")
+            for key, value in sample.items():
+                if key not in param_names:
+                    print(f"{key}: {value}")
+    
+    if 1:
+        parameter_pdfs = evaluate.estimate_pdfs(accepted_params)
+        save_path = "parameter_pdfs.png"
+        plot_parameter_kde(parameter_pdfs, abc_config, save_path)
 
 
 
