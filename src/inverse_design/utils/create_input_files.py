@@ -118,13 +118,13 @@ def generate_perturbed_parameters(
 # Example usage
 if __name__ == "__main__":
     generate_perturbed_parameters(
-        sobol_power=2,
-        volume_mu_range=(1500, 3000),
-        volume_sigma_range=(50, 150),
-        apop_age_mu_range=(100000, 140000),
-        apop_age_sigma_range=(5000, 15000),
-        necrotic_fraction_range=(0.3, 0.7),
-        accuracy_range=(0.6, 1.0),
+        sobol_power=8,
+        volume_mu_range=(2250, 2250),
+        volume_sigma_range=(50, 500),
+        apop_age_mu_range=(120960, 120960),
+        apop_age_sigma_range=(5040, 20160),
+        necrotic_fraction_range=(0.2, 0.8),
+        accuracy_range=(0.5, 1.0),
         affinity_range=(0.3, 0.7),
-        compression_tolerance_range=(0.0, 0.2),
+        compression_tolerance_range=(4.35, 4.35),
     )

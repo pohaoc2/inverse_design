@@ -40,6 +40,7 @@ def run_simulations(
     output_dir: str = "simulation_results",
     jar_path: str = "arcade_v3.jar",
     max_workers: int = 4,
+    start_index: int = 1,
 ) -> None:
     """Run ARCADE simulations for all input files in parallel
 
@@ -48,6 +49,7 @@ def run_simulations(
         output_dir: Directory for simulation outputs
         jar_path: Path to arcade_v3.jar
         max_workers: Maximum number of parallel simulations
+        start_index: Starting index for input files (default: 1, runs all files)
     """
     logging.basicConfig(
         level=logging.INFO,
@@ -62,11 +64,17 @@ def run_simulations(
     if not jar_path.exists():
         raise FileNotFoundError(f"ARCADE jar file not found at {jar_path}")
 
-    input_files = list(input_dir.glob("*.xml"))
+    input_files = sorted(input_dir.glob("*.xml"))
     if not input_files:
         raise FileNotFoundError(f"No XML files found in {input_dir}")
 
-    logging.info(f"Found {len(input_files)} input files")
+    start_file = f"input_{start_index}"
+    input_files = [f for f in input_files if f.stem >= start_file]
+    
+    if not input_files:
+        raise FileNotFoundError(f"No XML files found with index >= {start_index}")
+
+    logging.info(f"Found {len(input_files)} input files starting from index {start_index}")
     logging.info(f"Running simulations with {max_workers} parallel workers")
 
     output_dir.mkdir(exist_ok=True, parents=True)
@@ -100,6 +108,7 @@ if __name__ == "__main__":
     run_simulations(
         input_dir="inputs/perturbed_inputs",
         output_dir="ARCADE_OUTPUT/",
-        jar_path="models/arcade_v3.jar",
-        max_workers=2,
+        jar_path="models/arcade-test-cycle.jar",
+        max_workers=4,
+        start_index=1,
     )
