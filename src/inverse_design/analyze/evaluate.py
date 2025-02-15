@@ -22,7 +22,6 @@ def estimate_pdfs(params: List[Dict]) -> Dict:
     # Extract parameter values into arrays
     param_names = list(params[0].keys())
     param_arrays = {param: np.array([p[param] for p in params]) for param in param_names}
-
     # Compute independent KDEs for each parameter
     param_pdfs = {}
     for param_name, values in param_arrays.items():
