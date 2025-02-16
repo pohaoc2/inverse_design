@@ -16,6 +16,7 @@ pylint = "^3.3.3"
 salib = "^1.5.1"
 openpyxl = "^3.1.5"
 tqdm = "^4.67.1"
+scikit-learn = "^1.6.1"
 
 [build-system]
 requires = ["poetry-core"]

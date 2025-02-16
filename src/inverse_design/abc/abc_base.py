@@ -96,3 +96,20 @@ class ABCBase(ABC):
             model_type=self.model_type,
             save_path=save_path,
         )
+
+    def update_targets(self, new_targets: Union[Target, List[Target]]):
+        """Update targets and recalculate normalization factors
+        
+        Args:
+            new_targets: New target or list of targets to use
+        """
+        self.targets = [new_targets] if isinstance(new_targets, Target) else new_targets
+        
+        self.param_metrics_distances_results = []
+        if hasattr(self, 'dynamic_normalization_factors'):
+            self.dynamic_normalization_factors = {}
+            if hasattr(self, '_calculate_dynamic_normalization_factors'):
+                self._calculate_dynamic_normalization_factors()
+        
+        target_str = ", ".join([f"{t.metric.value}: {t.value}" for t in self.targets])
+        print(f"Updated targets to: {target_str}")

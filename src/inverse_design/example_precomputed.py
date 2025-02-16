@@ -9,7 +9,7 @@ from inverse_design.abc.abc_precomputed import ABCPrecomputed
 from inverse_design.conf.config import ABCConfig
 from inverse_design.models.model_base import ModelRegistry
 from inverse_design.common.enum import Target, Metric
-from inverse_design.vis.vis import plot_parameter_kde
+from inverse_design.vis.vis import plot_parameter_kde, plot_joint_distribution, plot_pca_visualization
 from inverse_design.analyze import evaluate
 
 
@@ -47,37 +47,48 @@ def run_abc_precomputed(cfg: DictConfig):
         targets = model.get_default_targets()
     param_file = "completed_params.csv"
     metrics_file = "completed_doubling.csv"
-    abc = ABCPrecomputed(
-        model_config, abc_config, targets, param_file=param_file, metrics_file=metrics_file
-    )
-    param_metrics_distances_results = abc.run_inference()
     param_df = pd.read_csv(param_file)
     constant_columns = param_df.columns[param_df.nunique() == 1]
     param_df = param_df.drop(columns=constant_columns)
     param_names = param_df.columns.tolist()
-    param_keys = list(param_metrics_distances_results[0].keys())
-    params = [
-        {key: sample[key] for key in param_keys}
-        for sample in param_metrics_distances_results
-    ]
-
-    accepted_params = [
-        {key: sample[key] for key in param_keys if key in param_names}
-        for sample in param_metrics_distances_results
-        if sample["accepted"]
-    ]
-    if 0:
-        for sample in param_metrics_distances_results:
-            print("--------------------------------")
-            for key, value in sample.items():
-                if key not in param_names:
-                    print(f"{key}: {value}")
     
-    if 1:
-        parameter_pdfs = evaluate.estimate_pdfs(accepted_params)
-        save_path = "parameter_pdfs.png"
-        plot_parameter_kde(parameter_pdfs, abc_config, save_path)
+    abc = ABCPrecomputed(
+        model_config, abc_config, targets, param_file=param_file, metrics_file=metrics_file
+    )
+    targets_2 = [
+        Target(metric=Metric.get("doubling_time"), value=50.0, weight=1.0),
+        Target(metric=Metric.get("activity"), value=0.5, weight=1.0),
+        Target(metric=Metric.get("colony_growth_rate"), value=0.8, weight=1.0),
+    ]
+    targets_list =[targets, targets_2]
+    accepted_params_list = []
+    for i, targets in enumerate(targets_list):
+        abc.update_targets(targets)
+        param_metrics_distances_results = abc.run_inference()
+        param_keys = list(param_metrics_distances_results[0].keys())
+        params = [
+            {key: sample[key] for key in param_keys}
+            for sample in param_metrics_distances_results
+        ]
 
+        accepted_params = [
+            {key: sample[key] for key in param_keys if key in param_names}
+            for sample in param_metrics_distances_results
+            if sample["accepted"]
+        ]
+        accepted_params_list.append(accepted_params)
+        parameter_pdfs = evaluate.estimate_pdfs(accepted_params)
+        if 1:
+            save_path = f"prior_posterior_pdfs_{i}.png"
+            plot_parameter_kde(parameter_pdfs, abc_config, save_path)
+
+        if 0:
+            save_path = f"joint_distribution_{i}.png"
+            plot_joint_distribution(accepted_params, save_path)
+
+    if 1:
+        save_path = f"pca_visualization.png"
+        plot_pca_visualization(accepted_params_list, save_path)
 
 
 if __name__ == "__main__":
