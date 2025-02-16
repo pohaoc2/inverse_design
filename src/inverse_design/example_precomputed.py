@@ -63,7 +63,7 @@ def run_abc_precomputed(cfg: DictConfig):
     ]
     targets_list =[targets, targets_2]
     accepted_params_list = []
-    for i, targets in enumerate(targets_list[:1]):
+    for i, targets in enumerate(targets_list):
         abc.update_targets(targets)
         param_metrics_distances_results = abc.run_inference()
         param_keys = list(param_metrics_distances_results[0].keys())
