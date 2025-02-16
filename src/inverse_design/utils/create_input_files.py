@@ -3,6 +3,7 @@ import pandas as pd
 import xml.etree.ElementTree as ET
 from pathlib import Path
 import scipy.stats.qmc
+from typing import Dict
 
 
 def generate_perturbed_parameters(
@@ -111,6 +112,81 @@ def generate_perturbed_parameters(
     # Save parameters to Excel
     df = pd.DataFrame(param_log)
     df.to_csv(f"{output_dir}/parameter_log.csv", index=False)
+
+    print(f"Generated {n_samples} XML files and parameter log in {output_dir}/")
+
+
+def generate_parameters_from_kde(
+    parameter_pdfs: Dict,
+    n_samples: int,
+    output_dir: str = "kde_sampled_inputs",
+    template_path: str = "sample_input_v3.xml",
+):
+    """Generate parameter sets by sampling from kernel density estimates (KDE)
+    
+    Args:
+        parameter_pdfs: Dictionary containing KDE objects for each parameter
+        n_samples: Number of parameter sets to generate
+        output_dir: Directory to save generated XML files
+        template_path: Path to template XML file
+    """
+    # Create output directory
+    Path(output_dir).mkdir(exist_ok=True)
+
+    # Read template XML
+    tree = ET.parse(template_path)
+    root = tree.getroot()
+
+    # Prepare DataFrame for parameter logging
+    param_log = []
+
+    # Sample from each parameter's KDE
+    kde_dict = parameter_pdfs["independent"]
+    param_names = parameter_pdfs["param_names"]
+    
+    # Generate samples for each parameter
+    sampled_params = {
+        param: kde.resample(n_samples)[0]
+        for param, kde in kde_dict.items()
+    }
+
+    # Generate XML files for each parameter set
+    for i in range(n_samples):
+        params = {
+            param: sampled_params[param][i]
+            for param in param_names
+        }
+
+        # Find cancerous population element
+        cancerous_pop = root.find(".//population[@id='cancerous']")
+
+        # Update parameters
+        for param in cancerous_pop.findall("population.parameter"):
+            param_id = param.get("id")
+            if param_id == "CELL_VOLUME" and "volume_sigma" in params:
+                param.set("value", f"NORMAL(MU=2250,SIGMA={params['volume_sigma']:.1f})")
+            elif param_id == "APOPTOSIS_AGE" and "apop_age_sigma" in params:
+                param.set("value", f"NORMAL(MU=120960,SIGMA={params['apop_age_sigma']:.1f})")
+            elif param_id == "NECROTIC_FRACTION" and "necrotic_fraction" in params:
+                param.set("value", f"{params['necrotic_fraction']:.3f}")
+            elif param_id == "ACCURACY" and "accuracy" in params:
+                param.set("value", f"{params['accuracy']:.3f}")
+            elif param_id == "AFFINITY" and "affinity" in params:
+                param.set("value", f"{params['affinity']:.3f}")
+            elif param_id == "COMPRESSION_TOLERANCE":
+                param.set("value", "4.35")
+
+        # Save modified XML
+        output_file = f"{output_dir}/input_{i+1}.xml"
+        tree.write(output_file, encoding="utf-8", xml_declaration=True)
+
+        # Log parameters
+        params["file_name"] = f"input_{i+1}.xml"
+        param_log.append(params)
+
+    # Save parameters to CSV
+    df = pd.DataFrame(param_log)
+    df.to_csv(f"{output_dir}/kde_sampled_parameters_log.csv", index=False)
 
     print(f"Generated {n_samples} XML files and parameter log in {output_dir}/")
 

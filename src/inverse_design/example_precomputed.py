@@ -11,8 +11,9 @@ from inverse_design.models.model_base import ModelRegistry
 from inverse_design.common.enum import Target, Metric
 from inverse_design.vis.vis import plot_parameter_kde, plot_joint_distribution, plot_pca_visualization
 from inverse_design.analyze import evaluate
-
-
+from inverse_design.utils.create_input_files import generate_parameters_from_kde
+import matplotlib.pyplot as plt
+from scipy import stats
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def run_abc_precomputed(cfg: DictConfig):
     """Example script demonstrating how to use the ABC inference with precomputed results
@@ -62,7 +63,7 @@ def run_abc_precomputed(cfg: DictConfig):
     ]
     targets_list =[targets, targets_2]
     accepted_params_list = []
-    for i, targets in enumerate(targets_list):
+    for i, targets in enumerate(targets_list[:1]):
         abc.update_targets(targets)
         param_metrics_distances_results = abc.run_inference()
         param_keys = list(param_metrics_distances_results[0].keys())
@@ -78,6 +79,7 @@ def run_abc_precomputed(cfg: DictConfig):
         ]
         accepted_params_list.append(accepted_params)
         parameter_pdfs = evaluate.estimate_pdfs(accepted_params)
+        generate_parameters_from_kde(parameter_pdfs, 256)
         if 1:
             save_path = f"prior_posterior_pdfs_{i}.png"
             plot_parameter_kde(parameter_pdfs, abc_config, save_path)

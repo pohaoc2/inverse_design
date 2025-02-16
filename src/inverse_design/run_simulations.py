@@ -106,8 +106,8 @@ def run_simulations(
 
 if __name__ == "__main__":
     run_simulations(
-        input_dir="inputs/perturbed_inputs",
-        output_dir="ARCADE_OUTPUT/",
+        input_dir="inputs/kde_sampled_inputs",
+        output_dir="ARCADE_OUTPUT_AGGRESSIVE/",
         jar_path="models/arcade-test-cycle.jar",
         max_workers=4,
         start_index=1,

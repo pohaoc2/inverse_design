@@ -168,7 +168,7 @@ class SimulationMetrics:
         results = []
 
         sim_folders = [f for f in self.base_output_dir.glob("input_*")]
-        for folder in sim_folders[:20]:
+        for folder in sim_folders:
             try:
                 metrics = self.analyze_simulation(folder, t1, t2)
                 metrics["simulation"] = folder.name
