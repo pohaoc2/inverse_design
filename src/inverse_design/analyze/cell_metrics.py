@@ -83,7 +83,8 @@ class CellMetrics:
         results = []
         try:
             file_pattern = f"*_{timestamp}.CELLS.json"
-            cell_files = folder_path.glob(file_pattern)
+            cell_files = sorted(folder_path.glob(file_pattern), 
+                              key=lambda x: int(re.search(r'(\d{4})_', x.name).group(1)))
 
             for cell_file in cell_files:
                 file_info = self.parse_cell_file(cell_file.name)

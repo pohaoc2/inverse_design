@@ -14,6 +14,8 @@ from inverse_design.analyze import evaluate
 from inverse_design.utils.create_input_files import generate_parameters_from_kde
 import matplotlib.pyplot as plt
 from scipy import stats
+
+
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def run_abc_precomputed(cfg: DictConfig):
     """Example script demonstrating how to use the ABC inference with precomputed results
@@ -58,10 +60,11 @@ def run_abc_precomputed(cfg: DictConfig):
     )
     targets_2 = [
         Target(metric=Metric.get("doubling_time"), value=50.0, weight=1.0),
-        Target(metric=Metric.get("activity"), value=0.5, weight=1.0),
-        Target(metric=Metric.get("colony_growth_rate"), value=0.8, weight=1.0),
+        Target(metric=Metric.get("doubling_time_std"), value=0.0, weight=1.0),
+        #Target(metric=Metric.get("activity"), value=0.5, weight=1.0),
+        #Target(metric=Metric.get("colony_growth_rate"), value=0.8, weight=1.0),
     ]
-    targets_list =[targets, targets_2]
+    targets_list = [targets_2] # [targets, targets_2]
     accepted_params_list = []
     for i, targets in enumerate(targets_list):
         abc.update_targets(targets)
@@ -77,10 +80,12 @@ def run_abc_precomputed(cfg: DictConfig):
             for sample in param_metrics_distances_results
             if sample["accepted"]
         ]
+        if len(accepted_params) == 0:
+            raise ValueError("No accepted parameters")
         accepted_params_list.append(accepted_params)
         parameter_pdfs = evaluate.estimate_pdfs(accepted_params)
         generate_parameters_from_kde(parameter_pdfs, 256)
-        if 1:
+        if 0:
             save_path = f"prior_posterior_pdfs_{i}.png"
             plot_parameter_kde(parameter_pdfs, abc_config, save_path)
 
@@ -88,7 +93,7 @@ def run_abc_precomputed(cfg: DictConfig):
             save_path = f"joint_distribution_{i}.png"
             plot_joint_distribution(accepted_params, save_path)
 
-    if 1:
+    if 0:
         save_path = f"pca_visualization.png"
         plot_pca_visualization(accepted_params_list, save_path)
 

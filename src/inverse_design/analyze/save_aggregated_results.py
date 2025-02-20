@@ -39,19 +39,35 @@ class SimulationMetrics:
                 rounded_dict[key] = value
         return rounded_dict
 
-    def analyze_simulation(
-        self, folder_path: Path, t1: str, t2: str
-    ) -> Dict[str, float]:
-        """Analyze a single simulation folder with multiple seeds"""
-        cells_data_t1 = self.cell_metrics.load_cells_data(folder_path, t1)
-        cells_data_t2 = self.cell_metrics.load_cells_data(folder_path, t2)
-        time_difference = int(t2) - int(t1)
-        timestamps = ["000000", "000720", "001440", "002160", "002880", "003600", "004320",
-                     "005040", "005760", "006480", "007200", "007920", "008640", "009360", "010080"]
-        fit_data = self.spatial_metrics.fit_colony_growth(folder_path, timestamps)
+    def filter_valid_metrics(self, metrics_list):
+        """Filter out seeds with NaN or inf values from a list of metrics"""
+        valid_indices = []
+        for i in range(len(metrics_list[0])):
+            has_invalid = any(
+                np.isnan(metric[i]) or np.isinf(metric[i])
+                for metric in metrics_list
+            )
+            if not has_invalid:
+                valid_indices.append(i)
+        return valid_indices, [
+            [metric[i] for i in valid_indices]
+            for metric in metrics_list
+        ]
 
+    def process_parameter_seeds(self, cells_data_t1, cells_data_t2, time_difference):
+        """
+        Process metrics across different seeds for a single parameter set.
+        
+        Args:
+            cells_data_t1: List of (info, cells) tuples at time t1
+            cells_data_t2: List of (info, cells) tuples at time t2
+            time_difference: Time difference between t1 and t2
+            
+        Returns:
+            Dictionary containing metrics for each experiment group and name
+        """
         metrics_by_exp = {}
-
+        
         for (info_t1, cells_t1), (info_t2, cells_t2) in zip(cells_data_t1, cells_data_t2):
             if (
                 info_t1["exp_group"] != info_t2["exp_group"]
@@ -84,77 +100,87 @@ class SimulationMetrics:
             )
             metrics_by_exp[exp_key]["num_cells_t1"].append(len(cells_t1))
             metrics_by_exp[exp_key]["num_cells_t2"].append(len(cells_t2))
-            metrics_by_exp[exp_key]["activity_t1"].append(self.cell_metrics.calculate_activity(cells_t1))
-            metrics_by_exp[exp_key]["activity_t2"].append(self.cell_metrics.calculate_activity(cells_t2))
+            metrics_by_exp[exp_key]["activity_t1"].append(
+                self.cell_metrics.calculate_activity(cells_t1)
+            )
+            metrics_by_exp[exp_key]["activity_t2"].append(
+                self.cell_metrics.calculate_activity(cells_t2)
+            )
             metrics_by_exp[exp_key]["seed_count"] += 1
-            metrics_by_exp[exp_key]["doubling_time"].append(self.cell_metrics.calculate_doubling_time(len(cells_t1), len(cells_t2), time_difference))
+            metrics_by_exp[exp_key]["doubling_time"].append(
+                self.cell_metrics.calculate_doubling_time(len(cells_t1), len(cells_t2), time_difference)
+            )
 
-        averaged_metrics = {}
-        def filter_valid_metrics(metrics_list):
-            """Filter out seeds with NaN or inf values from a list of metrics"""
-            valid_indices = []
-            for i in range(len(metrics_list[0])):
-                has_invalid = any(
-                    np.isnan(metric[i]) or np.isinf(metric[i])
-                    for metric in metrics_list
-                )
-                if not has_invalid:
-                    valid_indices.append(i)
-            return valid_indices, [
-                [metric[i] for i in valid_indices]
-                for metric in metrics_list
+        # return metrics_by_exp
+
+        for exp_key in metrics_by_exp:
+            metrics_to_check = [
+                metrics_by_exp[exp_key]["growth_rates"],
+                metrics_by_exp[exp_key]["avg_volumes_t1"],
+                metrics_by_exp[exp_key]["avg_volumes_t2"],
+                metrics_by_exp[exp_key]["activity_t1"],
+                metrics_by_exp[exp_key]["activity_t2"],
+                metrics_by_exp[exp_key]["doubling_time"]
             ]
+            
+            valid_indices, filtered_metrics = self.filter_valid_metrics(metrics_to_check)
+            
+            metrics_by_exp[exp_key]["growth_rates"] = filtered_metrics[0]
+            metrics_by_exp[exp_key]["avg_volumes_t1"] = filtered_metrics[1]
+            metrics_by_exp[exp_key]["avg_volumes_t2"] = filtered_metrics[2]
+            metrics_by_exp[exp_key]["num_cells_t1"] = [metrics_by_exp[exp_key]["num_cells_t1"][i] for i in valid_indices]
+            metrics_by_exp[exp_key]["num_cells_t2"] = [metrics_by_exp[exp_key]["num_cells_t2"][i] for i in valid_indices]
+            metrics_by_exp[exp_key]["activity_t1"] = filtered_metrics[3]
+            metrics_by_exp[exp_key]["activity_t2"] = filtered_metrics[4]
+            metrics_by_exp[exp_key]["doubling_time"] = filtered_metrics[5]
+            metrics_by_exp[exp_key]["seed_count"] = len(valid_indices)
+
+        return metrics_by_exp
+
+    def analyze_simulation(
+        self, folder_path: Path, t1: str, t2: str, timestamps: List[str]
+    ) -> Dict[str, float]:
+        """Analyze a single simulation folder with multiple seeds"""
+        cells_data_t1 = self.cell_metrics.load_cells_data(folder_path, t1)
+        cells_data_t2 = self.cell_metrics.load_cells_data(folder_path, t2)
+        time_difference = int(t2) - int(t1)
+        fit_data = self.spatial_metrics.fit_colony_growth(folder_path, timestamps)
+
+        metrics_by_exp = self.process_parameter_seeds(cells_data_t1, cells_data_t2, time_difference)
+        
+        averaged_metrics = {}
 
         for (exp_group, exp_name), metrics in metrics_by_exp.items():
-            metrics_to_check = [
-                metrics["growth_rates"],
-                metrics["avg_volumes_t1"],
-                metrics["avg_volumes_t2"],
-                metrics["activity_t1"],
-                metrics["activity_t2"],
-                metrics["doubling_time"]
-            ]
-            
-            valid_indices, filtered_metrics = filter_valid_metrics(metrics_to_check)
-            
-            metrics["growth_rates"] = filtered_metrics[0]
-            metrics["avg_volumes_t1"] = filtered_metrics[1]
-            metrics["avg_volumes_t2"] = filtered_metrics[2]
-            metrics["num_cells_t1"] = [metrics["num_cells_t1"][i] for i in valid_indices]
-            metrics["num_cells_t2"] = [metrics["num_cells_t2"][i] for i in valid_indices]
-            metrics["activity_t1"] = filtered_metrics[3]
-            metrics["activity_t2"] = filtered_metrics[4]
-            metrics["doubling_time"] = filtered_metrics[5]
-            metrics["seed_count"] = len(valid_indices)
-            
             colony_metrics = fit_data.get((exp_group, exp_name), {})
             
             avg_cells_t1 = sum(metrics["num_cells_t1"]) / len(metrics["num_cells_t1"])
             avg_cells_t2 = sum(metrics["num_cells_t2"]) / len(metrics["num_cells_t2"])
             
             metrics_dict = {
-                "exp_group": exp_group,
-                "exp_name": exp_name,
-                "growth_rate": sum(metrics["growth_rates"]) / len(metrics["growth_rates"]),
-                "growth_rate_std": np.std(metrics["growth_rates"]),
-                "doubling_time": sum(metrics["doubling_time"]) / len(metrics["doubling_time"]),
-                "doubling_time_std": np.std(metrics["doubling_time"]),
-                "avg_volume_t1": sum(metrics["avg_volumes_t1"]) / len(metrics["avg_volumes_t1"]),
-                "avg_volume_t1_std": np.std(metrics["avg_volumes_t1"]),
-                "avg_volume_t2": sum(metrics["avg_volumes_t2"]) / len(metrics["avg_volumes_t2"]),
-                "avg_volume_t2_std": np.std(metrics["avg_volumes_t2"]),
-                "num_cells_t1": avg_cells_t1,
-                "num_cells_t2": avg_cells_t2,
-                "activity_t1": sum(metrics["activity_t1"]) / len(metrics["activity_t1"]),
-                "activity_t1_std": np.std(metrics["activity_t1"]),
-                "activity_t2": sum(metrics["activity_t2"]) / len(metrics["activity_t2"]),
-                "activity_t2_std": np.std(metrics["activity_t2"]),
-                "seed_count": metrics["seed_count"],
-                "colony_growth_rate": colony_metrics.get("slope", 0.0),
-                "colony_growth_rate_std": colony_metrics.get("slope_std", 0.0),
-                "initial_colony_diameter": colony_metrics.get("intercept", 0.0),
-                "initial_colony_diameter_std": colony_metrics.get("intercept_std", 0.0),
-                "colony_growth_r_squared": colony_metrics.get("r_squared", 0.0)
+                #"exp_group": exp_group,
+                #"exp_name": exp_name,
+                #"growth_rate": sum(metrics["growth_rates"]) / len(metrics["growth_rates"]),
+                #"growth_rate_std": np.std(metrics["growth_rates"]),
+                "doub_time": sum(metrics["doubling_time"]) / len(metrics["doubling_time"]),
+                "doub_time_std": np.std(metrics["doubling_time"]),
+                #"avg_volume_t1": sum(metrics["avg_volumes_t1"]) / len(metrics["avg_volumes_t1"]),
+                #"avg_volume_t1_std": np.std(metrics["avg_volumes_t1"]),
+                "vol_t2": sum(metrics["avg_volumes_t2"]) / len(metrics["avg_volumes_t2"]),
+                "vol_t2_std": np.std(metrics["avg_volumes_t2"]),
+                #"n_cells_t1": avg_cells_t1,
+                #"n_cells_t1_std": np.std(metrics["num_cells_t1"]),
+                "n_cells_t2": avg_cells_t2,
+                "n_cells_t2_std": np.std(metrics["num_cells_t2"]),
+                #"activity_t1": sum(metrics["activity_t1"]) / len(metrics["activity_t1"]),
+                #"activity_t1_std": np.std(metrics["activity_t1"]),
+                "act_t2": sum(metrics["activity_t2"]) / len(metrics["activity_t2"]),
+                "act_t2_std": np.std(metrics["activity_t2"]),
+                #"seed_count": metrics["seed_count"],
+                "colony_g_rate": colony_metrics.get("slope", 0.0),
+                "colony_g_rate_std": colony_metrics.get("slope_std", 0.0),
+                #"initial_colony_diameter": colony_metrics.get("intercept", 0.0),
+                #"initial_colony_diameter_std": colony_metrics.get("intercept_std", 0.0),
+                "colony_g_r_squared": colony_metrics.get("r_squared", 0.0)
             }
             
             averaged_metrics.update(self._round_metrics(metrics_dict))
@@ -162,16 +188,17 @@ class SimulationMetrics:
         return averaged_metrics
 
     def analyze_all_simulations(
-        self, t1: str = "000000", t2: str = "000720"
+        self, timestamps: List[str], t1: str = "000000", t2: str = "000720"
     ) -> pd.DataFrame:
         """Analyze all simulation folders and compile results"""
         results = []
 
-        sim_folders = [f for f in self.base_output_dir.glob("input_*")]
+        sim_folders = sorted([f for f in self.base_output_dir.glob("input_*")], 
+                           key=lambda x: int(re.search(r'input_(\d+)', x.name).group(1)))
         for folder in sim_folders:
             try:
-                metrics = self.analyze_simulation(folder, t1, t2)
-                metrics["simulation"] = folder.name
+                metrics = self.analyze_simulation(folder, t1, t2, timestamps)
+                metrics["input_folder"] = folder.name
                 results.append(metrics)
             except Exception as e:
                 self.logger.error(f"Error processing {folder}: {str(e)}")
@@ -208,7 +235,7 @@ class SimulationMetrics:
                 # Store fit results
                 for (exp_group, exp_name), fit_metrics in fit_data.items():
                     fit_results.append({
-                        "simulation": folder.name,
+                        "input_folder": folder.name,
                         "exp_group": exp_group,
                         "exp_name": exp_name,
                         "growth_rate": fit_metrics["slope"],
@@ -222,7 +249,7 @@ class SimulationMetrics:
                 for (exp_group, exp_name), data in diameter_data.items():
                     for i, timestamp in enumerate(data["timestamps"]):
                         growth_results.append({
-                            "simulation": folder.name,
+                            "input_folder": folder.name,
                             "exp_group": exp_group,
                             "exp_name": exp_name,
                             "timestamp": timestamp,
@@ -274,11 +301,12 @@ class SimulationMetrics:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    metrics_calculator = SimulationMetrics("ARCADE_OUTPUT_completed/")
+    #metrics_calculator = SimulationMetrics("ARCADE_OUTPUT/SMALL_STD_ONLY_VOLUME/")
+    metrics_calculator = SimulationMetrics("ARCADE_OUTPUT/MANUAL_VOLUME_APOTOSIS/")
     
     timestamps = ["000000", "000720", "001440", "002160", "002880", "003600", "004320",
                  "005040", "005760", "006480", "007200", "007920", "008640", "009360", "010080"]
-    metrics_calculator.analyze_all_simulations(t1="000000", t2="010080")
+    metrics_calculator.analyze_all_simulations(timestamps=timestamps, t1="000000", t2="010080")
 
     if 0:
         metrics_calculator.visualize_colony_growth(

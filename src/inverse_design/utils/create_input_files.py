@@ -164,15 +164,15 @@ def generate_parameters_from_kde(
         for param in cancerous_pop.findall("population.parameter"):
             param_id = param.get("id")
             if param_id == "CELL_VOLUME" and "volume_sigma" in params:
-                param.set("value", f"NORMAL(MU=2250,SIGMA={params['volume_sigma']:.1f})")
+                param.set("value", f"NORMAL(MU=2250,SIGMA={max(0, params['volume_sigma']):.1f})")
             elif param_id == "APOPTOSIS_AGE" and "apop_age_sigma" in params:
-                param.set("value", f"NORMAL(MU=120960,SIGMA={params['apop_age_sigma']:.1f})")
+                param.set("value", f"NORMAL(MU=120960,SIGMA={max(0, params['apop_age_sigma']):.1f})")
             elif param_id == "NECROTIC_FRACTION" and "necrotic_fraction" in params:
-                param.set("value", f"{params['necrotic_fraction']:.3f}")
+                param.set("value", f"{min(1, max(0, params['necrotic_fraction'])):.3f}")
             elif param_id == "ACCURACY" and "accuracy" in params:
-                param.set("value", f"{params['accuracy']:.3f}")
+                param.set("value", f"{min(1, max(0, params['accuracy'])):.3f}")
             elif param_id == "AFFINITY" and "affinity" in params:
-                param.set("value", f"{params['affinity']:.3f}")
+                param.set("value", f"{min(1, max(0, params['affinity'])):.3f}")
             elif param_id == "COMPRESSION_TOLERANCE":
                 param.set("value", "4.35")
 
@@ -192,15 +192,21 @@ def generate_parameters_from_kde(
 
 
 # Example usage
-if __name__ == "__main__":
+
+def main():
+    output_dir = "inputs/stem_cell"
     generate_perturbed_parameters(
         sobol_power=8,
         volume_mu_range=(2250, 2250),
-        volume_sigma_range=(50, 500),
+        volume_sigma_range=(50, 150),
         apop_age_mu_range=(120960, 120960),
-        apop_age_sigma_range=(5040, 20160),
-        necrotic_fraction_range=(0.2, 0.8),
-        accuracy_range=(0.5, 1.0),
-        affinity_range=(0.3, 0.7),
-        compression_tolerance_range=(4.35, 4.35),
+        apop_age_sigma_range=(6000, 6000),
+        necrotic_fraction_range=(0.0, 1.0),
+        accuracy_range=(0.0, 1.0),
+        affinity_range=(0.0, 1.0),
+        compression_tolerance_range=(2.5, 6.5),
+        output_dir=output_dir,
     )
+
+if __name__ == "__main__":
+    main()
