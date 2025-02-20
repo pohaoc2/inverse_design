@@ -8,7 +8,7 @@
 *.jar
 outputs/
 results/
-src/inverse_design/*.png
+src/**/*.png
 
 # Editors
 .vscode/
