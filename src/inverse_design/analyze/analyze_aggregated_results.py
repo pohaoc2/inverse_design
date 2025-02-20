@@ -84,7 +84,7 @@ def get_parameters_from_json(input_folder, parameter_list):
     
     return params
 
-def collect_parameter_data(input_files, parameter_base_folder, parameter_list):
+def collect_parameter_data(input_files, parameter_base_folder, parameter_list, labels=None):
     """
     Collect parameter data from JSON files for a list of input folders.
     
@@ -92,33 +92,39 @@ def collect_parameter_data(input_files, parameter_base_folder, parameter_list):
         input_files: List of input folder names
         parameter_base_folder: Base folder containing parameter files
         parameter_list: List of parameters to extract
+        labels: Optional list of labels corresponding to input_files
     
     Returns:
-        pandas.DataFrame: DataFrame containing the parameter values
+        pandas.DataFrame: DataFrame containing the parameter values and labels
     """
     params_list = []
     
-    for input_folder in input_files:
+    for i, input_folder in enumerate(input_files):
         full_path = Path(parameter_base_folder) / input_folder
         params = get_parameters_from_json(full_path, parameter_list)
+        if labels is not None:
+            params['percentile_label'] = labels[i]
         params_list.append(params)
     
     return pd.DataFrame(params_list)
 
-def analyze_and_plot_parameters(top_df, bottom_df, parameter_list, parameter_base_folder, percentile: float = 10):
+def analyze_and_plot_parameters(all_param_df, parameter_list, parameter_base_folder, percentile: float = 10):
     """
     Analyze and plot parameter distributions for top and bottom percentile cases.
     """
-    
     n_params = len(parameter_list)
     fig, axes = plt.subplots(1, n_params, figsize=(4*n_params, 4))
     
     for idx, param in enumerate(parameter_list):
         ax = axes[idx]
         
-        # Plot density distributions
-        sns.kdeplot(data=top_df[param], ax=ax, label=f'Top {percentile}%', color='blue')
-        sns.kdeplot(data=bottom_df[param], ax=ax, label=f'Bottom {percentile}%', color='red')
+        # Plot density distributions for each group
+        for label in ['top', 'bottom']:
+            group_data = all_param_df[all_param_df['percentile_label'] == label]
+            color = 'blue' if label == 'top' else 'red'
+            sns.kdeplot(data=group_data[param], ax=ax, 
+                       label=f'{label.capitalize()} {percentile}%', 
+                       color=color)
         
         ax.set_title(f'{param} Distribution')
         ax.set_xlabel(param)
@@ -132,33 +138,22 @@ def analyze_and_plot_parameters(top_df, bottom_df, parameter_list, parameter_bas
     # Print summary statistics
     print("\nParameter Statistics:")
     print("=" * 80)
-    print(f"\nTop {percentile}% - Mean values:")
-    print(top_df.mean())
-    print(f"\nBottom {percentile}% - Mean values:")
-    print(bottom_df.mean())
+    for label in ['top', 'bottom']:
+        group_data = all_param_df[all_param_df['percentile_label'] == label]
+        print(f"\n{label.capitalize()} {percentile}% - Mean values:")
+        print(group_data[parameter_list].mean())
 
-def analyze_pca_parameters(top_df, bottom_df, parameter_list, parameter_base_folder, metrics_name: str, percentile: float = 10):
+def analyze_pca_parameters(all_param_df, parameter_list, parameter_base_folder, metrics_name: str, percentile: float = 10):
     """
     Perform PCA on parameters and visualize top and bottom percentile cases in 2D.
-    
-    Args:
-        csv_file_path: Path to the aggregated results CSV file
-        parameter_list: List of parameters to analyze
-        parameter_base_folder: Base folder containing parameter files
-        metrics_names: List of metrics used to determine top/bottom percentile
-        percentile: Percentile value between 0 and 50 (default: 10)
     """
-    
-    
-    # Combine data for PCA
-    all_data = pd.concat([top_df, bottom_df])
-    
-    # Create labels (1 for top 10%, 0 for bottom 10%)
-    labels = np.array([1] * len(top_df) + [0] * len(bottom_df))
+    # Prepare data for PCA
+    X = all_param_df[parameter_list]
+    labels = (all_param_df['percentile_label'] == 'top').astype(int)
     
     # Standardize the features
     scaler = StandardScaler()
-    data_scaled = scaler.fit_transform(all_data)
+    data_scaled = scaler.fit_transform(X)
     
     # Perform PCA
     pca = PCA(n_components=2)
@@ -167,11 +162,11 @@ def analyze_pca_parameters(top_df, bottom_df, parameter_list, parameter_base_fol
     # Create plot
     plt.figure(figsize=(10, 8))
     
-    # Plot points
-    plt.scatter(data_pca[labels==1, 0], data_pca[labels==1, 1], 
-               c='blue', label=f'Top {percentile}%', alpha=0.6)
-    plt.scatter(data_pca[labels==0, 0], data_pca[labels==0, 1], 
-               c='red', label=f'Bottom {percentile}%', alpha=0.6)
+    # Plot points for each group
+    for label, color in zip(['top', 'bottom'], ['blue', 'red']):
+        mask = all_param_df['percentile_label'] == label
+        plt.scatter(data_pca[mask, 0], data_pca[mask, 1], 
+                   c=color, label=f'{label.capitalize()} {percentile}%', alpha=0.6)
     
     # Add parameter vectors
     for i, param in enumerate(parameter_list):
@@ -191,11 +186,7 @@ def analyze_pca_parameters(top_df, bottom_df, parameter_list, parameter_base_fol
     plt.ylabel(f'Second Principal Component ({pca.explained_variance_ratio_[1]:.1%} variance)')
     plt.title(f'PCA of Parameters for Top and Bottom {percentile}% Cases')
     plt.legend()
-    
-    # Add grid
     plt.grid(True, alpha=0.3)
-    
-    # Add origin lines
     plt.axhline(y=0, color='k', linestyle='--', alpha=0.3)
     plt.axvline(x=0, color='k', linestyle='--', alpha=0.3)
     
@@ -203,21 +194,19 @@ def analyze_pca_parameters(top_df, bottom_df, parameter_list, parameter_base_fol
     plt.savefig(f'{parameter_base_folder}/pca_parameters.png')
     plt.show()
     
-    # Print explained variance ratios
+    # Print analysis results
     print("\nPCA Explained Variance Ratios:")
     print("=" * 80)
     for i, ratio in enumerate(pca.explained_variance_ratio_):
         print(f"PC{i+1}: {ratio:.1%}")
 
-    # Create a DataFrame to make it easier to read
-    loadings_df = pd.DataFrame(pca.components_, 
-                            index=[f"PC{i+1}" for i in range(len(pca.components_))], 
-                            columns=parameter_list)
-
-    # Show the contribution of each parameter in PC1
-    print("Contribution of each parameter to PC1:")
-    print(loadings_df.loc["PC1"])
-    print(loadings_df.loc["PC2"])
+    loadings_df = pd.DataFrame(
+        pca.components_, 
+        index=[f"PC{i+1}" for i in range(len(pca.components_))], 
+        columns=parameter_list
+    )
+    print("\nParameter contributions:")
+    print(loadings_df)
 
 def plot_doubling_time_relationship(labeled_df, parameter_base_folder):
     """
@@ -328,11 +317,15 @@ if __name__ == "__main__":
     parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL"
     percentile = 30
     top_n_input_file, bottom_n_input_file, labeled_df = analyze_metric_percentiles(csv_file, metrics_name, percentile, verbose=False)
-    top_param_df = collect_parameter_data(top_n_input_file, parameter_base_folder, parameter_list)
-    bottom_param_df = collect_parameter_data(bottom_n_input_file, parameter_base_folder, parameter_list)
-    # Run analyses
-    analyze_and_plot_parameters(top_param_df, bottom_param_df, parameter_list, parameter_base_folder, percentile)
-    analyze_pca_parameters(top_param_df, bottom_param_df, parameter_list, parameter_base_folder, metrics_name, percentile)
+    
+    # Create labeled parameter DataFrame
+    input_files = list(top_n_input_file) + list(bottom_n_input_file)
+    labels = ['top'] * len(top_n_input_file) + ['bottom'] * len(bottom_n_input_file)
+    all_param_df = collect_parameter_data(input_files, parameter_base_folder, parameter_list, labels)
+    
+    # Run analyses with the combined DataFrame
+    analyze_and_plot_parameters(all_param_df, parameter_list, parameter_base_folder, percentile)
+    analyze_pca_parameters(all_param_df, parameter_list, parameter_base_folder, metrics_name, percentile)
     
     # Plot doubling time relationship
     plot_doubling_time_relationship(labeled_df, parameter_base_folder)
