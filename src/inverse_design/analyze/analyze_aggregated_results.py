@@ -10,34 +10,54 @@ from sklearn.decomposition import PCA
 
 
 
-def analyze_metric_percentiles(csv_file_path, metrics_name: str, verbose: bool = True):
+def analyze_metric_percentiles(csv_file_path, metrics_name: str, percentile: float = 10, verbose: bool = True):
     """
-    Analyze rows where metrics fall into the bottom and top 10% of their distributions.
+    Analyze rows where metrics fall into the bottom and top percentiles of their distributions.
     
     Args:
         csv_file_path: Path to the aggregated results CSV file
         metrics_name: Name of the metric to analyze
+        percentile: Percentile value between 0 and 50 (default: 10)
+        verbose: Whether to print detailed analysis (default: True)
+    
+    Returns:
+        tuple: (top_n_input_file, bottom_n_input_file, labeled_df)
+    
+    Raises:
+        ValueError: If percentile is not between 0 and 50
     """
+    if not 0 < percentile <= 50:
+        raise ValueError("Percentile must be between 0 and 50")
+    
     df = pd.read_csv(csv_file_path)
     
+    # Calculate lower and upper percentiles
+    lower_bound = df[metrics_name].quantile(percentile/100)
+    upper_bound = df[metrics_name].quantile(1 - percentile/100)
     
-    # Calculate 10th and 90th percentiles for the metric
-    lower_bound = df[metrics_name].quantile(0.1)
-    upper_bound = df[metrics_name].quantile(0.9)
+    # Create a copy of the dataframe and add labels
+    all_data = df.copy()
+    all_data['percentile_label'] = 'not_assigned'
+    all_data.loc[df[metrics_name] <= lower_bound, 'percentile_label'] = 'bottom'
+    all_data.loc[df[metrics_name] >= upper_bound, 'percentile_label'] = 'top'
     
-    bottom_10 = df[df[metrics_name] <= lower_bound]
-    top_10 = df[df[metrics_name] >= upper_bound]
-    top_10_input_file = top_10["input_folder"].unique()
-    bottom_10_input_file = bottom_10["input_folder"].unique()
+    # Get the original outputs for backward compatibility
+    bottom_n = df[df[metrics_name] <= lower_bound]
+    top_n = df[df[metrics_name] >= upper_bound]
+    top_n_input_file = top_n["input_folder"].unique()
+    bottom_n_input_file = bottom_n["input_folder"].unique()
+    
     if verbose:
         print(f"\nAnalysis for {metrics_name}")
         print("=" * 80)
-        print(f"\nBottom 10% (≤ {lower_bound:.3f}):")
-        print(bottom_10)
-        print(f"\nTop 10% (≥ {upper_bound:.3f}):")
-        print(top_10)
+        print(f"\nBottom {percentile}% (≤ {lower_bound:.3f}):")
+        print(bottom_n)
+        print(f"\nTop {percentile}% (≥ {upper_bound:.3f}):")
+        print(top_n)
+        print("\nLabel distribution:")
+        print(all_data['percentile_label'].value_counts())
 
-    return top_10_input_file, bottom_10_input_file
+    return top_n_input_file, bottom_n_input_file, all_data
 
 def get_parameters_from_json(input_folder, parameter_list):
     """Extract parameters from json file."""
@@ -51,7 +71,8 @@ def get_parameters_from_json(input_folder, parameter_list):
         "APOPTOSIS_AGE_SIGMA": ("populations", "cancerous", "APOPTOSIS_AGE_SIGMA"),
         "NECROTIC_FRACTION": ("populations", "cancerous", "NECROTIC_FRACTION"),
         "ACCURACY": ("populations", "cancerous", "ACCURACY"),
-        "AFFINITY": ("populations", "cancerous", "AFFINITY")
+        "AFFINITY": ("populations", "cancerous", "AFFINITY"),
+        "COMPRESSION_TOLERANCE": ("populations", "cancerous", "COMPRESSION_TOLERANCE")
     }
     
     for param in parameter_list:
@@ -84,16 +105,11 @@ def collect_parameter_data(input_files, parameter_base_folder, parameter_list):
     
     return pd.DataFrame(params_list)
 
-def analyze_and_plot_parameters(top_10_input_file, bottom_10_input_file, parameter_list, parameter_base_folder):
+def analyze_and_plot_parameters(top_df, bottom_df, parameter_list, parameter_base_folder, percentile: float = 10):
     """
-    Analyze and plot parameter distributions for top and bottom 10% cases.
+    Analyze and plot parameter distributions for top and bottom percentile cases.
     """
     
-    # Collect parameters for both groups using the new function
-    top_df = collect_parameter_data(top_10_input_file, parameter_base_folder, parameter_list)
-    bottom_df = collect_parameter_data(bottom_10_input_file, parameter_base_folder, parameter_list)
-    
-    # Plot distributions
     n_params = len(parameter_list)
     fig, axes = plt.subplots(1, n_params, figsize=(4*n_params, 4))
     
@@ -101,8 +117,8 @@ def analyze_and_plot_parameters(top_10_input_file, bottom_10_input_file, paramet
         ax = axes[idx]
         
         # Plot density distributions
-        sns.kdeplot(data=top_df[param], ax=ax, label='Top 10%', color='blue')
-        sns.kdeplot(data=bottom_df[param], ax=ax, label='Bottom 10%', color='red')
+        sns.kdeplot(data=top_df[param], ax=ax, label=f'Top {percentile}%', color='blue')
+        sns.kdeplot(data=bottom_df[param], ax=ax, label=f'Bottom {percentile}%', color='red')
         
         ax.set_title(f'{param} Distribution')
         ax.set_xlabel(param)
@@ -116,29 +132,23 @@ def analyze_and_plot_parameters(top_10_input_file, bottom_10_input_file, paramet
     # Print summary statistics
     print("\nParameter Statistics:")
     print("=" * 80)
-    print("\nTop 10% - Mean values:")
+    print(f"\nTop {percentile}% - Mean values:")
     print(top_df.mean())
-    print("\nBottom 10% - Mean values:")
+    print(f"\nBottom {percentile}% - Mean values:")
     print(bottom_df.mean())
 
-def analyze_pca_parameters(csv_file_path, parameter_list, parameter_base_folder, metrics_names):
+def analyze_pca_parameters(top_df, bottom_df, parameter_list, parameter_base_folder, metrics_name: str, percentile: float = 10):
     """
-    Perform PCA on parameters and visualize top and bottom 10% cases in 2D.
+    Perform PCA on parameters and visualize top and bottom percentile cases in 2D.
     
     Args:
         csv_file_path: Path to the aggregated results CSV file
         parameter_list: List of parameters to analyze
         parameter_base_folder: Base folder containing parameter files
-        metrics_names: List of metrics used to determine top/bottom 10%
+        metrics_names: List of metrics used to determine top/bottom percentile
+        percentile: Percentile value between 0 and 50 (default: 10)
     """
-    # Get top and bottom 10% input folders
-    top_10_input_file, bottom_10_input_file = analyze_metric_percentiles(
-        csv_file_path, metrics_names, verbose=False
-    )
     
-    # Collect parameters for both groups using the new function
-    top_df = collect_parameter_data(top_10_input_file, parameter_base_folder, parameter_list)
-    bottom_df = collect_parameter_data(bottom_10_input_file, parameter_base_folder, parameter_list)
     
     # Combine data for PCA
     all_data = pd.concat([top_df, bottom_df])
@@ -159,9 +169,9 @@ def analyze_pca_parameters(csv_file_path, parameter_list, parameter_base_folder,
     
     # Plot points
     plt.scatter(data_pca[labels==1, 0], data_pca[labels==1, 1], 
-               c='blue', label='Top 10%', alpha=0.6)
+               c='blue', label=f'Top {percentile}%', alpha=0.6)
     plt.scatter(data_pca[labels==0, 0], data_pca[labels==0, 1], 
-               c='red', label='Bottom 10%', alpha=0.6)
+               c='red', label=f'Bottom {percentile}%', alpha=0.6)
     
     # Add parameter vectors
     for i, param in enumerate(parameter_list):
@@ -179,7 +189,7 @@ def analyze_pca_parameters(csv_file_path, parameter_list, parameter_base_folder,
     # Add plot details
     plt.xlabel(f'First Principal Component ({pca.explained_variance_ratio_[0]:.1%} variance)')
     plt.ylabel(f'Second Principal Component ({pca.explained_variance_ratio_[1]:.1%} variance)')
-    plt.title('PCA of Parameters for Top and Bottom 10% Cases')
+    plt.title(f'PCA of Parameters for Top and Bottom {percentile}% Cases')
     plt.legend()
     
     # Add grid
@@ -190,6 +200,7 @@ def analyze_pca_parameters(csv_file_path, parameter_list, parameter_base_folder,
     plt.axvline(x=0, color='k', linestyle='--', alpha=0.3)
     
     plt.tight_layout()
+    plt.savefig(f'{parameter_base_folder}/pca_parameters.png')
     plt.show()
     
     # Print explained variance ratios
@@ -208,73 +219,131 @@ def analyze_pca_parameters(csv_file_path, parameter_list, parameter_base_folder,
     print(loadings_df.loc["PC1"])
     print(loadings_df.loc["PC2"])
 
-def plot_doubling_time_relationship(csv_file_path):
+def plot_doubling_time_relationship(labeled_df, parameter_base_folder):
     """
     Plot the relationship between doubling time and its standard deviation.
     
     Args:
-        csv_file_path: Path to the aggregated results CSV file
+        labeled_df: DataFrame containing labeled data
+        parameter_base_folder: Base folder for saving plots
     """
-    # Load the data
-    df = pd.read_csv(csv_file_path)
-    
     # Create figure
     plt.figure(figsize=(10, 8))
     
-    # Create scatter plot with density coloring
-    scatter = plt.scatter(df['doub_time'], df['doub_time_std'], 
-                         alpha=0.6, c=df['colony_g_rate'], cmap='viridis')
+    # Define plot settings for each group
+    plot_settings = {
+        'top': {'color': 'blue', 'marker': 'o'},
+        'bottom': {'color': 'red', 'marker': 's'}
+    }
+    
+    # Plot data and fit lines for each group
+    for group, settings in plot_settings.items():
+        if group == 'top':
+            plot_settings[group]['corr'] = 0
+            continue
+        group_data = labeled_df[labeled_df['percentile_label'] == group]
+        
+        # Scatter plot
+        scatter = plt.scatter(group_data['doub_time'], 
+                            group_data['doub_time_std'], 
+                            alpha=0.6, 
+                            c=group_data['colony_g_rate'], 
+                            cmap='viridis',
+                            marker=settings['marker'],
+                            label=f'{group.capitalize()} percentile')
+        
+        # Fit line
+        z = np.polyfit(group_data['doub_time'], group_data['doub_time_std'], 1)
+        p = np.poly1d(z)
+        plt.plot(group_data['doub_time'], 
+                p(group_data['doub_time']), 
+                f"--",
+                color=settings['color'],
+                alpha=0.8, 
+                label=f'{group.capitalize()} fit (slope: {z[0]:.2f})')
+        
+        # Calculate correlation coefficient
+        corr = group_data['doub_time'].corr(group_data['doub_time_std'])
+        plot_settings[group]['corr'] = corr
     
     # Add colorbar
     cbar = plt.colorbar(scatter)
     cbar.set_label('Colony Growth Rate', rotation=270, labelpad=15)
     
-    # Add trend line
-    z = np.polyfit(df['doub_time'], df['doub_time_std'], 1)
-    p = np.poly1d(z)
-    plt.plot(df['doub_time'], p(df['doub_time']), 
-             "r--", alpha=0.8, label=f'Trend line (slope: {z[0]:.2f})')
-    
-    # Calculate correlation coefficient
-    corr = df['doub_time'].corr(df['doub_time_std'])
-    
     # Add labels and title
     plt.xlabel('Doubling Time')
     plt.ylabel('Doubling Time Std')
     plt.title('Relationship between Doubling Time and its Standard Deviation\n' + 
-             f'Correlation coefficient: {corr:.2f}')
-    
-    # Add grid
-    plt.grid(True, alpha=0.3)
-    
-    # Add legend
+             f'Correlation coefficients: Top={plot_settings["top"]["corr"]:.2f}, ' + 
+             f'Bottom={plot_settings["bottom"]["corr"]:.2f}')
     plt.legend()
+    plt.savefig(f'{parameter_base_folder}/doubling_time_relationship.png')
+def plot_metric_distributions(posterior_metrics_file, prior_metrics_file, target_metrics, save_file=None):
+    """
+    Plot density distributions of metrics from posterior and prior, with target values.
     
-    # Print summary statistics
-    print("\nSummary Statistics:")
-    print("=" * 80)
-    print("\nCorrelation coefficient:", corr)
-    print("\nTrend line equation: y = {:.2f}x + {:.2f}".format(z[0], z[1]))
+    Args:
+        posterior_metrics_file: Path to simulation_metrics.csv (posterior)
+        prior_metrics_file: Path to completed_doubling.csv (prior)
+        target_metrics: Dictionary of target values for each metric
+    """
+    # Load data
+    posterior_df = pd.read_csv(posterior_metrics_file)
+    prior_df = pd.read_csv(prior_metrics_file)
+    
+    metrics_list = list(target_metrics.keys())
+    
+    # Create subplot for each metric
+    fig, axes = plt.subplots(1, len(metrics_list), figsize=(15, 5))
+    
+    for idx, metric in enumerate(metrics_list):
+        # Plot posterior distribution
+        sns.kdeplot(data=posterior_df[metric], ax=axes[idx], label='Posterior', color='blue')
+        
+        # Plot prior distribution
+        sns.kdeplot(data=prior_df[metric], ax=axes[idx], label='Prior', color='gray')
+        
+        # Add vertical line for target value
+        axes[idx].axvline(x=target_metrics[metric], color='red', linestyle='--', 
+                         label=f'Target ({target_metrics[metric]})')
+        
+        axes[idx].set_title(f'{metric} Distribution')
+        axes[idx].set_xlabel(metric)
+        axes[idx].set_ylabel('Density')
+        axes[idx].legend()
     
     plt.tight_layout()
-    plt.show()
+    if save_file is not None:
+        plt.savefig(save_file)
+    else:
+        plt.show()
+
 
 if __name__ == "__main__":
     # Specify your parameters
-    csv_file = "ARCADE_OUTPUT/SMALL_STD_ONLY_VOLUME/simulation_metrics.csv"
-    #csv_file = "ARCADE_OUTPUT/MANUAL_VOLUME_APOTOSIS/simulation_metrics.csv"
+    csv_file = "ARCADE_OUTPUT/STEM_CELL/simulation_metrics.csv"
     metrics_name = "doub_time_std"
-    parameter_list = ["CELL_VOLUME_SIGMA", "APOPTOSIS_AGE_SIGMA", "NECROTIC_FRACTION", 
-                     "ACCURACY", "AFFINITY"]
-    parameter_base_folder = "ARCADE_OUTPUT/SMALL_STD_ONLY_VOLUME"
-    #parameter_base_folder = "ARCADE_OUTPUT/MANUAL_VOLUME_APOTOSIS"
-
-    top_10_input_file, bottom_10_input_file = analyze_metric_percentiles(csv_file, metrics_name, verbose=False)
-    
-    
+    parameter_list = ["CELL_VOLUME_SIGMA", "NECROTIC_FRACTION", 
+                     "ACCURACY", "AFFINITY", "COMPRESSION_TOLERANCE"]
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL"
+    percentile = 30
+    top_n_input_file, bottom_n_input_file, labeled_df = analyze_metric_percentiles(csv_file, metrics_name, percentile, verbose=False)
+    top_param_df = collect_parameter_data(top_n_input_file, parameter_base_folder, parameter_list)
+    bottom_param_df = collect_parameter_data(bottom_n_input_file, parameter_base_folder, parameter_list)
     # Run analyses
-    analyze_and_plot_parameters(top_10_input_file, bottom_10_input_file, parameter_list, parameter_base_folder)
-    #analyze_pca_parameters(csv_file, parameter_list, parameter_base_folder, metrics_names)
+    analyze_and_plot_parameters(top_param_df, bottom_param_df, parameter_list, parameter_base_folder, percentile)
+    analyze_pca_parameters(top_param_df, bottom_param_df, parameter_list, parameter_base_folder, metrics_name, percentile)
     
     # Plot doubling time relationship
-    plot_doubling_time_relationship(csv_file)
+    plot_doubling_time_relationship(labeled_df, parameter_base_folder)
+
+    posterior_metrics_file = "ARCADE_OUTPUT/STEM_CELL/simulation_metrics.csv"
+    prior_metrics_file = "prior_metrics_formatted.csv"
+    target_metrics = {
+        "doub_time": 50,
+        "doub_time_std": 0.0,
+        "act_t2": 0.5,
+        #"colony_g_rate": 0.8
+    }
+    save_file = "stem_cell_metric_distributions.png"
+    plot_metric_distributions(posterior_metrics_file, prior_metrics_file, target_metrics, save_file)

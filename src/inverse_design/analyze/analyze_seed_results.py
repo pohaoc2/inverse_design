@@ -71,13 +71,14 @@ class SeedAnalyzer:
         
         print(f"number of top 10% folders: {len(top_metrics)}")
         print(f"number of bottom 10% folders: {len(bottom_metrics)}")
-        if 0:
+        if 1:
             for folder, metrics in top_metrics.items():
-                print(f"folder: {folder}")
-                for exp_key, exp_metrics in metrics.items():
-                    for metric, values in exp_metrics.items():
-                        print(metric, values)
-                asd()
+                if folder == "input_114":
+                    print(f"folder: {folder}")
+                    for exp_key, exp_metrics in metrics.items():
+                        for metric, values in exp_metrics.items():
+                            print(metric, values)
+                    asd()
         # Prepare data for plotting
         plot_data = []
         metrics_to_plot = ['doubling_time', 'num_cells_t2']
@@ -108,7 +109,7 @@ class SeedAnalyzer:
         
         # Create plot
         df = pd.DataFrame(plot_data)
-        print(df)
+        print(df[df['Metric'] == 'doubling_time'].sort_values('Value'))
         plt.figure(figsize=(10, 10))
         
         for idx, metric in enumerate(metrics_to_plot):
@@ -143,7 +144,7 @@ class SeedAnalyzer:
 if __name__ == "__main__":
     # Example usage
     base_dir = "ARCADE_OUTPUT/SMALL_STD_ONLY_VOLUME"
-    base_dir = "ARCADE_OUTPUT/MANUAL_VOLUME_APOTOSIS"
+    base_dir = "ARCADE_OUTPUT/STEM_CELL"
     csv_file = f"{base_dir}/simulation_metrics.csv"
     
     analyzer = SeedAnalyzer(base_dir)

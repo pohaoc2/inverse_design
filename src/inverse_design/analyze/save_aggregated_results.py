@@ -153,27 +153,27 @@ class SimulationMetrics:
         for (exp_group, exp_name), metrics in metrics_by_exp.items():
             colony_metrics = fit_data.get((exp_group, exp_name), {})
             
-            avg_cells_t1 = sum(metrics["num_cells_t1"]) / len(metrics["num_cells_t1"])
-            avg_cells_t2 = sum(metrics["num_cells_t2"]) / len(metrics["num_cells_t2"])
+            avg_cells_t1 = np.median(metrics["num_cells_t1"])
+            avg_cells_t2 = np.median(metrics["num_cells_t2"])
             
             metrics_dict = {
                 #"exp_group": exp_group,
                 #"exp_name": exp_name,
-                #"growth_rate": sum(metrics["growth_rates"]) / len(metrics["growth_rates"]),
+                #"growth_rate": np.median(metrics["growth_rates"]),
                 #"growth_rate_std": np.std(metrics["growth_rates"]),
-                "doub_time": sum(metrics["doubling_time"]) / len(metrics["doubling_time"]),
+                "doub_time": np.median(metrics["doubling_time"]),
                 "doub_time_std": np.std(metrics["doubling_time"]),
-                #"avg_volume_t1": sum(metrics["avg_volumes_t1"]) / len(metrics["avg_volumes_t1"]),
+                #"avg_volume_t1": np.median(metrics["avg_volumes_t1"]),
                 #"avg_volume_t1_std": np.std(metrics["avg_volumes_t1"]),
-                "vol_t2": sum(metrics["avg_volumes_t2"]) / len(metrics["avg_volumes_t2"]),
+                "vol_t2": np.median(metrics["avg_volumes_t2"]),
                 "vol_t2_std": np.std(metrics["avg_volumes_t2"]),
                 #"n_cells_t1": avg_cells_t1,
                 #"n_cells_t1_std": np.std(metrics["num_cells_t1"]),
                 "n_cells_t2": avg_cells_t2,
                 "n_cells_t2_std": np.std(metrics["num_cells_t2"]),
-                #"activity_t1": sum(metrics["activity_t1"]) / len(metrics["activity_t1"]),
+                #"activity_t1": np.median(metrics["activity_t1"]),
                 #"activity_t1_std": np.std(metrics["activity_t1"]),
-                "act_t2": sum(metrics["activity_t2"]) / len(metrics["activity_t2"]),
+                "act_t2": np.median(metrics["activity_t2"]),
                 "act_t2_std": np.std(metrics["activity_t2"]),
                 #"seed_count": metrics["seed_count"],
                 "colony_g_rate": colony_metrics.get("slope", 0.0),
@@ -302,7 +302,7 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
     #metrics_calculator = SimulationMetrics("ARCADE_OUTPUT/SMALL_STD_ONLY_VOLUME/")
-    metrics_calculator = SimulationMetrics("ARCADE_OUTPUT/MANUAL_VOLUME_APOTOSIS/")
+    metrics_calculator = SimulationMetrics("ARCADE_OUTPUT/STEM_CELL/")
     
     timestamps = ["000000", "000720", "001440", "002160", "002880", "003600", "004320",
                  "005040", "005760", "006480", "007200", "007920", "008640", "009360", "010080"]

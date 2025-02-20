@@ -118,68 +118,11 @@ def calculate_chaos_metric(metrics_df):
     
     return chaos_df
 
-def plot_metric_distributions(posterior_metrics_file, prior_metrics_file, target_metrics, save_file=None):
-    """
-    Plot density distributions of metrics from posterior and prior, with target values.
-    
-    Args:
-        posterior_metrics_file: Path to simulation_metrics.csv (posterior)
-        prior_metrics_file: Path to completed_doubling.csv (prior)
-        target_metrics: Dictionary of target values for each metric
-    """
-    # Load data
-    posterior_df = pd.read_csv(posterior_metrics_file)
-    prior_df = pd.read_csv(prior_metrics_file)
-    
-    metrics_list = list(target_metrics.keys())
-    
-    # Create subplot for each metric
-    fig, axes = plt.subplots(1, len(metrics_list), figsize=(15, 5))
-    
-    for idx, metric in enumerate(metrics_list):
-        # Plot posterior distribution
-        sns.kdeplot(data=posterior_df[metric], ax=axes[idx], label='Posterior', color='blue')
-        
-        # Plot prior distribution
-        sns.kdeplot(data=prior_df[metric], ax=axes[idx], label='Prior', color='gray')
-        
-        # Add vertical line for target value
-        axes[idx].axvline(x=target_metrics[metric], color='red', linestyle='--', 
-                         label=f'Target ({target_metrics[metric]})')
-        
-        axes[idx].set_title(f'{metric} Distribution')
-        axes[idx].set_xlabel(metric)
-        axes[idx].set_ylabel('Density')
-        axes[idx].legend()
-    
-    plt.tight_layout()
-    if save_file is not None:
-        plt.savefig(save_file)
-    else:
-        plt.show()
-
 def main():
 
     param_file = 'inputs/kde_sampled_inputs_small_std/kde_sampled_parameters_log.csv'
-    param_file = 'inputs/manual_volume_apoptosis/kde_sampled_parameters_log.csv'
-    posterior_metrics_file = 'ARCADE_OUTPUT/SMALL_STD_ONLY_VOLUME/simulation_metrics.csv'
-    posterior_metrics_file = 'ARCADE_OUTPUT/MANUAL_VOLUME_APOTOSIS/simulation_metrics.csv'
-    prior_metrics_file = 'completed_doubling_formatted.csv'
-    
-    # Define target metrics
-    target_metrics = {
-        "doub_time": 50,
-        "doub_time_std": 0.0,
-        "act_t2": 0.5,
-        "colony_g_rate": 0.8
-    }
-    
-    # Plot metric distributions
-    save_file = 'manual_volume_apoptosis_metric_distributions.png'
-    plot_metric_distributions(posterior_metrics_file,
-    prior_metrics_file,
-    target_metrics,
-    save_file=save_file)
+    posterior_metrics_file = 'ARCADE_OUTPUT/STEM_CELL/simulation_metrics.csv'
+    prior_metrics_file = 'prior_metrics_formatted.csv'
     
     # Load and prepare data for other visualizations
     # params_df, metrics_df = load_and_prepare_data(param_file, posterior_metrics_file)
