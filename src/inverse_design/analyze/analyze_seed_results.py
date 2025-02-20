@@ -42,12 +42,12 @@ class SeedAnalyzer:
             metrics_by_exp = self.sim_metrics.process_parameter_seeds(
                 cells_data_t1, cells_data_t2, time_difference
             )
-            
-            all_seed_metrics[folder_name] = metrics_by_exp
+            exp_name = list(metrics_by_exp.keys())[0]
+            all_seed_metrics[folder_name] = metrics_by_exp[exp_name]
         return all_seed_metrics
     
-    def plot_seed_comparisons(self, csv_file: str, metric_name: str, t1: str = "000000", 
-                            t2: str = "010080", timestamps: List[str] = None):
+    def plot_seed_comparisons(self, csv_file: str, metric_name: str, percentile: float = 10, t1: str = "000000", 
+                            t2: str = "010080", timestamps: List[str] = None, metrics_to_plot: List[str] = None):
         """Plot violin plots comparing seed distributions for top and bottom performers.
         
         Args:
@@ -57,78 +57,70 @@ class SeedAnalyzer:
             t2: Second timepoint
             timestamps: List of timestamps for analysis
         """
-        # Get top and bottom 10% folders
-        top_10_folders, bottom_10_folders = analyze_metric_percentiles(
-            csv_file, metric_name, verbose=False
+        # Get top and bottom folders
+        top_n_input_file, bottom_n_input_file, _ = analyze_metric_percentiles(
+            csv_file, metric_name, percentile, verbose=False
         )
         
-        # Analyze seeds for both groups
+        # Get seed metrics for each group
+        top_seed_metrics = self.analyze_seeds_for_folders(top_n_input_file, t1, t2, timestamps)
+        bottom_seed_metrics = self.analyze_seeds_for_folders(bottom_n_input_file, t1, t2, timestamps)
+        
         if timestamps is None:
             timestamps = [t1, t2]
             
-        top_metrics = self.analyze_seeds_for_folders(top_10_folders, t1, t2, timestamps)
-        bottom_metrics = self.analyze_seeds_for_folders(bottom_10_folders, t1, t2, timestamps)
-        
-        print(f"number of top 10% folders: {len(top_metrics)}")
-        print(f"number of bottom 10% folders: {len(bottom_metrics)}")
-        if 1:
-            for folder, metrics in top_metrics.items():
-                if folder == "input_114":
-                    print(f"folder: {folder}")
-                    for exp_key, exp_metrics in metrics.items():
-                        for metric, values in exp_metrics.items():
-                            print(metric, values)
-                    asd()
-        # Prepare data for plotting
+        # Create plot data from seed metrics
         plot_data = []
-        metrics_to_plot = ['doubling_time', 'num_cells_t2']
-        
-        # Process top performers
-        for folder, metrics in top_metrics.items():
-            for exp_key, exp_metrics in metrics.items():
+        for group, seed_metrics in [('top', top_seed_metrics), ('bottom', bottom_seed_metrics)]:
+            for folder, folder_metrics in seed_metrics.items():
                 for metric in metrics_to_plot:
-                    for value in exp_metrics[metric]:
+                    values = folder_metrics[metric]
+                    for value in values:
                         plot_data.append({
-                            'Metric': metric,
-                            'Value': value,
-                            'Group': 'Top 10%',
-                            'Folder': folder
+                            'metric': metric,
+                            'value': value,
+                            'group': group,
+                            'folder': folder
                         })
         
-        # Process bottom performers
-        for folder, metrics in bottom_metrics.items():
-            for exp_key, exp_metrics in metrics.items():
-                for metric in metrics_to_plot:
-                    for value in exp_metrics[metric]:
-                        plot_data.append({
-                            'Metric': metric,
-                            'Value': value,
-                            'Group': 'Bottom 10%',
-                            'Folder': folder
-                        })
+        # Convert to DataFrame
+        plot_df = pd.DataFrame(plot_data)
         
-        # Create plot
-        df = pd.DataFrame(plot_data)
-        print(df[df['Metric'] == 'doubling_time'].sort_values('Value'))
-        plt.figure(figsize=(10, 10))
+        print(f"number of top {percentile}% folders: {len(top_n_input_file)}")
+        print(f"number of bottom {percentile}% folders: {len(bottom_n_input_file)}")
+        
+        # Create plots
+        plt.figure(figsize=(4*len(metrics_to_plot), 8))
         
         for idx, metric in enumerate(metrics_to_plot):
             plt.subplot(1, len(metrics_to_plot), idx + 1)
-            metric_data = df[df['Metric'] == metric]
+            metric_data = plot_df[plot_df['metric'] == metric]
             
-            sns.violinplot(data=metric_data, x='Group', y='Value')
-            sns.stripplot(data=metric_data, x='Group', y='Value', 
-                         color='k', alpha=0.9, size=4, jitter=0.2)
+            # Create violin plot
+            sns.violinplot(data=metric_data, 
+                         x='group', 
+                         y='value',
+                         order=['top', 'bottom'])
+            
+            # Add individual points
+            sns.stripplot(data=metric_data, 
+                         x='group', 
+                         y='value',
+                         order=['top', 'bottom'],
+                         color='black',
+                         alpha=0.8,
+                         size=3,
+                         jitter=0.2)
             
             plt.title(f'{metric} Distribution')
             plt.xticks(rotation=45)
             
             # Add statistics
-            top_vals = metric_data[metric_data['Group'] == 'Top 10%']['Value']
-            bottom_vals = metric_data[metric_data['Group'] == 'Bottom 10%']['Value']
+            top_vals = metric_data[metric_data['group'] == 'top']['value']
+            bottom_vals = metric_data[metric_data['group'] == 'bottom']['value']
             
-            stats_text = f"Top 10%:\nMean: {top_vals.mean():.2f}\nStd: {top_vals.std():.2f}\n\n"
-            stats_text += f"Bottom 10%:\nMean: {bottom_vals.mean():.2f}\nStd: {bottom_vals.std():.2f}"
+            stats_text = f"Top {percentile}%:\nMean: {top_vals.mean():.2f}\nStd: {top_vals.std():.2f}\n\n"
+            stats_text += f"Bottom {percentile}%:\nMean: {bottom_vals.mean():.2f}\nStd: {bottom_vals.std():.2f}"
             
             plt.text(0.95, 0.95, stats_text,
                     transform=plt.gca().transAxes,
@@ -137,20 +129,21 @@ class SeedAnalyzer:
                     bbox=dict(facecolor='white', alpha=0.8))
         
         plt.tight_layout()
-        
         plt.savefig(f'{self.base_output_dir}/seed_comparisons.png')
         plt.show()
 
 if __name__ == "__main__":
     # Example usage
-    base_dir = "ARCADE_OUTPUT/SMALL_STD_ONLY_VOLUME"
     base_dir = "ARCADE_OUTPUT/STEM_CELL"
     csv_file = f"{base_dir}/simulation_metrics.csv"
-    
+    percentile = 10
+    metrics_to_plot = ['doub_time', 'act_t2', 'n_cells_t2']
     analyzer = SeedAnalyzer(base_dir)
     analyzer.plot_seed_comparisons(
         csv_file=csv_file,
         metric_name="doub_time_std",
+        percentile=percentile,
+        metrics_to_plot=metrics_to_plot,
         t1="000000",
         t2="010080"
     )

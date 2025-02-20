@@ -81,12 +81,12 @@ class SimulationMetrics:
                     "growth_rates": [],
                     "avg_volumes_t1": [],
                     "avg_volumes_t2": [],
-                    "num_cells_t1": [],
-                    "num_cells_t2": [],
-                    "activity_t1": [],
-                    "activity_t2": [],
+                    "n_cells_t1": [],
+                    "n_cells_t2": [],
+                    "act_t1": [],
+                    "act_t2": [],
                     "seed_count": 0,
-                    "doubling_time": [],
+                    "doub_time": [],
                 }
 
             metrics_by_exp[exp_key]["growth_rates"].append(
@@ -98,16 +98,16 @@ class SimulationMetrics:
             metrics_by_exp[exp_key]["avg_volumes_t2"].append(
                 self.cell_metrics.calculate_average_volume(cells_t2)
             )
-            metrics_by_exp[exp_key]["num_cells_t1"].append(len(cells_t1))
-            metrics_by_exp[exp_key]["num_cells_t2"].append(len(cells_t2))
-            metrics_by_exp[exp_key]["activity_t1"].append(
+            metrics_by_exp[exp_key]["n_cells_t1"].append(len(cells_t1))
+            metrics_by_exp[exp_key]["n_cells_t2"].append(len(cells_t2))
+            metrics_by_exp[exp_key]["act_t1"].append(
                 self.cell_metrics.calculate_activity(cells_t1)
             )
-            metrics_by_exp[exp_key]["activity_t2"].append(
+            metrics_by_exp[exp_key]["act_t2"].append(
                 self.cell_metrics.calculate_activity(cells_t2)
             )
             metrics_by_exp[exp_key]["seed_count"] += 1
-            metrics_by_exp[exp_key]["doubling_time"].append(
+            metrics_by_exp[exp_key]["doub_time"].append(
                 self.cell_metrics.calculate_doubling_time(len(cells_t1), len(cells_t2), time_difference)
             )
 
@@ -118,9 +118,9 @@ class SimulationMetrics:
                 metrics_by_exp[exp_key]["growth_rates"],
                 metrics_by_exp[exp_key]["avg_volumes_t1"],
                 metrics_by_exp[exp_key]["avg_volumes_t2"],
-                metrics_by_exp[exp_key]["activity_t1"],
-                metrics_by_exp[exp_key]["activity_t2"],
-                metrics_by_exp[exp_key]["doubling_time"]
+                metrics_by_exp[exp_key]["act_t1"],
+                metrics_by_exp[exp_key]["act_t2"],
+                metrics_by_exp[exp_key]["doub_time"]
             ]
             
             valid_indices, filtered_metrics = self.filter_valid_metrics(metrics_to_check)
@@ -128,11 +128,11 @@ class SimulationMetrics:
             metrics_by_exp[exp_key]["growth_rates"] = filtered_metrics[0]
             metrics_by_exp[exp_key]["avg_volumes_t1"] = filtered_metrics[1]
             metrics_by_exp[exp_key]["avg_volumes_t2"] = filtered_metrics[2]
-            metrics_by_exp[exp_key]["num_cells_t1"] = [metrics_by_exp[exp_key]["num_cells_t1"][i] for i in valid_indices]
-            metrics_by_exp[exp_key]["num_cells_t2"] = [metrics_by_exp[exp_key]["num_cells_t2"][i] for i in valid_indices]
-            metrics_by_exp[exp_key]["activity_t1"] = filtered_metrics[3]
-            metrics_by_exp[exp_key]["activity_t2"] = filtered_metrics[4]
-            metrics_by_exp[exp_key]["doubling_time"] = filtered_metrics[5]
+            metrics_by_exp[exp_key]["n_cells_t1"] = [metrics_by_exp[exp_key]["n_cells_t1"][i] for i in valid_indices]
+            metrics_by_exp[exp_key]["n_cells_t2"] = [metrics_by_exp[exp_key]["n_cells_t2"][i] for i in valid_indices]
+            metrics_by_exp[exp_key]["act_t1"] = filtered_metrics[3]
+            metrics_by_exp[exp_key]["act_t2"] = filtered_metrics[4]
+            metrics_by_exp[exp_key]["doub_time"] = filtered_metrics[5]
             metrics_by_exp[exp_key]["seed_count"] = len(valid_indices)
 
         return metrics_by_exp
@@ -153,16 +153,16 @@ class SimulationMetrics:
         for (exp_group, exp_name), metrics in metrics_by_exp.items():
             colony_metrics = fit_data.get((exp_group, exp_name), {})
             
-            avg_cells_t1 = np.median(metrics["num_cells_t1"])
-            avg_cells_t2 = np.median(metrics["num_cells_t2"])
+            avg_cells_t1 = np.median(metrics["n_cells_t1"])
+            avg_cells_t2 = np.median(metrics["n_cells_t2"])
             
             metrics_dict = {
                 #"exp_group": exp_group,
                 #"exp_name": exp_name,
                 #"growth_rate": np.median(metrics["growth_rates"]),
                 #"growth_rate_std": np.std(metrics["growth_rates"]),
-                "doub_time": np.median(metrics["doubling_time"]),
-                "doub_time_std": np.std(metrics["doubling_time"]),
+                "doub_time": np.median(metrics["doub_time"]),
+                "doub_time_std": np.std(metrics["doub_time"]),
                 #"avg_volume_t1": np.median(metrics["avg_volumes_t1"]),
                 #"avg_volume_t1_std": np.std(metrics["avg_volumes_t1"]),
                 "vol_t2": np.median(metrics["avg_volumes_t2"]),
@@ -170,11 +170,11 @@ class SimulationMetrics:
                 #"n_cells_t1": avg_cells_t1,
                 #"n_cells_t1_std": np.std(metrics["num_cells_t1"]),
                 "n_cells_t2": avg_cells_t2,
-                "n_cells_t2_std": np.std(metrics["num_cells_t2"]),
-                #"activity_t1": np.median(metrics["activity_t1"]),
-                #"activity_t1_std": np.std(metrics["activity_t1"]),
-                "act_t2": np.median(metrics["activity_t2"]),
-                "act_t2_std": np.std(metrics["activity_t2"]),
+                "n_cells_t2_std": np.std(metrics["n_cells_t2"]),
+                #"activity_t1": np.median(metrics["act_t1"]),
+                #"activity_t1_std": np.std(metrics["act_t1"]),
+                "act_t2": np.median(metrics["act_t2"]),
+                "act_t2_std": np.std(metrics["act_t2"]),
                 #"seed_count": metrics["seed_count"],
                 "colony_g_rate": colony_metrics.get("slope", 0.0),
                 "colony_g_rate_std": colony_metrics.get("slope_std", 0.0),
