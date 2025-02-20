@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 import scipy.stats.qmc
 from typing import Dict
-
+import os
 
 def generate_perturbed_parameters(
     sobol_power,
@@ -18,6 +18,7 @@ def generate_perturbed_parameters(
     compression_tolerance_range=(0.0, 0.2),
     template_path="sample_input_v3.xml",
     output_dir="perturbed_inputs",
+    seed=42
 ):
     # Define parameter ranges
     param_ranges = [
@@ -31,10 +32,11 @@ def generate_perturbed_parameters(
         compression_tolerance_range,
     ]
 
-    # Initialize Sobol sequence generator
+    # Initialize Sobol sequence generator with random seed
     sobol_engine = scipy.stats.qmc.Sobol(
         d=len(param_ranges),
         scramble=True,
+        seed=seed
     )
 
     # Generate samples in [0, 1] space
@@ -131,7 +133,8 @@ def generate_parameters_from_kde(
         template_path: Path to template XML file
     """
     # Create output directory
-    Path(output_dir).mkdir(exist_ok=True)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     # Read template XML
     tree = ET.parse(template_path)
@@ -163,18 +166,18 @@ def generate_parameters_from_kde(
         # Update parameters
         for param in cancerous_pop.findall("population.parameter"):
             param_id = param.get("id")
-            if param_id == "CELL_VOLUME" and "volume_sigma" in params:
-                param.set("value", f"NORMAL(MU=2250,SIGMA={max(0, params['volume_sigma']):.1f})")
-            elif param_id == "APOPTOSIS_AGE" and "apop_age_sigma" in params:
-                param.set("value", f"NORMAL(MU=120960,SIGMA={max(0, params['apop_age_sigma']):.1f})")
-            elif param_id == "NECROTIC_FRACTION" and "necrotic_fraction" in params:
-                param.set("value", f"{min(1, max(0, params['necrotic_fraction'])):.3f}")
-            elif param_id == "ACCURACY" and "accuracy" in params:
-                param.set("value", f"{min(1, max(0, params['accuracy'])):.3f}")
-            elif param_id == "AFFINITY" and "affinity" in params:
-                param.set("value", f"{min(1, max(0, params['affinity'])):.3f}")
-            elif param_id == "COMPRESSION_TOLERANCE":
-                param.set("value", "4.35")
+            if param_id == "CELL_VOLUME" and "CELL_VOLUME_SIGMA" in params:
+                param.set("value", f"NORMAL(MU=2250,SIGMA={max(0, params['CELL_VOLUME_SIGMA']):.1f})")
+            elif param_id == "APOPTOSIS_AGE" and "APOPTOSIS_AGE_SIGMA" in params:
+                param.set("value", f"NORMAL(MU=120960,SIGMA={max(0, params['APOPTOSIS_AGE_SIGMA']):.1f})")
+            elif param_id == "NECROTIC_FRACTION" and "NECROTIC_FRACTION" in params:
+                param.set("value", f"{min(1, max(0, params['NECROTIC_FRACTION'])):.3f}")
+            elif param_id == "ACCURACY" and "ACCURACY" in params:
+                param.set("value", f"{min(1, max(0, params['ACCURACY'])):.3f}")
+            elif param_id == "AFFINITY" and "AFFINITY" in params:
+                param.set("value", f"{min(1, max(0, params['AFFINITY'])):.3f}")
+            elif param_id == "COMPRESSION_TOLERANCE" and "COMPRESSION_TOLERANCE" in params:
+                param.set("value", f"{params['COMPRESSION_TOLERANCE']:.3f}")
 
         # Save modified XML
         output_file = f"{output_dir}/input_{i+1}.xml"

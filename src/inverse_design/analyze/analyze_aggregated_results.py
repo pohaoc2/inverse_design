@@ -80,6 +80,7 @@ def get_parameters_from_json(input_folder, parameter_list):
         value = data
         for key in path:
             value = value[key]
+            
         params[param] = value
     
     return params
@@ -95,13 +96,15 @@ def collect_parameter_data(input_files, parameter_base_folder, parameter_list, l
         labels: Optional list of labels corresponding to input_files
     
     Returns:
-        pandas.DataFrame: DataFrame containing the parameter values and labels
+        pandas.DataFrame: DataFrame containing the parameter values, labels, and folder names
     """
     params_list = []
     
     for i, input_folder in enumerate(input_files):
         full_path = Path(parameter_base_folder) / input_folder
         params = get_parameters_from_json(full_path, parameter_list)
+        # Add folder name to params
+        params['input_folder'] = input_folder
         if labels is not None:
             params['percentile_label'] = labels[i]
         params_list.append(params)
@@ -315,14 +318,19 @@ if __name__ == "__main__":
     parameter_list = ["CELL_VOLUME_SIGMA", "NECROTIC_FRACTION", 
                      "ACCURACY", "AFFINITY", "COMPRESSION_TOLERANCE"]
     parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL"
-    percentile = 30
+    percentile = 50
     top_n_input_file, bottom_n_input_file, labeled_df = analyze_metric_percentiles(csv_file, metrics_name, percentile, verbose=False)
     
     # Create labeled parameter DataFrame
     input_files = list(top_n_input_file) + list(bottom_n_input_file)
     labels = ['top'] * len(top_n_input_file) + ['bottom'] * len(bottom_n_input_file)
     all_param_df = collect_parameter_data(input_files, parameter_base_folder, parameter_list, labels)
-    
+    # Sort by folder number (input_1, input_2, ...)
+    all_param_df = all_param_df.sort_values('input_folder', 
+                                          key=lambda x: x.str.extract('input_(\d+)').iloc[:,0].astype(int))
+    all_param_df.to_csv(f"{parameter_base_folder}/all_param_df.csv", index=False)
+
+
     # Run analyses with the combined DataFrame
     analyze_and_plot_parameters(all_param_df, parameter_list, parameter_base_folder, percentile)
     analyze_pca_parameters(all_param_df, parameter_list, parameter_base_folder, metrics_name, percentile)
