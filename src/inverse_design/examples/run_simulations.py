@@ -18,8 +18,9 @@ def run_single_simulation(input_file: Path, output_base_dir: Path, jar_path: str
     Returns:
         bool: True if simulation completed successfully
     """
-    output_dir = output_base_dir / input_file.stem
-    output_dir.mkdir(exist_ok=True, parents=True)
+    output_dir = f"{output_base_dir}/inputs/{input_file.stem}"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     try:
         result = subprocess.run(
@@ -70,7 +71,7 @@ def run_simulations(
 
     start_file = f"input_{start_index}"
     input_files = [f for f in input_files if f.stem >= start_file]
-    
+
     if not input_files:
         raise FileNotFoundError(f"No XML files found with index >= {start_index}")
 
@@ -106,8 +107,8 @@ def run_simulations(
 
 if __name__ == "__main__":
     run_simulations(
-        input_dir="inputs/STEM_CELL/stem_cell_vary_volume_posterior",
-        output_dir="ARCADE_OUTPUT/STEM_CELL/STEM_CELL_VARY_VOLUME_POSTERIOR",
+        input_dir="inputs/STEM_CELL/stem_cell_longer",
+        output_dir="ARCADE_OUTPUT/STEM_CELL/STEM_CELL_LONGER",
         jar_path="models/arcade-test-cycle.jar",
         max_workers=6,
         start_index=1,

@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import TABLEAU_COLORS
 from scipy import stats
 
+
 class SpatialMetrics:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
@@ -35,7 +36,9 @@ class SpatialMetrics:
         vmax, vmin = max(v_values), min(v_values)
         wmax, wmin = max(w_values), min(w_values)
 
-        diameter = C * (max(umax - umin + 1, 0) + max(vmax - vmin + 1, 0) + max(wmax - wmin + 1, 0)) / 3
+        diameter = (
+            C * (max(umax - umin + 1, 0) + max(vmax - vmin + 1, 0) + max(wmax - wmin + 1, 0)) / 3
+        )
         return diameter
 
     def parse_location_file(self, filename: str) -> Dict[str, str]:
@@ -87,41 +90,34 @@ class SpatialMetrics:
 
         for timestamp in timestamps:
             locations_data = self.load_locations_data(folder_path, timestamp)
-            
+
             exp_diameters = {}
             for file_info, locations in locations_data:
                 exp_key = (file_info["exp_group"], file_info["exp_name"])
-                
+
                 if exp_key not in exp_diameters:
-                    exp_diameters[exp_key] = {
-                        "diameters": [],
-                        "timestamp": timestamp
-                    }
-                
+                    exp_diameters[exp_key] = {"diameters": [], "timestamp": timestamp}
+
                 diameter = self.calculate_colony_diameter(locations, C)
                 exp_diameters[exp_key]["diameters"].append(diameter)
 
             for exp_key, data in exp_diameters.items():
                 if exp_key not in results:
-                    results[exp_key] = {
-                        "mean_diameter": [],
-                        "std_diameter": [],
-                        "timestamps": []
-                    }
-                
+                    results[exp_key] = {"mean_diameter": [], "std_diameter": [], "timestamps": []}
+
                 diameters = data["diameters"]
                 results[exp_key]["mean_diameter"].append(np.mean(diameters))
                 results[exp_key]["std_diameter"].append(np.std(diameters))
                 results[exp_key]["timestamps"].append(timestamp)
 
-        return results 
+        return results
 
     def fit_colony_growth(
         self,
         folder_path: Path,
         timestamps: List[str],
         C: float = 30.0,
-        time_conversion: float = 1/60
+        time_conversion: float = 1 / 60,
     ) -> Dict[str, Dict[str, float]]:
         """Fit colony diameter growth to linear function (y = mx + c)
 
@@ -144,44 +140,46 @@ class SpatialMetrics:
             }
         """
         results = {}
-        
+
         exp_data = {}  # {(exp_group, exp_name): {seed: [(time, diameter), ...], ...}}
-        
+
         for timestamp in timestamps:
             locations_data = self.load_locations_data(folder_path, timestamp)
             time_hr = float(timestamp) * time_conversion
-            
+
             for file_info, locations in locations_data:
                 exp_key = (file_info["exp_group"], file_info["exp_name"])
                 seed = file_info["seed"]
-                
+
                 if exp_key not in exp_data:
                     exp_data[exp_key] = {}
                 if seed not in exp_data[exp_key]:
                     exp_data[exp_key][seed] = []
-                
+
                 diameter = self.calculate_colony_diameter(locations, C)
                 exp_data[exp_key][seed].append((time_hr, diameter))
 
         for exp_key, seed_data in exp_data.items():
             all_times = []
             all_diameters = []
-            
+
             for seed, points in seed_data.items():
                 times, diameters = zip(*sorted(points))
                 all_times.extend(times)
                 all_diameters.extend(diameters)
 
-            slope, intercept, r_value, p_value, slope_std = stats.linregress(all_times, all_diameters)
-            
+            slope, intercept, r_value, p_value, slope_std = stats.linregress(
+                all_times, all_diameters
+            )
+
             results[exp_key] = {
                 "slope": slope,  # Growth rate (diameter units per hour)
                 "intercept": intercept,  # Initial diameter
-                "r_squared": r_value ** 2,
+                "r_squared": r_value**2,
                 "slope_std": slope_std,
                 "intercept_std": stats.sem(
                     [d - (slope * t + intercept) for t, d in zip(all_times, all_diameters)]
-                )
+                ),
             }
 
         return results
@@ -193,9 +191,9 @@ class SpatialMetrics:
         timestamps: List[str],
         output_file: Path = None,
         C: float = 30.0,
-        time_conversion: float = 1/60,
+        time_conversion: float = 1 / 60,
         random_seed: int = None,
-        show_fit: bool = True
+        show_fit: bool = True,
     ) -> None:
         """Plot colony diameter growth over time for multiple simulations in one figure"""
         if random_seed is not None:
@@ -205,7 +203,7 @@ class SpatialMetrics:
         if len(input_folders) < n_inputs:
             n_inputs = len(input_folders)
             self.logger.warning(f"Only {n_inputs} input folders available")
-        
+
         selected_folders = np.random.choice(input_folders, size=n_inputs, replace=False)
 
         plt.figure(figsize=(12, 8))
@@ -213,38 +211,37 @@ class SpatialMetrics:
 
         for i, folder in enumerate(selected_folders):
             color = colors[i % len(colors)]
-            
+
             seed_data = {}  # {seed: [(time, diameter), ...]}
-            
+
             for timestamp in timestamps:
                 locations_data = self.load_locations_data(folder, timestamp)
                 time_hr = float(timestamp) * time_conversion
-                
+
                 for file_info, locations in locations_data:
                     seed = file_info["seed"]
                     if seed not in seed_data:
                         seed_data[seed] = []
-                    
+
                     diameter = self.calculate_colony_diameter(locations, C)
                     seed_data[seed].append((time_hr, diameter))
 
             for seed, points in seed_data.items():
                 times, diameters = zip(*sorted(points))
                 if seed == list(seed_data.keys())[0]:  # First seed gets the label
-                    plt.plot(times, diameters, color=color, alpha=0.3, 
-                            label=f"Input {folder.name}")
+                    plt.plot(times, diameters, color=color, alpha=0.3, label=f"Input {folder.name}")
                 else:
                     plt.plot(times, diameters, color=color, alpha=0.3)
 
             all_times = sorted(set(t for points in seed_data.values() for t, _ in points))
             mean_diameters = []
             std_diameters = []
-            
+
             for t in all_times:
                 diameters = [d for s in seed_data.values() for t2, d in s if t2 == t]
                 mean_diameters.append(np.mean(diameters))
                 std_diameters.append(np.std(diameters))
-            
+
             # plt.plot(all_times, mean_diameters, color=color, linewidth=2)
 
             if show_fit:
@@ -256,17 +253,17 @@ class SpatialMetrics:
 
                     x_fit = np.array([min(all_times), max(all_times)])
                     y_fit = slope * x_fit + intercept
-                    plt.plot(x_fit, y_fit, '--', color=color, linewidth=1.5)
+                    plt.plot(x_fit, y_fit, "--", color=color, linewidth=1.5)
 
-        plt.xlabel('Time (hours)')
-        plt.ylabel('Colony Diameter')
-        plt.title(f'Colony Growth Over Time ({n_inputs} Random Inputs)')
+        plt.xlabel("Time (hours)")
+        plt.ylabel("Colony Diameter")
+        plt.title(f"Colony Growth Over Time ({n_inputs} Random Inputs)")
         plt.legend()
         plt.grid(True, alpha=0.3)
 
         if output_file:
-            plt.savefig(output_file, dpi=300, bbox_inches='tight')
+            plt.savefig(output_file, dpi=300, bbox_inches="tight")
         else:
             plt.show()
-        
-        plt.close() 
+
+        plt.close()

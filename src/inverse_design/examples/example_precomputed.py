@@ -9,7 +9,11 @@ from inverse_design.abc.abc_precomputed import ABCPrecomputed
 from inverse_design.conf.config import ABCConfig
 from inverse_design.models.model_base import ModelRegistry
 from inverse_design.common.enum import Target, Metric
-from inverse_design.vis.vis import plot_parameter_kde, plot_joint_distribution, plot_pca_visualization
+from inverse_design.vis.vis import (
+    plot_parameter_kde,
+    plot_joint_distribution,
+    plot_pca_visualization,
+)
 from inverse_design.analyze import evaluate
 from inverse_design.utils.create_input_files import generate_parameters_from_kde
 import matplotlib.pyplot as plt
@@ -59,34 +63,32 @@ def run_abc_precomputed(cfg: DictConfig):
         Target(metric=Metric.get("doub_time"), value=35.0, weight=1.0),
         Target(metric=Metric.get("doub_time_std"), value=10.0, weight=1.0),
         Target(metric=Metric.get("act_t2"), value=0.6, weight=1.0),
-        #Target(metric=Metric.get("colony_growth_rate"), value=0.8, weight=1.0),
+        # Target(metric=Metric.get("colony_growth_rate"), value=0.8, weight=1.0),
     ]
-    
+
     # Save targets to CSV
-    targets_df = pd.DataFrame([
-        {
-            'metric': target.metric.value,
-            'value': target.value,
-            'weight': target.weight
-        } for target in targets
-    ])
+    targets_df = pd.DataFrame(
+        [
+            {"metric": target.metric.value, "value": target.value, "weight": target.weight}
+            for target in targets
+        ]
+    )
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    targets_df.to_csv(os.path.join(output_dir, 'targets.csv'), index=False)
-    
+    targets_df.to_csv(os.path.join(output_dir, "targets.csv"), index=False)
+
     abc = ABCPrecomputed(
         model_config, abc_config, targets, param_file=param_file, metrics_file=metrics_file
     )
 
-    targets_list = [targets] # [targets, targets_2]
+    targets_list = [targets]  # [targets, targets_2]
     accepted_params_list = []
     for i, targets in enumerate(targets_list):
         abc.update_targets(targets)
         param_metrics_distances_results = abc.run_inference()
         param_keys = list(param_metrics_distances_results[0].keys())
         params = [
-            {key: sample[key] for key in param_keys}
-            for sample in param_metrics_distances_results
+            {key: sample[key] for key in param_keys} for sample in param_metrics_distances_results
         ]
 
         accepted_params = [

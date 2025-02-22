@@ -1,6 +1,7 @@
 from typing import Dict
 import re
 
+
 class FileParser:
     @staticmethod
     def parse_simulation_file(filename: str, file_type: str) -> Dict[str, str]:
@@ -22,4 +23,4 @@ class FileParser:
                 "seed": match.group(3),
                 "timestamp": match.group(4),
             }
-        return {} 
+        return {}

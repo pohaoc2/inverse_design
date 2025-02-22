@@ -6,6 +6,7 @@ class Metric:
     """
     Dynamic Metric class with default metrics and support for custom metrics from file
     """
+
     _metrics = {}  # Dictionary to store all metric instances
 
     # Define default metrics as class attributes
@@ -36,19 +37,20 @@ class Metric:
     def load_from_file(cls, file_path):
         """Load metrics from a CSV file, clearing all existing metrics first"""
         import pandas as pd
+
         try:
             # Clear all existing metrics
             cls._metrics.clear()
-            
+
             # Load and process the metrics file
             metrics_df = pd.read_csv(file_path)
-            numerical_columns = metrics_df.select_dtypes(include=['number']).columns
-            
+            numerical_columns = metrics_df.select_dtypes(include=["number"]).columns
+
             # Add new metrics (skip columns ending with '_std' and non-numeric columns)
             for col in numerical_columns:
-                if not col.endswith('_std'):
+                if not col.endswith("_std"):
                     cls(col)  # Create new metric
-                    
+
         except Exception as e:
             print(f"Error loading metrics from file: {e}")
 

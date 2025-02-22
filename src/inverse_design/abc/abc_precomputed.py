@@ -23,23 +23,30 @@ class ABCPrecomputed(ABCBase):
 
         # Check lengths of param_df and metrics_df
         if len(self.param_df) != len(self.metrics_df):
-            self.log.warning("Length mismatch: param_df has %d samples, metrics_df has %d samples", 
-                           len(self.param_df), len(self.metrics_df))
+            self.log.warning(
+                "Length mismatch: param_df has %d samples, metrics_df has %d samples",
+                len(self.param_df),
+                len(self.metrics_df),
+            )
             min_length = min(len(self.param_df), len(self.metrics_df))
             self.param_df = self.param_df.iloc[:min_length]
             self.metrics_df = self.metrics_df.iloc[:min_length]
-        
+
         # Check if input_folder columns exist and verify order consistency
-        if 'input_folder' in self.param_df.columns and 'input_folder' in self.metrics_df.columns:
-            param_folders = self.param_df['input_folder'].values
-            metrics_folders = self.metrics_df['input_folder'].values
+        if "input_folder" in self.param_df.columns and "input_folder" in self.metrics_df.columns:
+            param_folders = self.param_df["input_folder"].values
+            metrics_folders = self.metrics_df["input_folder"].values
             if not np.array_equal(param_folders, metrics_folders):
                 self.log.warning("Input folder order mismatch between param_df and metrics_df")
                 # Sort both DataFrames by input_folder to ensure consistency
-                self.param_df = self.param_df.sort_values('input_folder', 
-                                                        key=lambda x: x.str.extract('input_(\d+)').iloc[:,0].astype(int))
-                self.metrics_df = self.metrics_df.sort_values('input_folder', 
-                                                            key=lambda x: x.str.extract('input_(\d+)').iloc[:,0].astype(int))
+                self.param_df = self.param_df.sort_values(
+                    "input_folder",
+                    key=lambda x: x.str.extract("input_(\d+)").iloc[:, 0].astype(int),
+                )
+                self.metrics_df = self.metrics_df.sort_values(
+                    "input_folder",
+                    key=lambda x: x.str.extract("input_(\d+)").iloc[:, 0].astype(int),
+                )
                 self.log.info("DataFrames have been sorted by input_folder")
         self.num_samples = len(self.param_df)
         # Calculate dynamic normalization factors for metrics not in static factors
@@ -75,7 +82,7 @@ class ABCPrecomputed(ABCBase):
 
             # Convert metrics Series to dict, only including target metrics
             metrics_row = self.metrics_df.iloc[i]
-            
+
             metrics = {target.metric: metrics_row[target.metric.value] for target in self.targets}
 
             distance = self.calculate_distance(metrics)
@@ -93,6 +100,8 @@ class ABCPrecomputed(ABCBase):
         accepted_count = sum(
             1 for sample in self.param_metrics_distances_results if sample["accepted"]
         )
-        self.log.info(f"Finished ABC inference on {self.num_samples} pre-computed samples for targets: {target_str}")
+        self.log.info(
+            f"Finished ABC inference on {self.num_samples} pre-computed samples for targets: {target_str}"
+        )
         self.log.info(f"Accepted {accepted_count} samples")
         return self.param_metrics_distances_results

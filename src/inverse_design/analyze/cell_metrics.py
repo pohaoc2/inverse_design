@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from .file_utils import FileParser
 
+
 class CellMetrics:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
@@ -60,9 +61,9 @@ class CellMetrics:
             Doubling time in hours. Returns float('inf') if no growth or negative growth.
         """
         if n2 <= n1 or n1 <= 0:
-            return float('inf')
-        doubling_time = time_difference * np.log(2) / np.log(n2/n1)
-        return doubling_time / 60 
+            return float("inf")
+        doubling_time = time_difference * np.log(2) / np.log(n2 / n1)
+        return doubling_time / 60
 
     @staticmethod
     def calculate_cell_states(cells: List[Dict[str, Any]]) -> Dict[str, int]:
@@ -81,17 +82,17 @@ class CellMetrics:
             "PROLIFERATIVE": 0,
             "APOPTOTIC": 0,
             "NECROTIC": 0,
-            "SENESCENT": 0
+            "SENESCENT": 0,
         }
-        
+
         if not cells:
             return states
-            
+
         for cell in cells:
             state = cell["state"]
             if state in states:
                 states[state] += 1
-            
+
         return states
 
     def parse_cell_file(self, filename: str) -> Dict[str, str]:
@@ -113,8 +114,10 @@ class CellMetrics:
         results = []
         try:
             file_pattern = f"*_{timestamp}.CELLS.json"
-            cell_files = sorted(folder_path.glob(file_pattern), 
-                              key=lambda x: int(re.search(r'(\d{4})_', x.name).group(1)))
+            cell_files = sorted(
+                folder_path.glob(file_pattern),
+                key=lambda x: int(re.search(r"(\d{4})_", x.name).group(1)),
+            )
 
             for cell_file in cell_files:
                 file_info = self.parse_cell_file(cell_file.name)
@@ -126,4 +129,4 @@ class CellMetrics:
         except Exception as e:
             self.logger.error(f"Error loading cells data from {folder_path}: {str(e)}")
 
-        return results 
+        return results

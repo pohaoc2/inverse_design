@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
-from typing import List
+from typing import List, Optional
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 
@@ -65,9 +65,7 @@ def get_parameters_from_json(input_folder, parameter_list):
     """Extract parameters from json file."""
     # Find the base configuration file by looking for a .json file without CELL or LOCATION in the name
     json_files = list(Path(input_folder).glob("*.json"))
-    config_file = next(
-        f for f in json_files if "CELL" not in f.name and "LOCATION" not in f.name
-    )
+    config_file = next(f for f in json_files if "CELL" not in f.name and "LOCATION" not in f.name)
 
     with open(config_file, "r") as f:
         data = json.load(f)
@@ -93,9 +91,7 @@ def get_parameters_from_json(input_folder, parameter_list):
     return params
 
 
-def collect_parameter_data(
-    input_files, parameter_base_folder, parameter_list, labels=None
-):
+def collect_parameter_data(input_files, parameter_base_folder, parameter_list, labels=None):
     """
     Collect parameter data from JSON files for a list of input folders.
 
@@ -122,7 +118,7 @@ def collect_parameter_data(
     return pd.DataFrame(params_list)
 
 
-def analyze_and_plot_parameters(
+def plot_top_bottom_parameter_distributions(
     all_param_df,
     parameter_list,
     parameter_base_folder,
@@ -130,7 +126,7 @@ def analyze_and_plot_parameters(
     save_file: str = None,
 ):
     """
-    Analyze and plot parameter distributions for top and bottom percentile cases.
+    Plot parameter distributions for top and bottom percentile cases.
     """
     n_params = len(parameter_list)
     fig, axes = plt.subplots(1, n_params, figsize=(4 * n_params, 4))
@@ -169,7 +165,7 @@ def analyze_and_plot_parameters(
         print(group_data[parameter_list].mean())
 
 
-def analyze_pca_parameters(
+def plot_pca_parameters(
     all_param_df,
     parameter_list,
     parameter_base_folder,
@@ -226,12 +222,8 @@ def analyze_pca_parameters(
         )
 
     # Add plot details
-    plt.xlabel(
-        f"First Principal Component ({pca.explained_variance_ratio_[0]:.1%} variance)"
-    )
-    plt.ylabel(
-        f"Second Principal Component ({pca.explained_variance_ratio_[1]:.1%} variance)"
-    )
+    plt.xlabel(f"First Principal Component ({pca.explained_variance_ratio_[0]:.1%} variance)")
+    plt.ylabel(f"Second Principal Component ({pca.explained_variance_ratio_[1]:.1%} variance)")
     plt.title(f"PCA of Parameters for Top and Bottom {percentile}% Cases")
     plt.legend()
     plt.grid(True, alpha=0.3)
@@ -331,7 +323,10 @@ def plot_doubling_time_relationship(labeled_df, save_file=None):
 
 
 def plot_metric_distributions(
-    posterior_metrics_file=None, prior_metrics_file=None, target_metrics=None, save_file=None
+    posterior_metrics_file: Optional[str] = None,
+    prior_metrics_file: Optional[str] = None,
+    target_metrics: Optional[dict] = None,
+    save_file: Optional[str] = None,
 ):
     """
     Plot density distributions of metrics from posterior and/or prior, with optional target values.
@@ -342,21 +337,27 @@ def plot_metric_distributions(
         target_metrics: Dictionary of target values for each metric, optional
         save_file: Path to save the plot, optional
     """
-    # Load available data
-    posterior_df = pd.read_csv(posterior_metrics_file) if posterior_metrics_file else None
-    prior_df = pd.read_csv(prior_metrics_file) if prior_metrics_file else None
+    # Explicitly type the variables
+    posterior_df: Optional[pd.DataFrame] = (
+        pd.read_csv(posterior_metrics_file) if posterior_metrics_file else None
+    )
+    prior_df: Optional[pd.DataFrame] = (
+        pd.read_csv(prior_metrics_file) if prior_metrics_file else None
+    )
 
     # Determine metrics to plot
     if target_metrics:
         metrics_list = list(target_metrics.keys())
     elif posterior_df is not None:
         # Only include numeric columns
-        metrics_list = posterior_df.select_dtypes(include=['float64', 'int64']).columns.tolist()
+        metrics_list = posterior_df.select_dtypes(include=["float64", "int64"]).columns.tolist()
     elif prior_df is not None:
         # Only include numeric columns
-        metrics_list = prior_df.select_dtypes(include=['float64', 'int64']).columns.tolist()
+        metrics_list = prior_df.select_dtypes(include=["float64", "int64"]).columns.tolist()
     else:
-        raise ValueError("At least one of posterior_metrics_file, prior_metrics_file, or target_metrics must be provided")
+        raise ValueError(
+            "At least one of posterior_metrics_file, prior_metrics_file, or target_metrics must be provided"
+        )
 
     # Create subplot for each metric
     fig, axes = plt.subplots(1, len(metrics_list), figsize=(15, 5))
@@ -365,20 +366,28 @@ def plot_metric_distributions(
 
     for idx, metric in enumerate(metrics_list):
         ax = axes[idx]
-        
+
         # Plot prior distribution if available
-        if prior_df is not None and metric in prior_df.columns and pd.api.types.is_numeric_dtype(prior_df[metric]):
+        if (
+            prior_df is not None
+            and metric in prior_df.columns
+            and pd.api.types.is_numeric_dtype(prior_df[metric])
+        ):
             sns.kdeplot(data=prior_df[metric], ax=ax, label="Prior", color="gray")
             ax.set_ylabel("Prior Density", color="gray")
-            ax.tick_params(axis='y', labelcolor="gray")
+            ax.tick_params(axis="y", labelcolor="gray")
 
             # If both distributions are present, use twin y-axis for posterior
-            if posterior_df is not None and metric in posterior_df.columns and pd.api.types.is_numeric_dtype(posterior_df[metric]):
+            if (
+                posterior_df is not None
+                and metric in posterior_df.columns
+                and pd.api.types.is_numeric_dtype(posterior_df[metric])
+            ):
                 ax2 = ax.twinx()
                 sns.kdeplot(data=posterior_df[metric], ax=ax2, label="Posterior", color="blue")
                 ax2.set_ylabel("Posterior Density", color="blue")
-                ax2.tick_params(axis='y', labelcolor="blue")
-                
+                ax2.tick_params(axis="y", labelcolor="blue")
+
                 # Combine legends
                 lines1, labels1 = ax.get_legend_handles_labels()
                 lines2, labels2 = ax2.get_legend_handles_labels()
@@ -386,11 +395,15 @@ def plot_metric_distributions(
             else:
                 ax.legend()
         # If only posterior is available, plot it normally
-        elif posterior_df is not None and metric in posterior_df.columns and pd.api.types.is_numeric_dtype(posterior_df[metric]):
+        elif (
+            posterior_df is not None
+            and metric in posterior_df.columns
+            and pd.api.types.is_numeric_dtype(posterior_df[metric])
+        ):
             sns.kdeplot(data=posterior_df[metric], ax=ax, label="Posterior", color="blue")
             ax.set_ylabel("Density")
             ax.legend()
-        
+
         # Add target value if available
         if target_metrics and metric in target_metrics:
             ax.axvline(
@@ -406,7 +419,7 @@ def plot_metric_distributions(
                 ax2.legend(lines1 + lines2, labels1 + labels2)
             else:
                 ax.legend()
-        
+
         ax.set_title(f"{metric} Distribution")
         ax.set_xlabel(metric)
 
@@ -474,9 +487,7 @@ def plot_cell_states_histogram(csv_file, save_file=None):
     }
 
     if len(non_zero_states) > 0:
-        plt.hist(
-            non_zero_states.values(), label=non_zero_states.keys(), bins=30, alpha=0.7
-        )
+        plt.hist(non_zero_states.values(), label=non_zero_states.keys(), bins=30, alpha=0.7)
         plt.xlabel("Average Cell Count")
         plt.ylabel("Frequency")
         plt.title("Distribution of Cell States Across Simulations")
@@ -514,8 +525,8 @@ if __name__ == "__main__":
     metrics_name = "doub_time_std"
     parameter_list = [
         "CELL_VOLUME_SIGMA",
-        #"NECROTIC_FRACTION",
-        #"APOPTOSIS_AGE_SIGMA",
+        # "NECROTIC_FRACTION",
+        # "APOPTOSIS_AGE_SIGMA",
         "ACCURACY",
         "AFFINITY",
         "COMPRESSION_TOLERANCE",
@@ -529,23 +540,22 @@ if __name__ == "__main__":
     # Create labeled parameter DataFrame
     input_files = list(top_n_input_file) + list(bottom_n_input_file)
     labels = ["top"] * len(top_n_input_file) + ["bottom"] * len(bottom_n_input_file)
-    all_param_df = collect_parameter_data(
+    analyzed_param_df = collect_parameter_data(
         input_files, parameter_base_folder, parameter_list, labels
     )
-    all_param_df = all_param_df.sort_values(
+    analyzed_param_df = analyzed_param_df.sort_values(
         "input_folder",
         key=lambda x: x.str.extract("input_(\d+)").iloc[:, 0].astype(int),
     )
-    all_param_df.to_csv(f"{parameter_base_folder}/all_param_df.csv", index=False)
 
     # Run analyses with the combined DataFrame
     save_file = f"{parameter_base_folder}/parameter_distributions.png"
-    analyze_and_plot_parameters(
-        all_param_df, parameter_list, parameter_base_folder, percentile, save_file
+    plot_top_bottom_parameter_distributions(
+        analyzed_param_df, parameter_list, parameter_base_folder, percentile, save_file
     )
     save_file = f"{parameter_base_folder}/pca_parameters.png"
-    analyze_pca_parameters(
-        all_param_df,
+    plot_pca_parameters(
+        analyzed_param_df,
         parameter_list,
         parameter_base_folder,
         metrics_name,
@@ -577,5 +587,5 @@ if __name__ == "__main__":
             posterior_metrics_file=posterior_metrics_file,
             prior_metrics_file=prior_metrics_file,
             target_metrics=target_metrics,
-            save_file=save_file
+            save_file=save_file,
         )

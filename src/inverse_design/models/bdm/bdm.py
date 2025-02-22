@@ -188,7 +188,6 @@ def main(cfg: DictConfig) -> None:
     log.info(f"Simulation completed with {len(events)} total events")
 
 
-
 if __name__ == "__main__":
     """
     Example usage:
