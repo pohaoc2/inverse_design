@@ -7,7 +7,7 @@ import re
 import numpy as np
 from inverse_design.analyze.cell_metrics import CellMetrics
 from inverse_design.analyze.spatial_metrics import SpatialMetrics
-from inverse_design.analyze.analyze_seed_results import process_parameter_seeds
+from inverse_design.analyze.analyze_seed_results import SeedAnalyzer
 from inverse_design.analyze.analyze_aggregated_results import collect_parameter_data
 
 
@@ -22,7 +22,7 @@ class SimulationMetrics:
         self.logger = logging.getLogger(__name__)
         self.cell_metrics = CellMetrics()
         self.spatial_metrics = SpatialMetrics()
-
+        self.seed_analyzer = SeedAnalyzer(base_output_dir)
     def _round_metrics(self, metrics_dict: Dict[str, Any], decimals: int = 3) -> Dict[str, Any]:
         """Round all numeric values in a dictionary to specified decimals.
 
@@ -50,7 +50,7 @@ class SimulationMetrics:
         time_difference = int(t2) - int(t1)
         fit_data = self.spatial_metrics.fit_colony_growth(folder_path, timestamps)
 
-        metrics_by_exp = process_parameter_seeds(cells_data_t1, cells_data_t2, time_difference)
+        metrics_by_exp = self.seed_analyzer.process_parameter_seeds(cells_data_t1, cells_data_t2, time_difference)
 
         averaged_metrics = {}
 
@@ -220,8 +220,7 @@ class SimulationMetrics:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    # metrics_calculator = SimulationMetrics("ARCADE_OUTPUT/SMALL_STD_ONLY_VOLUME/")
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/STEM_CELL_VARY_VOLUME_POSTERIOR"
+    parameter_base_folder = "ARCADE_OUTPUT/MANUAL_VOLUME_APOTOSIS/"
     metrics_calculator = SimulationMetrics(parameter_base_folder)
 
     timestamps = [
@@ -244,11 +243,12 @@ def main():
     metrics_calculator.analyze_all_simulations(timestamps=timestamps, t1="000000", t2="010080")
 
     input_files = list(Path(parameter_base_folder).glob("input_*"))
+    input_files = [f.name for f in input_files]
     parameter_list = [
         "CELL_VOLUME_MU",
         "CELL_VOLUME_SIGMA",
-        # "NECROTIC_FRACTION",
-        # "APOPTOSIS_AGE_SIGMA",
+        "NECROTIC_FRACTION",
+        "APOPTOSIS_AGE_SIGMA",
         "ACCURACY",
         "AFFINITY",
         "COMPRESSION_TOLERANCE",

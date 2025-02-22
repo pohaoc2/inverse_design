@@ -7,115 +7,8 @@ import seaborn as sns
 from typing import List, Optional
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+from inverse_design.analyze.analyze_utils import collect_parameter_data, analyze_metric_percentiles
 
-
-def analyze_metric_percentiles(
-    csv_file_path, metrics_name: str, percentile: float = 10, verbose: bool = True
-):
-    """
-    Analyze rows where metrics fall into the bottom and top percentiles of their distributions.
-
-    Args:
-        csv_file_path: Path to the aggregated results CSV file
-        metrics_name: Name of the metric to analyze
-        percentile: Percentile value between 0 and 50 (default: 10)
-        verbose: Whether to print detailed analysis (default: True)
-
-    Returns:
-        tuple: (top_n_input_file, bottom_n_input_file, labeled_df)
-
-    Raises:
-        ValueError: If percentile is not between 0 and 50
-    """
-    if not 0 < percentile <= 50:
-        raise ValueError("Percentile must be between 0 and 50")
-
-    df = pd.read_csv(csv_file_path)
-
-    # Calculate lower and upper percentiles
-    lower_bound = df[metrics_name].quantile(percentile / 100)
-    upper_bound = df[metrics_name].quantile(1 - percentile / 100)
-
-    # Create a copy of the dataframe and add labels
-    all_data = df.copy()
-    all_data["percentile_label"] = "not_assigned"
-    all_data.loc[df[metrics_name] <= lower_bound, "percentile_label"] = "bottom"
-    all_data.loc[df[metrics_name] >= upper_bound, "percentile_label"] = "top"
-
-    # Get the original outputs for backward compatibility
-    bottom_n = df[df[metrics_name] <= lower_bound]
-    top_n = df[df[metrics_name] >= upper_bound]
-    top_n_input_file = top_n["input_folder"].unique()
-    bottom_n_input_file = bottom_n["input_folder"].unique()
-
-    if verbose:
-        print(f"\nAnalysis for {metrics_name}")
-        print("=" * 80)
-        print(f"\nBottom {percentile}% (≤ {lower_bound:.3f}):")
-        print(bottom_n)
-        print(f"\nTop {percentile}% (≥ {upper_bound:.3f}):")
-        print(top_n)
-        print("\nLabel distribution:")
-        print(all_data["percentile_label"].value_counts())
-
-    return top_n_input_file, bottom_n_input_file, all_data
-
-
-def get_parameters_from_json(input_folder, parameter_list):
-    """Extract parameters from json file."""
-    # Find the base configuration file by looking for a .json file without CELL or LOCATION in the name
-    json_files = list(Path(input_folder).glob("*.json"))
-    config_file = next(f for f in json_files if "CELL" not in f.name and "LOCATION" not in f.name)
-
-    with open(config_file, "r") as f:
-        data = json.load(f)
-
-    params = {}
-    param_mapping = {
-        "CELL_VOLUME_SIGMA": ("populations", "cancerous", "CELL_VOLUME_SIGMA"),
-        "APOPTOSIS_AGE_SIGMA": ("populations", "cancerous", "APOPTOSIS_AGE_SIGMA"),
-        "NECROTIC_FRACTION": ("populations", "cancerous", "NECROTIC_FRACTION"),
-        "ACCURACY": ("populations", "cancerous", "ACCURACY"),
-        "AFFINITY": ("populations", "cancerous", "AFFINITY"),
-        "COMPRESSION_TOLERANCE": ("populations", "cancerous", "COMPRESSION_TOLERANCE"),
-    }
-
-    for param in parameter_list:
-        path = param_mapping[param]
-        value = data
-        for key in path:
-            value = value[key]
-
-        params[param] = value
-
-    return params
-
-
-def collect_parameter_data(input_files, parameter_base_folder, parameter_list, labels=None):
-    """
-    Collect parameter data from JSON files for a list of input folders.
-
-    Args:
-        input_files: List of input folder names
-        parameter_base_folder: Base folder containing parameter files
-        parameter_list: List of parameters to extract
-        labels: Optional list of labels corresponding to input_files
-
-    Returns:
-        pandas.DataFrame: DataFrame containing the parameter values, labels, and folder names
-    """
-    params_list = []
-
-    for i, input_folder in enumerate(input_files):
-        full_path = Path(parameter_base_folder) / input_folder
-        params = get_parameters_from_json(full_path, parameter_list)
-        # Add folder name to params
-        params["input_folder"] = input_folder
-        if labels is not None:
-            params["percentile_label"] = labels[i]
-        params_list.append(params)
-
-    return pd.DataFrame(params_list)
 
 
 def plot_top_bottom_parameter_distributions(
@@ -521,7 +414,10 @@ def plot_cell_states_histogram(csv_file, save_file=None):
 
 if __name__ == "__main__":
     # Specify your parameters
-    csv_file = "ARCADE_OUTPUT/STEM_CELL/STEM_CELL_VARY_VOLUME_POSTERIOR/simulation_metrics.csv"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/STEM_CELL_VARY_VOLUME_POSTERIOR"
+    parameter_base_folder = "ARCADE_OUTPUT/MANUAL_VOLUME_APOTOSIS"
+    csv_file = f"{parameter_base_folder}/simulation_metrics.csv"
+
     metrics_name = "doub_time_std"
     parameter_list = [
         "CELL_VOLUME_SIGMA",
@@ -531,7 +427,7 @@ if __name__ == "__main__":
         "AFFINITY",
         "COMPRESSION_TOLERANCE",
     ]
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/STEM_CELL_VARY_VOLUME_POSTERIOR"
+
     percentile = 30
     top_n_input_file, bottom_n_input_file, labeled_df = analyze_metric_percentiles(
         csv_file, metrics_name, percentile, verbose=True
@@ -539,13 +435,14 @@ if __name__ == "__main__":
 
     # Create labeled parameter DataFrame
     input_files = list(top_n_input_file) + list(bottom_n_input_file)
+
     labels = ["top"] * len(top_n_input_file) + ["bottom"] * len(bottom_n_input_file)
     analyzed_param_df = collect_parameter_data(
         input_files, parameter_base_folder, parameter_list, labels
     )
     analyzed_param_df = analyzed_param_df.sort_values(
         "input_folder",
-        key=lambda x: x.str.extract("input_(\d+)").iloc[:, 0].astype(int),
+        key=lambda x: x.str.split("_").str[1].astype(int)
     )
 
     # Run analyses with the combined DataFrame
@@ -571,10 +468,13 @@ if __name__ == "__main__":
     )
     if 1:
         posterior_metrics_file = (
-            "ARCADE_OUTPUT/STEM_CELL/STEM_CELL_VARY_VOLUME_POSTERIOR/simulation_metrics.csv"
+            f"{parameter_base_folder}/simulation_metrics.csv"
         )
         prior_metrics_file = (
             "ARCADE_OUTPUT/STEM_CELL/STEM_CELL_VARY_VOLUME_PRIOR/simulation_metrics.csv"
+        )
+        prior_metrics_file = (
+            "prior_metrics_formatted.csv"
         )
         target_metrics = {
             "doub_time": 35.0,

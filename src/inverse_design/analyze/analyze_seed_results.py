@@ -3,11 +3,10 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
-from inverse_design.analyze.save_aggregated_results import SimulationMetrics
-from inverse_design.analyze.analyze_aggregated_results import analyze_metric_percentiles
+from inverse_design.analyze.analyze_utils import analyze_metric_percentiles
 from typing import List
-from inverse_design.metrics.cell_metrics import CellMetrics
-from inverse_design.metrics.spatial_metrics import SpatialMetrics
+from inverse_design.analyze.cell_metrics import CellMetrics
+from inverse_design.analyze.spatial_metrics import SpatialMetrics
 
 
 class SeedAnalyzer:
@@ -18,7 +17,6 @@ class SeedAnalyzer:
             base_output_dir: Base directory containing all simulation output folders
         """
         self.base_output_dir = Path(base_output_dir)
-        self.sim_metrics = SimulationMetrics(base_output_dir)
         self.cell_metrics = CellMetrics()
         self.spatial_metrics = SpatialMetrics()
 
@@ -252,7 +250,7 @@ class SeedAnalyzer:
 
 if __name__ == "__main__":
     # Example usage
-    base_dir = "ARCADE_OUTPUT/ARCADE_OUTPUT_MILD"
+    base_dir = "ARCADE_OUTPUT/MANUAL_VOLUME_APOTOSIS"
     csv_file = f"{base_dir}/simulation_metrics.csv"
     percentile = 10
     metrics_to_plot = ["doub_time", "act_t2", "n_cells_t2"]
