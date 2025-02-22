@@ -111,7 +111,7 @@ def collect_parameter_data(input_files, parameter_base_folder, parameter_list, l
     
     return pd.DataFrame(params_list)
 
-def analyze_and_plot_parameters(all_param_df, parameter_list, parameter_base_folder, percentile: float = 10):
+def analyze_and_plot_parameters(all_param_df, parameter_list, parameter_base_folder, percentile: float = 10, save_file: str = None):
     """
     Analyze and plot parameter distributions for top and bottom percentile cases.
     """
@@ -135,8 +135,10 @@ def analyze_and_plot_parameters(all_param_df, parameter_list, parameter_base_fol
         ax.legend()
     
     plt.tight_layout()
-    plt.savefig(f'{parameter_base_folder}/parameter_distributions.png')
-    plt.show()
+    if save_file is not None:
+        plt.savefig(save_file)
+    else:
+        plt.show()
     
     # Print summary statistics
     print("\nParameter Statistics:")
@@ -146,7 +148,7 @@ def analyze_and_plot_parameters(all_param_df, parameter_list, parameter_base_fol
         print(f"\n{label.capitalize()} {percentile}% - Mean values:")
         print(group_data[parameter_list].mean())
 
-def analyze_pca_parameters(all_param_df, parameter_list, parameter_base_folder, metrics_name: str, percentile: float = 10):
+def analyze_pca_parameters(all_param_df, parameter_list, parameter_base_folder, metrics_name: str, percentile: float = 10, save_file: str = None):
     """
     Perform PCA on parameters and visualize top and bottom percentile cases in 2D.
     """
@@ -194,8 +196,10 @@ def analyze_pca_parameters(all_param_df, parameter_list, parameter_base_folder, 
     plt.axvline(x=0, color='k', linestyle='--', alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(f'{parameter_base_folder}/pca_parameters.png')
-    plt.show()
+    if save_file is not None:
+        plt.savefig(save_file)
+    else:
+        plt.show()
     
     # Print analysis results
     print("\nPCA Explained Variance Ratios:")
@@ -313,32 +317,33 @@ def plot_metric_distributions(posterior_metrics_file, prior_metrics_file, target
 
 if __name__ == "__main__":
     # Specify your parameters
-    csv_file = "ARCADE_OUTPUT/STEM_CELL/simulation_metrics.csv"
+    csv_file = "ARCADE_OUTPUT/ARCADE_OUTPUT_MILD/simulation_metrics.csv"
     metrics_name = "doub_time_std"
-    parameter_list = ["CELL_VOLUME_SIGMA", "NECROTIC_FRACTION", 
-                     "ACCURACY", "AFFINITY", "COMPRESSION_TOLERANCE"]
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL"
-    percentile = 50
-    top_n_input_file, bottom_n_input_file, labeled_df = analyze_metric_percentiles(csv_file, metrics_name, percentile, verbose=False)
+    parameter_list = ["CELL_VOLUME_SIGMA", "NECROTIC_FRACTION", "APOPTOSIS_AGE_SIGMA",
+                     "ACCURACY", "AFFINITY"]#, "COMPRESSION_TOLERANCE"]
+    parameter_base_folder = "ARCADE_OUTPUT/ARCADE_OUTPUT_MILD"
+    percentile = 10
+    top_n_input_file, bottom_n_input_file, labeled_df = analyze_metric_percentiles(csv_file, metrics_name, percentile, verbose=True)
     
     # Create labeled parameter DataFrame
     input_files = list(top_n_input_file) + list(bottom_n_input_file)
     labels = ['top'] * len(top_n_input_file) + ['bottom'] * len(bottom_n_input_file)
     all_param_df = collect_parameter_data(input_files, parameter_base_folder, parameter_list, labels)
-    # Sort by folder number (input_1, input_2, ...)
     all_param_df = all_param_df.sort_values('input_folder', 
                                           key=lambda x: x.str.extract('input_(\d+)').iloc[:,0].astype(int))
     all_param_df.to_csv(f"{parameter_base_folder}/all_param_df.csv", index=False)
 
 
     # Run analyses with the combined DataFrame
-    analyze_and_plot_parameters(all_param_df, parameter_list, parameter_base_folder, percentile)
-    analyze_pca_parameters(all_param_df, parameter_list, parameter_base_folder, metrics_name, percentile)
+    save_file = f"{parameter_base_folder}/parameter_distributions.png"
+    analyze_and_plot_parameters(all_param_df, parameter_list, parameter_base_folder, percentile, save_file)
+    save_file = f"{parameter_base_folder}/pca_parameters.png"
+    analyze_pca_parameters(all_param_df, parameter_list, parameter_base_folder, metrics_name, percentile, save_file)
     
     # Plot doubling time relationship
     plot_doubling_time_relationship(labeled_df, parameter_base_folder)
 
-    posterior_metrics_file = "ARCADE_OUTPUT/STEM_CELL/simulation_metrics.csv"
+    posterior_metrics_file = "ARCADE_OUTPUT/ARCADE_OUTPUT_MILD/simulation_metrics.csv"
     prior_metrics_file = "prior_metrics_formatted.csv"
     target_metrics = {
         "doub_time": 50,
@@ -346,5 +351,5 @@ if __name__ == "__main__":
         "act_t2": 0.5,
         #"colony_g_rate": 0.8
     }
-    save_file = "stem_cell_metric_distributions.png"
+    save_file = f"{parameter_base_folder}/metric_distributions.png"
     plot_metric_distributions(posterior_metrics_file, prior_metrics_file, target_metrics, save_file)

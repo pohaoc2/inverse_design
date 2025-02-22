@@ -134,7 +134,7 @@ class SeedAnalyzer:
 
 if __name__ == "__main__":
     # Example usage
-    base_dir = "ARCADE_OUTPUT/STEM_CELL"
+    base_dir = "ARCADE_OUTPUT/ARCADE_OUTPUT_MILD"
     csv_file = f"{base_dir}/simulation_metrics.csv"
     percentile = 10
     metrics_to_plot = ['doub_time', 'act_t2', 'n_cells_t2']

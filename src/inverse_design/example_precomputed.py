@@ -50,7 +50,7 @@ def run_abc_precomputed(cfg: DictConfig):
         targets = model.get_default_targets()
     param_file = "ARCADE_OUTPUT/STEM_CELL/all_param_df.csv"
     metrics_file = "ARCADE_OUTPUT/STEM_CELL/simulation_metrics.csv"
-    output_dir = "inputs/STEM_CELL/kde_sampled_inputs_test"
+    output_dir = "inputs/STEM_CELL/kde_sampled_inputs"
     param_df = pd.read_csv(param_file)
     constant_columns = param_df.columns[param_df.nunique() == 1]
     param_df = param_df.drop(columns=constant_columns)
@@ -85,7 +85,7 @@ def run_abc_precomputed(cfg: DictConfig):
             raise ValueError("No accepted parameters")
         accepted_params_list.append(accepted_params)
         parameter_pdfs = evaluate.estimate_pdfs(accepted_params)
-        generate_parameters_from_kde(parameter_pdfs, 256, output_dir=output_dir)
+        generate_parameters_from_kde(parameter_pdfs, 128, output_dir=output_dir)
         if 0:
             save_path = f"prior_posterior_pdfs_{i}.png"
             plot_parameter_kde(parameter_pdfs, abc_config, save_path)
