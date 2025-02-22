@@ -9,6 +9,7 @@
 outputs/
 results/
 src/**/*.png
+*.zip
 
 # Editors
 .vscode/
