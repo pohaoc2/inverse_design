@@ -64,6 +64,36 @@ class CellMetrics:
         doubling_time = time_difference * np.log(2) / np.log(n2/n1)
         return doubling_time / 60 
 
+    @staticmethod
+    def calculate_cell_states(cells: List[Dict[str, Any]]) -> Dict[str, int]:
+        """Calculate the number of cells in each state
+
+        Args:
+            cells: List of cell dictionaries
+
+        Returns:
+            Dictionary with counts for each cell state
+        """
+        states = {
+            "UNDEFINED": 0,
+            "QUIESCENT": 0,
+            "MIGRATORY": 0,
+            "PROLIFERATIVE": 0,
+            "APOPTOTIC": 0,
+            "NECROTIC": 0,
+            "SENESCENT": 0
+        }
+        
+        if not cells:
+            return states
+            
+        for cell in cells:
+            state = cell["state"]
+            if state in states:
+                states[state] += 1
+            
+        return states
+
     def parse_cell_file(self, filename: str) -> Dict[str, str]:
         """Parse cell filename to extract experiment info"""
         return FileParser.parse_simulation_file(filename, "CELLS")

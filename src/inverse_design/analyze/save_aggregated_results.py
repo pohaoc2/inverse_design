@@ -87,6 +87,8 @@ class SimulationMetrics:
                     "act_t2": [],
                     "seed_count": 0,
                     "doub_time": [],
+                    "states_t1": [],
+                    "states_t2": [],
                 }
 
             metrics_by_exp[exp_key]["growth_rates"].append(
@@ -109,6 +111,12 @@ class SimulationMetrics:
             metrics_by_exp[exp_key]["seed_count"] += 1
             metrics_by_exp[exp_key]["doub_time"].append(
                 self.cell_metrics.calculate_doubling_time(len(cells_t1), len(cells_t2), time_difference)
+            )
+            metrics_by_exp[exp_key]["states_t1"].append(
+                self.cell_metrics.calculate_cell_states(cells_t1)
+            )
+            metrics_by_exp[exp_key]["states_t2"].append(
+                self.cell_metrics.calculate_cell_states(cells_t2)
             )
 
         # return metrics_by_exp
@@ -180,7 +188,9 @@ class SimulationMetrics:
                 "colony_g_rate_std": colony_metrics.get("slope_std", 0.0),
                 #"initial_colony_diameter": colony_metrics.get("intercept", 0.0),
                 #"initial_colony_diameter_std": colony_metrics.get("intercept_std", 0.0),
-                "colony_g_r_squared": colony_metrics.get("r_squared", 0.0)
+                "colony_g_r_squared": colony_metrics.get("r_squared", 0.0),
+                #"states_t1": metrics["states_t1"],
+                "states_t2": metrics["states_t2"]
             }
             
             averaged_metrics.update(self._round_metrics(metrics_dict))
@@ -202,8 +212,15 @@ class SimulationMetrics:
                 results.append(metrics)
             except Exception as e:
                 self.logger.error(f"Error processing {folder}: {str(e)}")
-
         df = pd.DataFrame(results)
+        # Reorder columns to move input_folder to second-to-last position
+        cols = df.columns.tolist()
+        cols.remove('input_folder')
+        cols.remove('states_t2')
+        cols.append('input_folder')
+        cols.append('states_t2')
+        df = df[cols]
+        
         output_file = self.base_output_dir / "simulation_metrics.csv"
         df.to_csv(output_file, index=False)
 
@@ -302,7 +319,7 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
     #metrics_calculator = SimulationMetrics("ARCADE_OUTPUT/SMALL_STD_ONLY_VOLUME/")
-    metrics_calculator = SimulationMetrics("TEST/SMALL_VOL/")
+    metrics_calculator = SimulationMetrics("ARCADE_OUTPUT/STEM_CELL/STEM_CELL_VARY_VOLUME_POSTERIOR/")
     
     timestamps = ["000000", "000720", "001440", "002160", "002880", "003600", "004320",
                  "005040", "005760", "006480", "007200", "007920", "008640", "009360", "010080"]

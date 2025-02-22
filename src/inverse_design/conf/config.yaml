@@ -29,7 +29,7 @@ arcade:
 
 abc:
   output_frequency: 100
-  epsilon: 0.15
+  epsilon: 0.072
   sobol_power: 1
   model_type: "ARCADE"
   targets:
@@ -43,11 +43,20 @@ abc:
       value: 1.2
       weight: 1.0
   parameter_ranges:
+    CELL_VOLUME_MU:
+      min: 1750
+      max: 2650
     CELL_VOLUME_SIGMA:
       min: 50
-      max: 150
+      max: 250
+    APOPTOSIS_AGE_MU:
+      min: 120960
+      max: 120960
+    APOPTOSIS_AGE_SIGMA:
+      min: 6000
+      max: 6000
     NECROTIC_FRACTION:
-      min: 0.0
+      min: 1.0
       max: 1.0
     ACCURACY:
       min: 0.0
@@ -56,5 +65,5 @@ abc:
       min: 0.0
       max: 1.0
     COMPRESSION_TOLERANCE:
-      min: 2.5
-      max: 6.5
+      min: 4.0
+      max: 8.0

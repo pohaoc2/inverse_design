@@ -6,35 +6,43 @@ import scipy.stats.qmc
 from typing import Dict
 import os
 
+def save_parameter_ranges(param_ranges: dict, output_dir: str):
+    """Save the parameter ranges used for generating inputs to a CSV file."""
+    # Create DataFrame with min and max values
+    ranges_df = pd.DataFrame({
+        'parameter': param_ranges.keys(),
+        'min_value': [r[0] for r in param_ranges.values()],
+        'max_value': [r[1] for r in param_ranges.values()]
+    })
+    
+    # Save to CSV
+    ranges_df.to_csv(f"{output_dir}/parameter_ranges.csv", index=False)
+
 def generate_perturbed_parameters(
-    sobol_power,
-    volume_mu_range=(1500, 3000),
-    volume_sigma_range=(50, 150),
-    apop_age_mu_range=(100000, 140000),
-    apop_age_sigma_range=(5000, 15000),
-    necrotic_fraction_range=(0.3, 0.7),
-    accuracy_range=(0.6, 1.0),
-    affinity_range=(0.3, 0.7),
-    compression_tolerance_range=(0.0, 0.2),
-    template_path="sample_input_v3.xml",
-    output_dir="perturbed_inputs",
-    seed=42
+    sobol_power: int,
+    param_ranges: dict,
+    template_path: str = "sample_input_v3.xml",
+    output_dir: str = "perturbed_inputs",
+    seed: int = 42
 ):
+    """Generate perturbed parameter sets using Sobol sampling
+    
+    Args:
+        sobol_power: Power of 2 for number of samples (n_samples = 2^sobol_power)
+        param_ranges: Dictionary of parameter ranges {param_name: (min, max)}
+        template_path: Path to template XML file
+        output_dir: Directory to save generated XML files
+        seed: Random seed for reproducibility
+    """
+    # Save parameter ranges to CSV
+    save_parameter_ranges(param_ranges, output_dir)
+    
     # Define parameter ranges
-    param_ranges = [
-        volume_mu_range,
-        volume_sigma_range,
-        apop_age_mu_range,
-        apop_age_sigma_range,
-        necrotic_fraction_range,
-        accuracy_range,
-        affinity_range,
-        compression_tolerance_range,
-    ]
+    param_ranges_list = list(param_ranges.values())
 
     # Initialize Sobol sequence generator with random seed
     sobol_engine = scipy.stats.qmc.Sobol(
-        d=len(param_ranges),
+        d=len(param_ranges_list),
         scramble=True,
         seed=seed
     )
@@ -54,30 +62,12 @@ def generate_perturbed_parameters(
 
     # Prepare DataFrame for parameter logging
     param_log = []
-    
-    # Save parameter ranges to a separate file
-    param_ranges_dict = {
-        "parameter": [
-            "volume_mu",
-            "volume_sigma",
-            "apop_age_mu",
-            "apop_age_sigma",
-            "necrotic_fraction",
-            "accuracy",
-            "affinity",
-            "compression_tolerance"
-        ],
-        "min": [r[0] for r in param_ranges],
-        "max": [r[1] for r in param_ranges]
-    }
-    ranges_df = pd.DataFrame(param_ranges_dict)
-    ranges_df.to_csv(f"{output_dir}/parameter_ranges.csv", index=False)
 
     # Generate XML files for each parameter set
     for i, sample in enumerate(samples):
         # Scale sample to parameter ranges
         params = []
-        for value, (min_val, max_val) in zip(sample, param_ranges):
+        for value, (min_val, max_val) in zip(sample, param_ranges_list):
             scaled_value = min_val + (max_val - min_val) * value
             params.append(scaled_value)
 
@@ -118,22 +108,22 @@ def generate_perturbed_parameters(
         param_log.append(
             {
                 "file_name": f"input_{i+1}.xml",
-                "volume_mu": volume_mu,
-                "volume_sigma": volume_sigma,
-                "apop_age_mu": apop_age_mu,
-                "apop_age_sigma": apop_age_sigma,
-                "necrotic_fraction": necrotic_fraction,
-                "accuracy": accuracy,
-                "affinity": affinity,
-                "compression_tolerance": compression_tolerance,
+                "CELL_VOLUME_MU": volume_mu,
+                "CELL_VOLUME_SIGMA": volume_sigma,
+                "APOPTOSIS_AGE_MU": apop_age_mu,
+                "APOPTOSIS_AGE_SIGMA": apop_age_sigma,
+                "NECROTIC_FRACTION": necrotic_fraction,
+                "ACCURACY": accuracy,
+                "AFFINITY": affinity,
+                "COMPRESSION_TOLERANCE": compression_tolerance,
             }
         )
 
-    # Save parameters to CSV (without ranges)
+    # Save parameters to Excel
     df = pd.DataFrame(param_log)
     df.to_csv(f"{output_dir}/parameter_log.csv", index=False)
-    
-    print(f"Generated {n_samples} XML files and parameter logs in {output_dir}/")
+
+    print(f"Generated {n_samples} XML files and parameter log in {output_dir}/")
 
 
 def generate_parameters_from_kde(
@@ -215,17 +205,20 @@ def generate_parameters_from_kde(
 # Example usage
 
 def main():
-    output_dir = "inputs/small_volume"
+    output_dir = "inputs/stem_cell_vary_volume"
+    param_ranges = {
+        'CELL_VOLUME_MU': (1750, 2650),
+        'CELL_VOLUME_SIGMA': (50, 250),
+        'APOPTOSIS_AGE_MU': (120960, 120960),
+        'APOPTOSIS_AGE_SIGMA': (6000, 6000),
+        'NECROTIC_FRACTION': (1.0, 1.0),
+        'ACCURACY': (0.0, 1.0),
+        'AFFINITY': (0.0, 1.0),
+        'COMPRESSION_TOLERANCE': (4, 8),
+    }
     generate_perturbed_parameters(
-        sobol_power=5,
-        volume_mu_range=(2250, 2250),
-        volume_sigma_range=(50, 150),
-        apop_age_mu_range=(120960, 120960),
-        apop_age_sigma_range=(6000, 6000),
-        necrotic_fraction_range=(0.5, 0.5),
-        accuracy_range=(0.8, 0.8),
-        affinity_range=(0.5, 0.5),
-        compression_tolerance_range=(4.35, 4.35),
+        sobol_power=8,
+        param_ranges=param_ranges,
         output_dir=output_dir,
     )
 

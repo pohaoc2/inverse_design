@@ -48,19 +48,32 @@ def run_abc_precomputed(cfg: DictConfig):
     else:
         # Use model defaults if no targets in config
         targets = model.get_default_targets()
-    param_file = "ARCADE_OUTPUT/STEM_CELL/all_param_df.csv"
-    metrics_file = "ARCADE_OUTPUT/STEM_CELL/simulation_metrics.csv"
-    output_dir = "inputs/STEM_CELL/kde_sampled_inputs"
+    param_file = "inputs/STEM_CELL/stem_cell_vary_volume_prior/parameter_log.csv"
+    metrics_file = "ARCADE_OUTPUT/STEM_CELL/STEM_CELL_VARY_VOLUME/simulation_metrics.csv"
+    output_dir = "inputs/STEM_CELL/stem_cell_vary_volume_posterior"
     param_df = pd.read_csv(param_file)
     constant_columns = param_df.columns[param_df.nunique() == 1]
     param_df = param_df.drop(columns=constant_columns)
     param_names = param_df.columns.tolist()
     targets = [
-        Target(metric=Metric.get("doub_time"), value=50.0, weight=1.0),
-        Target(metric=Metric.get("doub_time_std"), value=20.0, weight=1.0),
+        Target(metric=Metric.get("doub_time"), value=35.0, weight=1.0),
+        Target(metric=Metric.get("doub_time_std"), value=10.0, weight=1.0),
         Target(metric=Metric.get("act_t2"), value=0.6, weight=1.0),
         #Target(metric=Metric.get("colony_growth_rate"), value=0.8, weight=1.0),
     ]
+    
+    # Save targets to CSV
+    targets_df = pd.DataFrame([
+        {
+            'metric': target.metric.value,
+            'value': target.value,
+            'weight': target.weight
+        } for target in targets
+    ])
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    targets_df.to_csv(os.path.join(output_dir, 'targets.csv'), index=False)
+    
     abc = ABCPrecomputed(
         model_config, abc_config, targets, param_file=param_file, metrics_file=metrics_file
     )
@@ -85,17 +98,17 @@ def run_abc_precomputed(cfg: DictConfig):
             raise ValueError("No accepted parameters")
         accepted_params_list.append(accepted_params)
         parameter_pdfs = evaluate.estimate_pdfs(accepted_params)
-        generate_parameters_from_kde(parameter_pdfs, 128, output_dir=output_dir)
-        if 0:
-            save_path = f"prior_posterior_pdfs_{i}.png"
+        generate_parameters_from_kde(parameter_pdfs, 64, output_dir=output_dir)
+        if 1:
+            save_path = f"{output_dir}/prior_posterior_pdfs_{i}.png"
             plot_parameter_kde(parameter_pdfs, abc_config, save_path)
 
         if 0:
-            save_path = f"joint_distribution_{i}.png"
+            save_path = f"{output_dir}/joint_distribution_{i}.png"
             plot_joint_distribution(accepted_params, save_path)
 
     if 0:
-        save_path = f"pca_visualization.png"
+        save_path = f"{output_dir}/pca_visualization.png"
         plot_pca_visualization(accepted_params_list, save_path)
 
 

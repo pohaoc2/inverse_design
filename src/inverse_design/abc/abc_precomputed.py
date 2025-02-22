@@ -42,7 +42,6 @@ class ABCPrecomputed(ABCBase):
                                                             key=lambda x: x.str.extract('input_(\d+)').iloc[:,0].astype(int))
                 self.log.info("DataFrames have been sorted by input_folder")
         self.num_samples = len(self.param_df)
-        
         # Calculate dynamic normalization factors for metrics not in static factors
         self._calculate_dynamic_normalization_factors()
 
@@ -64,8 +63,6 @@ class ABCPrecomputed(ABCBase):
         self,
     ) -> Dict:
         """Run ABC inference on pre-computed results"""
-        
-
         target_str = ", ".join([f"{t.metric.value}: {t.value}" for t in self.targets])
         self.log.info(
             f"Starting ABC inference on {self.num_samples} pre-computed samples for targets: {target_str}"
@@ -78,6 +75,7 @@ class ABCPrecomputed(ABCBase):
 
             # Convert metrics Series to dict, only including target metrics
             metrics_row = self.metrics_df.iloc[i]
+            
             metrics = {target.metric: metrics_row[target.metric.value] for target in self.targets}
 
             distance = self.calculate_distance(metrics)
