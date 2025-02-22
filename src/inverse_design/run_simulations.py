@@ -106,8 +106,8 @@ def run_simulations(
 
 if __name__ == "__main__":
     run_simulations(
-        input_dir="inputs/STEM_CELL/kde_sampled_inputs",
-        output_dir="ARCADE_OUTPUT/STEM_CELL_KDE",
+        input_dir="inputs/small_volume",
+        output_dir="TEST/SMALL_VOL",
         jar_path="models/arcade-test-cycle.jar",
         max_workers=4,
         start_index=1,

@@ -61,8 +61,11 @@ def analyze_metric_percentiles(csv_file_path, metrics_name: str, percentile: flo
 
 def get_parameters_from_json(input_folder, parameter_list):
     """Extract parameters from json file."""
-    json_file = Path(input_folder) / "uniform_kde_aggressive.json"
-    with open(json_file, 'r') as f:
+    # Find the base configuration file by looking for a .json file without CELL or LOCATION in the name
+    json_files = list(Path(input_folder).glob("*.json"))
+    config_file = next(f for f in json_files if "CELL" not in f.name and "LOCATION" not in f.name)
+    
+    with open(config_file, 'r') as f:
         data = json.load(f)
     
     params = {}
@@ -270,6 +273,7 @@ def plot_doubling_time_relationship(labeled_df, parameter_base_folder):
              f'Bottom={plot_settings["bottom"]["corr"]:.2f}')
     plt.legend()
     plt.savefig(f'{parameter_base_folder}/doubling_time_relationship.png')
+
 def plot_metric_distributions(posterior_metrics_file, prior_metrics_file, target_metrics, save_file=None):
     """
     Plot density distributions of metrics from posterior and prior, with target values.
@@ -289,20 +293,30 @@ def plot_metric_distributions(posterior_metrics_file, prior_metrics_file, target
     fig, axes = plt.subplots(1, len(metrics_list), figsize=(15, 5))
     
     for idx, metric in enumerate(metrics_list):
-        # Plot posterior distribution
-        sns.kdeplot(data=posterior_df[metric], ax=axes[idx], label='Posterior', color='blue')
+        ax = axes[idx]
         
-        # Plot prior distribution
-        sns.kdeplot(data=prior_df[metric], ax=axes[idx], label='Prior', color='gray')
+        # Plot prior distribution on left y-axis
+        prior_plot = sns.kdeplot(data=prior_df[metric], ax=ax, label='Prior', color='gray')
+        ax.set_ylabel('Prior Density', color='gray')
+        ax.tick_params(axis='y', labelcolor='gray')
         
+        # Create twin axis for posterior
+        ax2 = ax.twinx()
+        posterior_plot = sns.kdeplot(data=posterior_df[metric], ax=ax2, label='Posterior', color='blue')
+        ax2.set_ylabel('Posterior Density', color='blue')
+        ax2.tick_params(axis='y', labelcolor='blue')
+        """
         # Add vertical line for target value
-        axes[idx].axvline(x=target_metrics[metric], color='red', linestyle='--', 
-                         label=f'Target ({target_metrics[metric]})')
+        ax.axvline(x=target_metrics[metric], color='red', linestyle='--', 
+                  label=f'Target ({target_metrics[metric]})')
         
-        axes[idx].set_title(f'{metric} Distribution')
-        axes[idx].set_xlabel(metric)
-        axes[idx].set_ylabel('Density')
-        axes[idx].legend()
+        # Combine legends from both axes
+        lines1, labels1 = ax.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax2.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
+        """
+        ax.set_title(f'{metric} Distribution')
+        ax.set_xlabel(metric)
     
     plt.tight_layout()
     if save_file is not None:
@@ -314,10 +328,12 @@ def plot_metric_distributions(posterior_metrics_file, prior_metrics_file, target
 if __name__ == "__main__":
     # Specify your parameters
     csv_file = "ARCADE_OUTPUT/STEM_CELL/simulation_metrics.csv"
+    csv_file = "TEST/SMALL_VOL/simulation_metrics.csv"
     metrics_name = "doub_time_std"
     parameter_list = ["CELL_VOLUME_SIGMA", "NECROTIC_FRACTION", 
                      "ACCURACY", "AFFINITY", "COMPRESSION_TOLERANCE"]
     parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL"
+    parameter_base_folder = "TEST/SMALL_VOL"
     percentile = 50
     top_n_input_file, bottom_n_input_file, labeled_df = analyze_metric_percentiles(csv_file, metrics_name, percentile, verbose=False)
     
@@ -336,15 +352,15 @@ if __name__ == "__main__":
     analyze_pca_parameters(all_param_df, parameter_list, parameter_base_folder, metrics_name, percentile)
     
     # Plot doubling time relationship
-    plot_doubling_time_relationship(labeled_df, parameter_base_folder)
+    #plot_doubling_time_relationship(labeled_df, parameter_base_folder)
 
-    posterior_metrics_file = "ARCADE_OUTPUT/STEM_CELL/simulation_metrics.csv"
+    posterior_metrics_file = "TEST/SMALL_VOL/simulation_metrics.csv"
     prior_metrics_file = "prior_metrics_formatted.csv"
     target_metrics = {
         "doub_time": 50,
         "doub_time_std": 0.0,
         "act_t2": 0.5,
-        #"colony_g_rate": 0.8
+        "colony_g_rate": 0.8
     }
-    save_file = "stem_cell_metric_distributions.png"
+    save_file = f"{parameter_base_folder}/small_vol_metric_distributions.png"
     plot_metric_distributions(posterior_metrics_file, prior_metrics_file, target_metrics, save_file)

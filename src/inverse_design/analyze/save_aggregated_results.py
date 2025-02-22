@@ -302,7 +302,7 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
     #metrics_calculator = SimulationMetrics("ARCADE_OUTPUT/SMALL_STD_ONLY_VOLUME/")
-    metrics_calculator = SimulationMetrics("ARCADE_OUTPUT/STEM_CELL/")
+    metrics_calculator = SimulationMetrics("TEST/SMALL_VOL/")
     
     timestamps = ["000000", "000720", "001440", "002160", "002880", "003600", "004320",
                  "005040", "005760", "006480", "007200", "007920", "008640", "009360", "010080"]
