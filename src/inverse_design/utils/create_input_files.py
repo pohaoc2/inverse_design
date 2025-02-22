@@ -54,6 +54,24 @@ def generate_perturbed_parameters(
 
     # Prepare DataFrame for parameter logging
     param_log = []
+    
+    # Save parameter ranges to a separate file
+    param_ranges_dict = {
+        "parameter": [
+            "volume_mu",
+            "volume_sigma",
+            "apop_age_mu",
+            "apop_age_sigma",
+            "necrotic_fraction",
+            "accuracy",
+            "affinity",
+            "compression_tolerance"
+        ],
+        "min": [r[0] for r in param_ranges],
+        "max": [r[1] for r in param_ranges]
+    }
+    ranges_df = pd.DataFrame(param_ranges_dict)
+    ranges_df.to_csv(f"{output_dir}/parameter_ranges.csv", index=False)
 
     # Generate XML files for each parameter set
     for i, sample in enumerate(samples):
@@ -111,11 +129,11 @@ def generate_perturbed_parameters(
             }
         )
 
-    # Save parameters to Excel
+    # Save parameters to CSV (without ranges)
     df = pd.DataFrame(param_log)
     df.to_csv(f"{output_dir}/parameter_log.csv", index=False)
-
-    print(f"Generated {n_samples} XML files and parameter log in {output_dir}/")
+    
+    print(f"Generated {n_samples} XML files and parameter logs in {output_dir}/")
 
 
 def generate_parameters_from_kde(
@@ -197,17 +215,17 @@ def generate_parameters_from_kde(
 # Example usage
 
 def main():
-    output_dir = "inputs/stem_cell"
+    output_dir = "inputs/small_volume"
     generate_perturbed_parameters(
-        sobol_power=8,
+        sobol_power=5,
         volume_mu_range=(2250, 2250),
         volume_sigma_range=(50, 150),
         apop_age_mu_range=(120960, 120960),
         apop_age_sigma_range=(6000, 6000),
-        necrotic_fraction_range=(0.0, 1.0),
-        accuracy_range=(0.0, 1.0),
-        affinity_range=(0.0, 1.0),
-        compression_tolerance_range=(2.5, 6.5),
+        necrotic_fraction_range=(0.5, 0.5),
+        accuracy_range=(0.8, 0.8),
+        affinity_range=(0.5, 0.5),
+        compression_tolerance_range=(4.35, 4.35),
         output_dir=output_dir,
     )
 
