@@ -8,7 +8,7 @@ import numpy as np
 from inverse_design.analyze.cell_metrics import CellMetrics
 from inverse_design.analyze.spatial_metrics import SpatialMetrics
 from inverse_design.analyze.analyze_seed_results import SeedAnalyzer
-from inverse_design.analyze.analyze_aggregated_results import collect_parameter_data
+from inverse_design.analyze.analyze_utils import collect_parameter_data
 
 
 class SimulationMetrics:
@@ -48,14 +48,13 @@ class SimulationMetrics:
         cells_data_t1 = self.cell_metrics.load_cells_data(folder_path, t1)
         cells_data_t2 = self.cell_metrics.load_cells_data(folder_path, t2)
         time_difference = int(t2) - int(t1)
-        fit_data = self.spatial_metrics.fit_colony_growth(folder_path, timestamps)
-
+        #fit_data = self.spatial_metrics.fit_colony_growth(folder_path, timestamps)
         metrics_by_exp = self.seed_analyzer.process_parameter_seeds(cells_data_t1, cells_data_t2, time_difference)
 
         averaged_metrics = {}
-
+        
         for (exp_group, exp_name), metrics in metrics_by_exp.items():
-            colony_metrics = fit_data.get((exp_group, exp_name), {})
+            #colony_metrics = fit_data.get((exp_group, exp_name), {})
 
             avg_cells_t1 = np.median(metrics["n_cells_t1"])
             avg_cells_t2 = np.median(metrics["n_cells_t2"])
@@ -80,11 +79,11 @@ class SimulationMetrics:
                 "act_t2": np.median(metrics["act_t2"]),
                 "act_t2_std": np.std(metrics["act_t2"]),
                 # "seed_count": metrics["seed_count"],
-                "colony_g_rate": colony_metrics.get("slope", 0.0),
-                "colony_g_rate_std": colony_metrics.get("slope_std", 0.0),
+                #"colony_g_rate": colony_metrics.get("slope", 0.0),
+                #"colony_g_rate_std": colony_metrics.get("slope_std", 0.0),
                 # "initial_colony_diameter": colony_metrics.get("intercept", 0.0),
                 # "initial_colony_diameter_std": colony_metrics.get("intercept_std", 0.0),
-                "colony_g_r_squared": colony_metrics.get("r_squared", 0.0),
+                #"colony_g_r_squared": colony_metrics.get("r_squared", 0.0),
                 # "states_t1": metrics["states_t1"],
                 "states_t2": metrics["states_t2"],
             }
@@ -220,7 +219,7 @@ class SimulationMetrics:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    parameter_base_folder = "ARCADE_OUTPUT/MANUAL_VOLUME_APOTOSIS/"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/STEM_CELL/"
     metrics_calculator = SimulationMetrics(parameter_base_folder)
 
     timestamps = [
@@ -245,10 +244,10 @@ def main():
     input_files = list(Path(parameter_base_folder).glob("input_*"))
     input_files = [f.name for f in input_files]
     parameter_list = [
-        "CELL_VOLUME_MU",
+        #"CELL_VOLUME_MU",
         "CELL_VOLUME_SIGMA",
         "NECROTIC_FRACTION",
-        "APOPTOSIS_AGE_SIGMA",
+        #"APOPTOSIS_AGE_SIGMA",
         "ACCURACY",
         "AFFINITY",
         "COMPRESSION_TOLERANCE",

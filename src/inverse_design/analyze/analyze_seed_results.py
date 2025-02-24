@@ -7,6 +7,7 @@ from inverse_design.analyze.analyze_utils import analyze_metric_percentiles
 from typing import List
 from inverse_design.analyze.cell_metrics import CellMetrics
 from inverse_design.analyze.spatial_metrics import SpatialMetrics
+from inverse_design.analyze.analyze_utils import remove_outliers
 
 
 class SeedAnalyzer:
@@ -158,6 +159,7 @@ class SeedAnalyzer:
         t2: str = "010080",
         timestamps: List[str] = None,
         metrics_to_plot: List[str] = None,
+        save_file: str = None,
     ):
         """Plot violin plots comparing seed distributions for top and bottom performers.
 
@@ -172,7 +174,6 @@ class SeedAnalyzer:
         top_n_input_file, bottom_n_input_file, _ = analyze_metric_percentiles(
             csv_file, metric_name, percentile, verbose=False
         )
-
         # Get seed metrics for each group
         top_seed_metrics = self.analyze_seeds_for_folders(top_n_input_file, t1, t2, timestamps)
         bottom_seed_metrics = self.analyze_seeds_for_folders(
@@ -193,8 +194,19 @@ class SeedAnalyzer:
                             {"metric": metric, "value": value, "group": group, "folder": folder}
                         )
 
-        # Convert to DataFrame
+        # Convert to DataFrame and remove outliers for each metric separately
         plot_df = pd.DataFrame(plot_data)
+        cleaned_plot_data = []
+        for metric in metrics_to_plot:
+            metric_data = plot_df[plot_df["metric"] == metric].copy()
+            cleaned_data, _, _ = remove_outliers(
+                metric_data, 
+                verbose=True
+            )
+            cleaned_plot_data.append(cleaned_data)
+            
+        # Combine cleaned data back into single DataFrame
+        plot_df = pd.concat(cleaned_plot_data, axis=0)
 
         print(f"number of top {percentile}% folders: {len(top_n_input_file)}")
         print(f"number of bottom {percentile}% folders: {len(bottom_n_input_file)}")
@@ -244,22 +256,26 @@ class SeedAnalyzer:
             )
 
         plt.tight_layout()
-        plt.savefig(f"{self.base_output_dir}/seed_comparisons.png")
-        plt.show()
+        if save_file is not None:
+            plt.savefig(save_file)
+        else:
+            plt.show()
 
 
 if __name__ == "__main__":
     # Example usage
-    base_dir = "ARCADE_OUTPUT/MANUAL_VOLUME_APOTOSIS"
+    base_dir = "ARCADE_OUTPUT/STEM_CELL/STEM_CELL"
     csv_file = f"{base_dir}/simulation_metrics.csv"
     percentile = 10
     metrics_to_plot = ["doub_time", "act_t2", "n_cells_t2"]
     analyzer = SeedAnalyzer(base_dir)
+    metric_name = "doub_time_std"
     analyzer.plot_seed_comparisons(
         csv_file=csv_file,
-        metric_name="doub_time_std",
+        metric_name=metric_name,
         percentile=percentile,
         metrics_to_plot=metrics_to_plot,
         t1="000000",
         t2="010080",
+        save_file=f"{base_dir}/seed_comparisons_{metric_name}.png"
     )

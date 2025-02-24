@@ -42,7 +42,7 @@ def plot_top_bottom_parameter_distributions(
         ax.set_xlabel(param)
         ax.set_ylabel("Density")
         ax.legend()
-
+    plt.suptitle(f"Parameter Distributions driving different {metrics_name} performance")
     plt.tight_layout()
     if save_file is not None:
         plt.savefig(save_file)
@@ -117,7 +117,7 @@ def plot_pca_parameters(
     # Add plot details
     plt.xlabel(f"First Principal Component ({pca.explained_variance_ratio_[0]:.1%} variance)")
     plt.ylabel(f"Second Principal Component ({pca.explained_variance_ratio_[1]:.1%} variance)")
-    plt.title(f"PCA of Parameters for Top and Bottom {percentile}% Cases")
+    plt.title(f"Top and Bottom {percentile}% Cases for {metrics_name} PCA")
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.axhline(y=0, color="k", linestyle="--", alpha=0.3)
@@ -414,11 +414,11 @@ def plot_cell_states_histogram(csv_file, save_file=None):
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/STEM_CELL_VARY_VOLUME_POSTERIOR"
-    parameter_base_folder = "ARCADE_OUTPUT/MANUAL_VOLUME_APOTOSIS"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/STEM_CELL"
     csv_file = f"{parameter_base_folder}/simulation_metrics.csv"
 
-    metrics_name = "doub_time_std"
+    metrics_name = "doub_time"
+    #metrics_name = "n_cells_t2"
     parameter_list = [
         "CELL_VOLUME_SIGMA",
         # "NECROTIC_FRACTION",
@@ -428,8 +428,8 @@ if __name__ == "__main__":
         "COMPRESSION_TOLERANCE",
     ]
 
-    percentile = 30
-    top_n_input_file, bottom_n_input_file, labeled_df = analyze_metric_percentiles(
+    percentile = 10
+    top_n_input_file, bottom_n_input_file, labeled_metrics_df = analyze_metric_percentiles(
         csv_file, metrics_name, percentile, verbose=True
     )
 
@@ -444,13 +444,12 @@ if __name__ == "__main__":
         "input_folder",
         key=lambda x: x.str.split("_").str[1].astype(int)
     )
-
     # Run analyses with the combined DataFrame
-    save_file = f"{parameter_base_folder}/parameter_distributions.png"
+    save_file = f"{parameter_base_folder}/parameter_distributions_{metrics_name}.png"
     plot_top_bottom_parameter_distributions(
         analyzed_param_df, parameter_list, parameter_base_folder, percentile, save_file
     )
-    save_file = f"{parameter_base_folder}/pca_parameters.png"
+    save_file = f"{parameter_base_folder}/pca_parameters_{metrics_name}.png"
     plot_pca_parameters(
         analyzed_param_df,
         parameter_list,
@@ -461,7 +460,7 @@ if __name__ == "__main__":
     )
 
     # Plot doubling time relationship
-    # plot_doubling_time_relationship(labeled_df, parameter_base_folder)
+    # plot_doubling_time_relationship(labeled_metrics_df, parameter_base_folder)
     plot_cell_states_histogram(
         f"{parameter_base_folder}/simulation_metrics.csv",
         f"{parameter_base_folder}/cell_states_histogram.png",

@@ -28,40 +28,52 @@ def get_parameters_from_json(input_folder, parameter_list):
     return params
 
 
-def analyze_metric_percentiles(csv_file, metric_name, percentile=10, verbose=True):
-    """Analyze metric percentiles from simulation results.
+def analyze_metric_percentiles(csv_file_path, metrics_name: str, percentile: float = 10, 
+                             verbose: bool = True):
+    """
+    Analyze rows where metrics fall into the bottom and top percentiles, optionally removing outliers first.
     
     Args:
-        csv_file: Path to simulation metrics CSV file
-        metric_name: Name of metric to analyze
-        percentile: Percentile threshold for top/bottom performers
-        verbose: Whether to print analysis results
-        
+        csv_file_path: Path to the aggregated results CSV file
+        metrics_name: Name of the metric to analyze
+        percentile: Percentile value between 0 and 50 (default: 10)
+        verbose: Whether to print detailed analysis (default: True)
+    
     Returns:
-        Tuple of (top_n_input_files, bottom_n_input_files, df)
+        tuple: (high_metric_folders, low_metric_folders, all_data)
     """
-    df = pd.read_csv(csv_file)
+    if not 0 < percentile <= 50:
+        raise ValueError("Percentile must be between 0 and 50")
     
-    # Calculate percentile thresholds
-    top_threshold = np.percentile(df[metric_name], percentile)
-    bottom_threshold = np.percentile(df[metric_name], 100 - percentile)
+    df = pd.read_csv(csv_file_path)
     
-    # Get top and bottom performers
-    top_n = df[df[metric_name] <= top_threshold]
-    bottom_n = df[df[metric_name] >= bottom_threshold]
+    # Calculate lower and upper percentiles on cleaned data
+    lower_bound = df[metrics_name].quantile(percentile/100)
+    upper_bound = df[metrics_name].quantile(1 - percentile/100)
+    
+    # Create a copy of the dataframe and add labels
+    all_data = df.copy()
+    all_data['percentile_label'] = 'not_assigned'
+    all_data.loc[df[metrics_name] <= lower_bound, 'percentile_label'] = 'low_metric'
+    all_data.loc[df[metrics_name] >= upper_bound, 'percentile_label'] = 'high_metric'
+    
+    # Get the original outputs for backward compatibility
+    low_metric_cases = df[df[metrics_name] <= lower_bound]
+    high_metric_cases = df[df[metrics_name] >= upper_bound]
+    high_metric_folders = high_metric_cases["input_folder"].unique()
+    low_metric_folders = low_metric_cases["input_folder"].unique()
     
     if verbose:
-        print(f"\nAnalyzing {metric_name}:")
-        print(f"Top {percentile}% threshold: {top_threshold:.3f}")
-        print(f"Bottom {percentile}% threshold: {bottom_threshold:.3f}")
-        print(f"Number of top performers: {len(top_n)}")
-        print(f"Number of bottom performers: {len(bottom_n)}")
-    
-    return (
-        top_n["input_folder"].tolist(),
-        bottom_n["input_folder"].tolist(),
-        df
-    ) 
+        print(f"\nAnalysis for {metrics_name}")
+        print("=" * 80)
+        print(f"\nLow {metrics_name} cases ({percentile}%) (≤ {lower_bound:.3f}):")
+        print(low_metric_cases.drop(columns=['states_t2'] if 'states_t2' in low_metric_cases.columns else []))
+        print(f"\nHigh {metrics_name} cases ({percentile}%) (≥ {upper_bound:.3f}):")
+        print(high_metric_cases.drop(columns=['states_t2'] if 'states_t2' in high_metric_cases.columns else []))
+        print("\nLabel distribution:")
+        print(all_data['percentile_label'].value_counts())
+
+    return high_metric_folders, low_metric_folders, all_data
 
 def collect_parameter_data(input_files, parameter_base_folder, parameter_list, labels=None):
     """
@@ -88,3 +100,46 @@ def collect_parameter_data(input_files, parameter_base_folder, parameter_list, l
     # sort params_list by numeric value in input_folder name
     params_list.sort(key=lambda x: int(x["input_folder"].split("_")[1]))
     return pd.DataFrame(params_list)
+
+def remove_outliers(data: pd.DataFrame, iqr_multiplier: float = 1.5, verbose: bool = True):
+    """
+    Remove outliers from the data using the IQR method.
+    
+    Args:
+        data: DataFrame containing the metrics
+        iqr_multiplier: Multiplier for IQR to determine outlier threshold (default: 1.5)
+        verbose: Whether to print analysis details (default: True)
+    
+    Returns:
+        tuple: (cleaned_data, outlier_indices, outlier_data)
+            - cleaned_data: DataFrame with outliers removed
+            - outlier_indices: Indices of identified outliers
+            - outlier_data: DataFrame containing only the outliers
+    """
+    # Calculate Q1, Q3, and IQR
+    Q1 = data["value"].quantile(0.25)
+    Q3 = data["value"].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    # Calculate outlier bounds
+    lower_bound = Q1 - iqr_multiplier * IQR
+    upper_bound = Q3 + iqr_multiplier * IQR
+    
+    # Identify outliers
+    outlier_mask = (data["value"] < lower_bound) | (data["value"] > upper_bound)
+    outlier_indices = data[outlier_mask].index
+    outlier_data = data.loc[outlier_indices]
+    cleaned_data = data.loc[~outlier_mask]
+    
+    if verbose:
+        print(f"\nOutlier Analysis for {data['metric'].unique()[0]}")
+        print("=" * 80)
+        print(f"Q1: {Q1:.3f}")
+        print(f"Q3: {Q3:.3f}")
+        print(f"IQR: {IQR:.3f}")
+        print(f"Lower bound: {lower_bound:.3f}")
+        print(f"Upper bound: {upper_bound:.3f}")
+        print(f"Number of outliers removed: {len(outlier_indices)}")
+        print(f"Remaining data points: {len(cleaned_data)}")
+
+    return cleaned_data, outlier_indices, outlier_data
