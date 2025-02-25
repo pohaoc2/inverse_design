@@ -74,33 +74,122 @@ def generate_perturbed_parameters(
             params.append(scaled_value)
 
         (
-            volume_mu,
-            volume_sigma,
-            apop_age_mu,
-            apop_age_sigma,
-            necrotic_fraction,
-            accuracy,
-            affinity,
-            compression_tolerance,
+            CELL_VOLUME_MU,
+            CELL_VOLUME_SIGMA,
+            APOPTOSIS_AGE_MU,
+            APOPTOSIS_AGE_SIGMA,
+            NECROTIC_FRACTION,
+            ACCURACY,
+            AFFINITY,
+            COMPRESSION_TOLERANCE,
+            SYNTHESIS_DURATION_MU,
+            SYNTHESIS_DURATION_SIGMA,
+            BASAL_ENERGY_MU,
+            BASAL_ENERGY_SIGMA,
+            PROLIFERATION_ENERGY_MU,
+            PROLIFERATION_ENERGY_SIGMA,
+            MIGRATION_ENERGY_MU,
+            MIGRATION_ENERGY_SIGMA,
+            METABOLIC_PREFERENCE_MU,
+            METABOLIC_PREFERENCE_SIGMA,
+            CONVERSION_FRACTION_MU,
+            CONVERSION_FRACTION_SIGMA,
+            RATIO_GLUCOSE_PYRUVATE_MU,
+            RATIO_GLUCOSE_PYRUVATE_SIGMA,
+            LACTATE_RATE_MU,
+            LACTATE_RATE_SIGMA,
+            AUTOPHAGY_RATE_MU,
+            AUTOPHAGY_RATE_SIGMA,
+            GLUCOSE_UPTAKE_RATE_MU,
+            GLUCOSE_UPTAKE_RATE_SIGMA,
+            ATP_PRODUCTION_RATE_MU,
+            ATP_PRODUCTION_RATE_SIGMA,
+            MIGRATORY_THRESHOLD_MU,
+            MIGRATORY_THRESHOLD_SIGMA,
         ) = params
+
+        # Create a dictionary for easier parameter access
+        params = {
+            'CELL_VOLUME_MU': CELL_VOLUME_MU,
+            'CELL_VOLUME_SIGMA': CELL_VOLUME_SIGMA,
+            'APOPTOSIS_AGE_MU': APOPTOSIS_AGE_MU,
+            'APOPTOSIS_AGE_SIGMA': APOPTOSIS_AGE_SIGMA,
+            'NECROTIC_FRACTION': NECROTIC_FRACTION,
+            'ACCURACY': ACCURACY,
+            'AFFINITY': AFFINITY,
+            'COMPRESSION_TOLERANCE': COMPRESSION_TOLERANCE,
+            'SYNTHESIS_DURATION_MU': SYNTHESIS_DURATION_MU,
+            'SYNTHESIS_DURATION_SIGMA': SYNTHESIS_DURATION_SIGMA,
+            'BASAL_ENERGY_MU': BASAL_ENERGY_MU,
+            'BASAL_ENERGY_SIGMA': BASAL_ENERGY_SIGMA,
+            'PROLIFERATION_ENERGY_MU': PROLIFERATION_ENERGY_MU,
+            'PROLIFERATION_ENERGY_SIGMA': PROLIFERATION_ENERGY_SIGMA,
+            'MIGRATION_ENERGY_MU': MIGRATION_ENERGY_MU,
+            'MIGRATION_ENERGY_SIGMA': MIGRATION_ENERGY_SIGMA,
+            'METABOLIC_PREFERENCE_MU': METABOLIC_PREFERENCE_MU,
+            'METABOLIC_PREFERENCE_SIGMA': METABOLIC_PREFERENCE_SIGMA,
+            'CONVERSION_FRACTION_MU': CONVERSION_FRACTION_MU,
+            'CONVERSION_FRACTION_SIGMA': CONVERSION_FRACTION_SIGMA,
+            'RATIO_GLUCOSE_PYRUVATE_MU': RATIO_GLUCOSE_PYRUVATE_MU,
+            'RATIO_GLUCOSE_PYRUVATE_SIGMA': RATIO_GLUCOSE_PYRUVATE_SIGMA,
+            'LACTATE_RATE_MU': LACTATE_RATE_MU,
+            'LACTATE_RATE_SIGMA': LACTATE_RATE_SIGMA,
+            'AUTOPHAGY_RATE_MU': AUTOPHAGY_RATE_MU,
+            'AUTOPHAGY_RATE_SIGMA': AUTOPHAGY_RATE_SIGMA,
+            'GLUCOSE_UPTAKE_RATE_MU': GLUCOSE_UPTAKE_RATE_MU,
+            'GLUCOSE_UPTAKE_RATE_SIGMA': GLUCOSE_UPTAKE_RATE_SIGMA,
+            'ATP_PRODUCTION_RATE_MU': ATP_PRODUCTION_RATE_MU,
+            'ATP_PRODUCTION_RATE_SIGMA': ATP_PRODUCTION_RATE_SIGMA,
+            'MIGRATORY_THRESHOLD_MU': MIGRATORY_THRESHOLD_MU,
+            'MIGRATORY_THRESHOLD_SIGMA': MIGRATORY_THRESHOLD_SIGMA,
+        }
 
         # Find cancerous population element
         cancerous_pop = root.find(".//population[@id='cancerous']")
 
         # Update parameters
         for param in cancerous_pop.findall("population.parameter"):
-            if param.get("id") == "CELL_VOLUME":
-                param.set("value", f"NORMAL(MU={volume_mu:.1f},SIGMA={volume_sigma:.1f})")
-            elif param.get("id") == "APOPTOSIS_AGE":
-                param.set("value", f"NORMAL(MU={apop_age_mu:.1f},SIGMA={apop_age_sigma:.1f})")
-            elif param.get("id") == "NECROTIC_FRACTION":
-                param.set("value", f"{necrotic_fraction:.3f}")
-            elif param.get("id") == "ACCURACY":
-                param.set("value", f"{accuracy:.3f}")
-            elif param.get("id") == "AFFINITY":
-                param.set("value", f"{affinity:.3f}")
-            elif param.get("id") == "COMPRESSION_TOLERANCE":
-                param.set("value", f"{compression_tolerance:.3f}")
+            param_id = param.get("id")
+            
+            # Handle existing parameters
+            if param_id == "CELL_VOLUME":
+                param.set("value", f"NORMAL(MU={params['CELL_VOLUME_MU']:.1f},SIGMA={max(0, params['CELL_VOLUME_SIGMA']):.1f})")
+            elif param_id == "APOPTOSIS_AGE":
+                param.set("value", f"NORMAL(MU={params['APOPTOSIS_AGE_MU']:.1f},SIGMA={max(0, params['APOPTOSIS_AGE_SIGMA']):.1f})")
+            elif param_id == "NECROTIC_FRACTION":
+                param.set("value", f"{NECROTIC_FRACTION:.3f}")
+            elif param_id == "ACCURACY":
+                param.set("value", f"{ACCURACY:.3f}")
+            elif param_id == "AFFINITY":
+                param.set("value", f"{AFFINITY:.3f}")
+            elif param_id == "COMPRESSION_TOLERANCE":
+                param.set("value", f"{COMPRESSION_TOLERANCE:.3f}")
+            
+            # Handle metabolism parameters
+            elif param_id == "metabolism/BASAL_ENERGY":
+                param.set("value", f"NORMAL(MU={params['BASAL_ENERGY_MU']:.6f},SIGMA={params['BASAL_ENERGY_SIGMA']:.6f})")
+            elif param_id == "metabolism/PROLIFERATION_ENERGY":
+                param.set("value", f"NORMAL(MU={params['PROLIFERATION_ENERGY_MU']:.6f},SIGMA={params['PROLIFERATION_ENERGY_SIGMA']:.6f})")
+            elif param_id == "metabolism/MIGRATION_ENERGY":
+                param.set("value", f"NORMAL(MU={params['MIGRATION_ENERGY_MU']:.6f},SIGMA={params['MIGRATION_ENERGY_SIGMA']:.6f})")
+            elif param_id == "metabolism/METABOLIC_PREFERENCE":
+                param.set("value", f"NORMAL(MU={params['METABOLIC_PREFERENCE_MU']:.3f},SIGMA={params['METABOLIC_PREFERENCE_SIGMA']:.3f})")
+            elif param_id == "metabolism/CONVERSION_FRACTION":
+                param.set("value", f"NORMAL(MU={params['CONVERSION_FRACTION_MU']:.3f},SIGMA={params['CONVERSION_FRACTION_SIGMA']:.3f})")
+            elif param_id == "metabolism/RATIO_GLUCOSE_PYRUVATE":
+                param.set("value", f"NORMAL(MU={params['RATIO_GLUCOSE_PYRUVATE_MU']:.3f},SIGMA={params['RATIO_GLUCOSE_PYRUVATE_SIGMA']:.3f})")
+            elif param_id == "metabolism/LACTATE_RATE":
+                param.set("value", f"NORMAL(MU={params['LACTATE_RATE_MU']:.3f},SIGMA={params['LACTATE_RATE_SIGMA']:.3f})")
+            elif param_id == "metabolism/AUTOPHAGY_RATE":
+                param.set("value", f"NORMAL(MU={params['AUTOPHAGY_RATE_MU']:.6f},SIGMA={params['AUTOPHAGY_RATE_SIGMA']:.6f})")
+            elif param_id == "metabolism/GLUCOSE_UPTAKE_RATE":
+                param.set("value", f"NORMAL(MU={params['GLUCOSE_UPTAKE_RATE_MU']:.3f},SIGMA={params['GLUCOSE_UPTAKE_RATE_SIGMA']:.3f})")
+            elif param_id == "metabolism/ATP_PRODUCTION_RATE":
+                param.set("value", f"NORMAL(MU={params['ATP_PRODUCTION_RATE_MU']:.3f},SIGMA={params['ATP_PRODUCTION_RATE_SIGMA']:.3f})")
+            elif param_id == "signaling/MIGRATORY_THRESHOLD":
+                param.set("value", f"NORMAL(MU={params['MIGRATORY_THRESHOLD_MU']:.3f},SIGMA={params['MIGRATORY_THRESHOLD_SIGMA']:.3f})")
+            elif param_id == "proliferation/SYNTHESIS_DURATION":
+                param.set("value", f"NORMAL(MU={params['SYNTHESIS_DURATION_MU']:.1f},SIGMA={params['SYNTHESIS_DURATION_SIGMA']:.1f})")
 
         # Save modified XML
         if not os.path.exists(f"{output_dir}/inputs"):
@@ -112,14 +201,38 @@ def generate_perturbed_parameters(
         param_log.append(
             {
                 "file_name": f"input_{i+1}.xml",
-                "CELL_VOLUME_MU": volume_mu,
-                "CELL_VOLUME_SIGMA": volume_sigma,
-                "APOPTOSIS_AGE_MU": apop_age_mu,
-                "APOPTOSIS_AGE_SIGMA": apop_age_sigma,
-                "NECROTIC_FRACTION": necrotic_fraction,
-                "ACCURACY": accuracy,
-                "AFFINITY": affinity,
-                "COMPRESSION_TOLERANCE": compression_tolerance,
+                "CELL_VOLUME_MU": CELL_VOLUME_MU,
+                "CELL_VOLUME_SIGMA": CELL_VOLUME_SIGMA,
+                "APOPTOSIS_AGE_MU": APOPTOSIS_AGE_MU,
+                "APOPTOSIS_AGE_SIGMA": APOPTOSIS_AGE_SIGMA,
+                "NECROTIC_FRACTION": NECROTIC_FRACTION,
+                "ACCURACY": ACCURACY,
+                "AFFINITY": AFFINITY,
+                "COMPRESSION_TOLERANCE": COMPRESSION_TOLERANCE,
+                "SYNTHESIS_DURATION_MU": SYNTHESIS_DURATION_MU,
+                "SYNTHESIS_DURATION_SIGMA": SYNTHESIS_DURATION_SIGMA,
+                "BASAL_ENERGY_MU": BASAL_ENERGY_MU,
+                "BASAL_ENERGY_SIGMA": BASAL_ENERGY_SIGMA,
+                "PROLIFERATION_ENERGY_MU": PROLIFERATION_ENERGY_MU,
+                "PROLIFERATION_ENERGY_SIGMA": PROLIFERATION_ENERGY_SIGMA,
+                "MIGRATION_ENERGY_MU": MIGRATION_ENERGY_MU,
+                "MIGRATION_ENERGY_SIGMA": MIGRATION_ENERGY_SIGMA,
+                "METABOLIC_PREFERENCE_MU": METABOLIC_PREFERENCE_MU,
+                "METABOLIC_PREFERENCE_SIGMA": METABOLIC_PREFERENCE_SIGMA,
+                "CONVERSION_FRACTION_MU": CONVERSION_FRACTION_MU,
+                "CONVERSION_FRACTION_SIGMA": CONVERSION_FRACTION_SIGMA,
+                "RATIO_GLUCOSE_PYRUVATE_MU": RATIO_GLUCOSE_PYRUVATE_MU,
+                "RATIO_GLUCOSE_PYRUVATE_SIGMA": RATIO_GLUCOSE_PYRUVATE_SIGMA,
+                "LACTATE_RATE_MU": LACTATE_RATE_MU,
+                "LACTATE_RATE_SIGMA": LACTATE_RATE_SIGMA,
+                "AUTOPHAGY_RATE_MU": AUTOPHAGY_RATE_MU,
+                "AUTOPHAGY_RATE_SIGMA": AUTOPHAGY_RATE_SIGMA,
+                "GLUCOSE_UPTAKE_RATE_MU": GLUCOSE_UPTAKE_RATE_MU,
+                "GLUCOSE_UPTAKE_RATE_SIGMA": GLUCOSE_UPTAKE_RATE_SIGMA,
+                "ATP_PRODUCTION_RATE_MU": ATP_PRODUCTION_RATE_MU,
+                "ATP_PRODUCTION_RATE_SIGMA": ATP_PRODUCTION_RATE_SIGMA,
+                "MIGRATORY_THRESHOLD_MU": MIGRATORY_THRESHOLD_MU,
+                "MIGRATORY_THRESHOLD_SIGMA": MIGRATORY_THRESHOLD_SIGMA,
             }
         )
 
@@ -172,14 +285,12 @@ def generate_parameters_from_kde(
         # Update parameters
         for param in cancerous_pop.findall("population.parameter"):
             param_id = param.get("id")
-            if param_id == "CELL_VOLUME" and "CELL_VOLUME_SIGMA" in params:
-                param.set(
-                    "value", f"NORMAL(MU=2250,SIGMA={max(0, params['CELL_VOLUME_SIGMA']):.1f})"
-                )
-            elif param_id == "APOPTOSIS_AGE" and "APOPTOSIS_AGE_SIGMA" in params:
-                param.set(
-                    "value", f"NORMAL(MU=120960,SIGMA={max(0, params['APOPTOSIS_AGE_SIGMA']):.1f})"
-                )
+            
+            # Handle cellular properties
+            if param_id == "CELL_VOLUME" and "CELL_VOLUME_MU" in params and "CELL_VOLUME_SIGMA" in params:
+                param.set("value", f"NORMAL(MU={params['CELL_VOLUME_MU']:.1f},SIGMA={max(0, params['CELL_VOLUME_SIGMA']):.1f})")
+            elif param_id == "APOPTOSIS_AGE" and "APOPTOSIS_AGE_MU" in params and "APOPTOSIS_AGE_SIGMA" in params:
+                param.set("value", f"NORMAL(MU={params['APOPTOSIS_AGE_MU']:.1f},SIGMA={max(0, params['APOPTOSIS_AGE_SIGMA']):.1f})")
             elif param_id == "NECROTIC_FRACTION" and "NECROTIC_FRACTION" in params:
                 param.set("value", f"{min(1, max(0, params['NECROTIC_FRACTION'])):.3f}")
             elif param_id == "ACCURACY" and "ACCURACY" in params:
@@ -188,6 +299,48 @@ def generate_parameters_from_kde(
                 param.set("value", f"{min(1, max(0, params['AFFINITY'])):.3f}")
             elif param_id == "COMPRESSION_TOLERANCE" and "COMPRESSION_TOLERANCE" in params:
                 param.set("value", f"{params['COMPRESSION_TOLERANCE']:.3f}")
+            
+            # Handle proliferation parameters
+            elif param_id == "proliferation/SYNTHESIS_DURATION":
+                if "SYNTHESIS_DURATION_MU" in params and "SYNTHESIS_DURATION_SIGMA" in params:
+                    param.set("value", f"NORMAL(MU={params['SYNTHESIS_DURATION_MU']:.1f},SIGMA={params['SYNTHESIS_DURATION_SIGMA']:.1f})")
+            
+            # Handle metabolism parameters
+            elif param_id == "metabolism/BASAL_ENERGY":
+                if "BASAL_ENERGY_MU" in params and "BASAL_ENERGY_SIGMA" in params:
+                    param.set("value", f"NORMAL(MU={params['BASAL_ENERGY_MU']:.6f},SIGMA={params['BASAL_ENERGY_SIGMA']:.6f})")
+            elif param_id == "metabolism/PROLIFERATION_ENERGY":
+                if "PROLIFERATION_ENERGY_MU" in params and "PROLIFERATION_ENERGY_SIGMA" in params:
+                    param.set("value", f"NORMAL(MU={params['PROLIFERATION_ENERGY_MU']:.6f},SIGMA={params['PROLIFERATION_ENERGY_SIGMA']:.6f})")
+            elif param_id == "metabolism/MIGRATION_ENERGY":
+                if "MIGRATION_ENERGY_MU" in params and "MIGRATION_ENERGY_SIGMA" in params:
+                    param.set("value", f"NORMAL(MU={params['MIGRATION_ENERGY_MU']:.6f},SIGMA={params['MIGRATION_ENERGY_SIGMA']:.6f})")
+            elif param_id == "metabolism/METABOLIC_PREFERENCE":
+                if "METABOLIC_PREFERENCE_MU" in params and "METABOLIC_PREFERENCE_SIGMA" in params:
+                    param.set("value", f"NORMAL(MU={params['METABOLIC_PREFERENCE_MU']:.3f},SIGMA={params['METABOLIC_PREFERENCE_SIGMA']:.3f})")
+            elif param_id == "metabolism/CONVERSION_FRACTION":
+                if "CONVERSION_FRACTION_MU" in params and "CONVERSION_FRACTION_SIGMA" in params:
+                    param.set("value", f"NORMAL(MU={params['CONVERSION_FRACTION_MU']:.3f},SIGMA={params['CONVERSION_FRACTION_SIGMA']:.3f})")
+            elif param_id == "metabolism/RATIO_GLUCOSE_PYRUVATE":
+                if "RATIO_GLUCOSE_PYRUVATE_MU" in params and "RATIO_GLUCOSE_PYRUVATE_SIGMA" in params:
+                    param.set("value", f"NORMAL(MU={params['RATIO_GLUCOSE_PYRUVATE_MU']:.3f},SIGMA={params['RATIO_GLUCOSE_PYRUVATE_SIGMA']:.3f})")
+            elif param_id == "metabolism/LACTATE_RATE":
+                if "LACTATE_RATE_MU" in params and "LACTATE_RATE_SIGMA" in params:
+                    param.set("value", f"NORMAL(MU={params['LACTATE_RATE_MU']:.3f},SIGMA={params['LACTATE_RATE_SIGMA']:.3f})")
+            elif param_id == "metabolism/AUTOPHAGY_RATE":
+                if "AUTOPHAGY_RATE_MU" in params and "AUTOPHAGY_RATE_SIGMA" in params:
+                    param.set("value", f"NORMAL(MU={params['AUTOPHAGY_RATE_MU']:.6f},SIGMA={params['AUTOPHAGY_RATE_SIGMA']:.6f})")
+            elif param_id == "metabolism/GLUCOSE_UPTAKE_RATE":
+                if "GLUCOSE_UPTAKE_RATE_MU" in params and "GLUCOSE_UPTAKE_RATE_SIGMA" in params:
+                    param.set("value", f"NORMAL(MU={params['GLUCOSE_UPTAKE_RATE_MU']:.3f},SIGMA={params['GLUCOSE_UPTAKE_RATE_SIGMA']:.3f})")
+            elif param_id == "metabolism/ATP_PRODUCTION_RATE":
+                if "ATP_PRODUCTION_RATE_MU" in params and "ATP_PRODUCTION_RATE_SIGMA" in params:
+                    param.set("value", f"NORMAL(MU={params['ATP_PRODUCTION_RATE_MU']:.3f},SIGMA={params['ATP_PRODUCTION_RATE_SIGMA']:.3f})")
+            
+            # Handle signaling parameters
+            elif param_id == "signaling/MIGRATORY_THRESHOLD":
+                if "MIGRATORY_THRESHOLD_MU" in params and "MIGRATORY_THRESHOLD_SIGMA" in params:
+                    param.set("value", f"NORMAL(MU={params['MIGRATORY_THRESHOLD_MU']:.3f},SIGMA={params['MIGRATORY_THRESHOLD_SIGMA']:.3f})")
 
         # Save modified XML
         if not os.path.exists(f"{output_dir}/inputs"):
@@ -206,23 +359,46 @@ def generate_parameters_from_kde(
     print(f"Generated {n_samples} XML files and parameter log in {output_dir}/")
 
 
-# Example usage
-
-
 def main():
-    output_dir = "inputs/STEM_CELL/stem_cell_longer"
+    output_dir = "inputs/STEM_CELL/meta_signal_heterogeneity"
     param_ranges = {
-        "CELL_VOLUME_MU": (1750, 2650),
+        "CELL_VOLUME_MU": (2000, 2500),
         "CELL_VOLUME_SIGMA": (50, 250),
         "APOPTOSIS_AGE_MU": (120960, 120960),
         "APOPTOSIS_AGE_SIGMA": (6000, 6000),
         "NECROTIC_FRACTION": (1.0, 1.0),
-        "ACCURACY": (0.0, 1.0),
+        "ACCURACY": (0.3, 1.0),
         "AFFINITY": (0.0, 1.0),
-        "COMPRESSION_TOLERANCE": (4, 8),
+        "COMPRESSION_TOLERANCE": (3, 10),
+        
+        "SYNTHESIS_DURATION_MU": (580, 680),
+        "SYNTHESIS_DURATION_SIGMA": (20, 70),
+        "BASAL_ENERGY_MU": (0.0008, 0.0012),
+        "BASAL_ENERGY_SIGMA": (0.00006, 0.0001),
+        "PROLIFERATION_ENERGY_MU": (0.0008, 0.0012),
+        "PROLIFERATION_ENERGY_SIGMA": (0.00006, 0.0001),
+        "MIGRATION_ENERGY_MU": (0.00016, 0.00024),
+        "MIGRATION_ENERGY_SIGMA": (0.000012, 0.00002),
+        "METABOLIC_PREFERENCE_MU": (0.24, 0.36),
+        "METABOLIC_PREFERENCE_SIGMA": (0.019, 0.029),
+        "CONVERSION_FRACTION_MU": (0.2, 0.3),
+        "CONVERSION_FRACTION_SIGMA": (0.016, 0.024),
+        "RATIO_GLUCOSE_PYRUVATE_MU": (0.4, 0.6),
+        "RATIO_GLUCOSE_PYRUVATE_SIGMA": (0.032, 0.048),
+        "LACTATE_RATE_MU": (0.08, 0.12),
+        "LACTATE_RATE_SIGMA": (0.006, 0.01),
+        "AUTOPHAGY_RATE_MU": (0.00008, 0.00012),
+        "AUTOPHAGY_RATE_SIGMA": (0.000006, 0.00001),
+        "GLUCOSE_UPTAKE_RATE_MU": (0.9, 1.34),
+        "GLUCOSE_UPTAKE_RATE_SIGMA": (0.072, 0.107),
+        "ATP_PRODUCTION_RATE_MU": (7.14, 10.71),
+        "ATP_PRODUCTION_RATE_SIGMA": (0.57, 0.86),
+        "MIGRATORY_THRESHOLD_MU": (8, 12),
+        "MIGRATORY_THRESHOLD_SIGMA": (0.64, 0.96),
     }
+    
     generate_perturbed_parameters(
-        sobol_power=8,
+        sobol_power=9,
         param_ranges=param_ranges,
         output_dir=output_dir,
     )
