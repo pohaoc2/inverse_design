@@ -22,10 +22,22 @@ def plot_top_bottom_parameter_distributions(
     Plot parameter distributions for top and bottom percentile cases.
     """
     n_params = len(parameter_list)
-    fig, axes = plt.subplots(1, n_params, figsize=(4 * n_params, 4))
-
+    plots_per_row = 4
+    n_rows = (n_params + plots_per_row - 1) // plots_per_row  # Ceiling division
+    n_cols = min(n_params, plots_per_row)
+    
+    # Create figure with appropriate size
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(4 * n_cols, 4 * n_rows))
+    
+    # Make axes 2D if it's 1D
+    if n_rows == 1:
+        axes = axes.reshape(1, -1)
+    
     for idx, param in enumerate(parameter_list):
-        ax = axes[idx]
+        # Calculate row and column indices
+        row_idx = idx // plots_per_row
+        col_idx = idx % plots_per_row
+        ax = axes[row_idx, col_idx]
 
         # Plot density distributions for each group
         for label in ["top", "bottom"]:
@@ -42,7 +54,13 @@ def plot_top_bottom_parameter_distributions(
         ax.set_xlabel(param)
         ax.set_ylabel("Density")
         ax.legend()
-    plt.suptitle(f"Parameter Distributions driving different {metrics_name} performance")
+    
+    # Hide empty subplots if any
+    for idx in range(len(parameter_list), n_rows * n_cols):
+        row_idx = idx // plots_per_row
+        col_idx = idx % plots_per_row
+        axes[row_idx, col_idx].set_visible(False)
+
     plt.tight_layout()
     if save_file is not None:
         plt.savefig(save_file)
@@ -215,42 +233,49 @@ def plot_doubling_time_relationship(labeled_df, save_file=None):
     plt.close()
 
 
+def get_kde_bounds(kde_plot, percentile: float = 0.01):
+    """
+    Get the x-axis bounds that contain (1 - 2*percentile)% of the KDE distribution.
+    
+    Args:
+        kde_plot: The KDE plot from seaborn
+        percentile: The percentile to exclude from each tail (default: 0.01 for 1%)
+    
+    Returns:
+        tuple: (x_min, x_max) containing the bounds
+    """
+    # Get the x and y values from the KDE
+    line = kde_plot.lines[0]
+    x_vals = line.get_xdata()
+    y_vals = line.get_ydata()
+    
+    # Calculate cumulative distribution and find percentiles
+    cum_dist = np.cumsum(y_vals) / np.sum(y_vals)
+    x_min = x_vals[np.argmax(cum_dist >= percentile)]
+    x_max = x_vals[np.argmax(cum_dist >= (1 - percentile))]
+    
+    return x_min, x_max
+
+
 def plot_metric_distributions(
-    posterior_metrics_file: Optional[str] = None,
-    prior_metrics_file: Optional[str] = None,
-    target_metrics: Optional[dict] = None,
+    posterior_metrics_file,
+    prior_metrics_file,
+    target_metrics,
     save_file: Optional[str] = None,
 ):
     """
     Plot density distributions of metrics from posterior and/or prior, with optional target values.
 
     Args:
-        posterior_metrics_file: Path to simulation_metrics.csv (posterior), optional
-        prior_metrics_file: Path to completed_doubling.csv (prior), optional
-        target_metrics: Dictionary of target values for each metric, optional
+        posterior_metrics_file: Path to simulation_metrics.csv (posterior)
+        prior_metrics_file: Path to completed_doubling.csv (prior)
+        target_metrics: Dictionary of target values for each metric
         save_file: Path to save the plot, optional
     """
     # Explicitly type the variables
-    posterior_df: Optional[pd.DataFrame] = (
-        pd.read_csv(posterior_metrics_file) if posterior_metrics_file else None
-    )
-    prior_df: Optional[pd.DataFrame] = (
-        pd.read_csv(prior_metrics_file) if prior_metrics_file else None
-    )
-
-    # Determine metrics to plot
-    if target_metrics:
-        metrics_list = list(target_metrics.keys())
-    elif posterior_df is not None:
-        # Only include numeric columns
-        metrics_list = posterior_df.select_dtypes(include=["float64", "int64"]).columns.tolist()
-    elif prior_df is not None:
-        # Only include numeric columns
-        metrics_list = prior_df.select_dtypes(include=["float64", "int64"]).columns.tolist()
-    else:
-        raise ValueError(
-            "At least one of posterior_metrics_file, prior_metrics_file, or target_metrics must be provided"
-        )
+    posterior_df = pd.read_csv(posterior_metrics_file)
+    prior_df = pd.read_csv(prior_metrics_file)
+    metrics_list = list(target_metrics.keys())
 
     # Create subplot for each metric
     fig, axes = plt.subplots(1, len(metrics_list), figsize=(15, 5))
@@ -259,59 +284,31 @@ def plot_metric_distributions(
 
     for idx, metric in enumerate(metrics_list):
         ax = axes[idx]
+        prior_kde = sns.kdeplot(data=prior_df[metric], ax=ax, label="Prior", color="gray")
+        ax.set_ylabel("Prior Density", color="gray")
+        ax.tick_params(axis="y", labelcolor="gray")
+        ax2 = ax.twinx()
+        posterior_kde = sns.kdeplot(data=posterior_df[metric], ax=ax2, label="Posterior", color="blue")
+        ax2.set_ylabel("Posterior Density", color="blue")
+        ax2.tick_params(axis="y", labelcolor="blue")
 
-        # Plot prior distribution if available
-        if (
-            prior_df is not None
-            and metric in prior_df.columns
-            and pd.api.types.is_numeric_dtype(prior_df[metric])
-        ):
-            sns.kdeplot(data=prior_df[metric], ax=ax, label="Prior", color="gray")
-            ax.set_ylabel("Prior Density", color="gray")
-            ax.tick_params(axis="y", labelcolor="gray")
+        prior_x_min, prior_x_max = get_kde_bounds(prior_kde, percentile=0.01)
+        posterior_x_min, posterior_x_max = get_kde_bounds(posterior_kde, percentile=0.01)
+        x_min = min(prior_x_min, posterior_x_min)
+        x_max = max(prior_x_max, posterior_x_max)
+            
+        padding = 0.1 * (x_max - x_min)
+        ax.set_xlim(x_min - padding, x_max + padding)
 
-            # If both distributions are present, use twin y-axis for posterior
-            if (
-                posterior_df is not None
-                and metric in posterior_df.columns
-                and pd.api.types.is_numeric_dtype(posterior_df[metric])
-            ):
-                ax2 = ax.twinx()
-                sns.kdeplot(data=posterior_df[metric], ax=ax2, label="Posterior", color="blue")
-                ax2.set_ylabel("Posterior Density", color="blue")
-                ax2.tick_params(axis="y", labelcolor="blue")
-
-                # Combine legends
-                lines1, labels1 = ax.get_legend_handles_labels()
-                lines2, labels2 = ax2.get_legend_handles_labels()
-                ax2.legend(lines1 + lines2, labels1 + labels2)
-            else:
-                ax.legend()
-        # If only posterior is available, plot it normally
-        elif (
-            posterior_df is not None
-            and metric in posterior_df.columns
-            and pd.api.types.is_numeric_dtype(posterior_df[metric])
-        ):
-            sns.kdeplot(data=posterior_df[metric], ax=ax, label="Posterior", color="blue")
-            ax.set_ylabel("Density")
-            ax.legend()
-
-        # Add target value if available
-        if target_metrics and metric in target_metrics:
-            ax.axvline(
-                x=target_metrics[metric],
-                color="red",
-                linestyle="--",
-                label=f"Target ({target_metrics[metric]})",
-            )
-            # Update legends to include target line
-            if prior_df is not None and posterior_df is not None:
-                lines1, labels1 = ax.get_legend_handles_labels()
-                lines2, labels2 = ax2.get_legend_handles_labels()
-                ax2.legend(lines1 + lines2, labels1 + labels2)
-            else:
-                ax.legend()
+        ax.axvline(
+            x=target_metrics[metric],
+            color="red",
+            linestyle="--",
+            label=f"Target ({target_metrics[metric]})",
+        )
+        lines1, labels1 = ax.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax2.legend(lines1 + lines2, labels1 + labels2)
 
         ax.set_title(f"{metric} Distribution")
         ax.set_xlabel(metric)
@@ -420,6 +417,27 @@ if __name__ == "__main__":
 
     metrics_name = "doub_time"
 
+    if 0:
+        posterior_metrics_file = (
+            f"{parameter_base_folder}/simulation_metrics.csv"
+        )
+        prior_metrics_file = (
+            "prior_metrics_formatted.csv"
+        )
+        target_metrics = {
+            "doub_time": 35.0,
+            "doub_time_std": 10.0,
+            "act_t2": 0.6,
+        }
+
+        save_file = f"{parameter_base_folder}/metric_distributions.png"
+        plot_metric_distributions(
+            posterior_metrics_file=posterior_metrics_file,
+            prior_metrics_file=prior_metrics_file,
+            target_metrics=target_metrics,
+            save_file=save_file,
+        )
+
     percentile = 10
     top_n_input_file, bottom_n_input_file, labeled_metrics_df = analyze_metric_percentiles(
         csv_file, metrics_name, percentile, verbose=True
@@ -437,13 +455,15 @@ if __name__ == "__main__":
         key=lambda x: x.str.split("_").str[1].astype(int)
     )
     # Run analyses with the combined DataFrame
-    save_file = f"{parameter_base_folder}/parameter_distributions_{metrics_name}.png"
-    plot_top_bottom_parameter_distributions(
-        analyzed_param_df, PARAMETER_LIST, parameter_base_folder, percentile, save_file
-    )
-    save_file = f"{parameter_base_folder}/pca_parameters_{metrics_name}.png"
-    plot_pca_parameters(
-        analyzed_param_df,
+    if 1:
+        save_file = f"{parameter_base_folder}/parameter_distributions_{metrics_name}.png"
+        plot_top_bottom_parameter_distributions(
+            analyzed_param_df, PARAMETER_LIST, parameter_base_folder, percentile, save_file
+        )
+    if 0:
+        save_file = f"{parameter_base_folder}/pca_parameters_{metrics_name}.png"
+        plot_pca_parameters(
+            analyzed_param_df,
         PARAMETER_LIST,
         parameter_base_folder,
         metrics_name,
@@ -453,30 +473,8 @@ if __name__ == "__main__":
 
     # Plot doubling time relationship
     # plot_doubling_time_relationship(labeled_metrics_df, parameter_base_folder)
-    plot_cell_states_histogram(
-        f"{parameter_base_folder}/simulation_metrics.csv",
-        f"{parameter_base_folder}/cell_states_histogram.png",
-    )
-    if 1:
-        posterior_metrics_file = (
-            f"{parameter_base_folder}/simulation_metrics.csv"
-        )
-        prior_metrics_file = (
-            "ARCADE_OUTPUT/STEM_CELL/STEM_CELL_VARY_VOLUME_PRIOR/simulation_metrics.csv"
-        )
-        prior_metrics_file = (
-            "prior_metrics_formatted.csv"
-        )
-        target_metrics = {
-            "doub_time": 35.0,
-            "doub_time_std": 10.0,
-            "act_t2": 0.6,
-            # "colony_g_rate": 0.8
-        }
-        save_file = f"{parameter_base_folder}/metric_distributions.png"
-        plot_metric_distributions(
-            posterior_metrics_file=posterior_metrics_file,
-            prior_metrics_file=prior_metrics_file,
-            target_metrics=target_metrics,
-            save_file=save_file,
+    if 0:
+        plot_cell_states_histogram(
+            f"{parameter_base_folder}/simulation_metrics.csv",
+            f"{parameter_base_folder}/cell_states_histogram.png",
         )

@@ -51,13 +51,13 @@ class ARCADEParameters(ModelParameters):
     def format_sample_data(
         self, params: Dict, metrics: Dict, distance: float = None, accepted: bool = False
     ) -> Dict:
-        formatted_data = {key: round(value, 3) for key, value in params.items()}
+        formatted_data = {key: value for key, value in params.items()}
 
-        formatted_data.update({key.value: round(value, 3) for key, value in metrics.items()})
+        formatted_data.update({key.value: value for key, value in metrics.items()})
 
         formatted_data.update(
             {
-                "distance": round(distance, 3) if distance is not None else None,
+                "distance": distance if distance is not None else None,
                 "accepted": accepted,
             }
         )

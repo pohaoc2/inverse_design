@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from scipy import stats
 
 
-@hydra.main(version_base=None, config_path="conf", config_name="config")
+@hydra.main(version_base=None, config_path="../conf", config_name="config")
 def run_abc_precomputed(cfg: DictConfig):
     """Example script demonstrating how to use the ABC inference with precomputed results
 
@@ -52,16 +52,16 @@ def run_abc_precomputed(cfg: DictConfig):
     else:
         # Use model defaults if no targets in config
         targets = model.get_default_targets()
-    param_file = "inputs/STEM_CELL/stem_cell_vary_volume_prior/parameter_log.csv"
-    metrics_file = "ARCADE_OUTPUT/STEM_CELL/STEM_CELL_VARY_VOLUME/simulation_metrics.csv"
-    output_dir = "inputs/STEM_CELL/stem_cell_vary_volume_posterior"
+    param_file = "inputs/STEM_CELL/meta_signal_heterogeneity/parameter_log.csv"
+    metrics_file = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY/simulation_metrics.csv"
+    output_dir = "inputs/STEM_CELL_META_SIGNAL_HETEROGENEITY/meta_signal_heterogeneity_posterior"
     param_df = pd.read_csv(param_file)
     constant_columns = param_df.columns[param_df.nunique() == 1]
     param_df = param_df.drop(columns=constant_columns)
     param_names = param_df.columns.tolist()
     targets = [
-        Target(metric=Metric.get("doub_time"), value=35.0, weight=1.0),
-        Target(metric=Metric.get("doub_time_std"), value=10.0, weight=1.0),
+        Target(metric=Metric.get("doub_time"), value=30.0, weight=1.0),
+        Target(metric=Metric.get("doub_time_std"), value=0.0, weight=1.0),
         Target(metric=Metric.get("act_t2"), value=0.6, weight=1.0),
         # Target(metric=Metric.get("colony_growth_rate"), value=0.8, weight=1.0),
     ]

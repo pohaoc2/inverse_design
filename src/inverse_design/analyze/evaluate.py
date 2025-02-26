@@ -25,8 +25,12 @@ def estimate_pdfs(params: List[Dict]) -> Dict:
     # Compute independent KDEs for each parameter
     param_pdfs = {}
     for param_name, values in param_arrays.items():
-        kde = stats.gaussian_kde(values)
-        param_pdfs[param_name] = kde
+        try:
+            kde = stats.gaussian_kde(values)
+            param_pdfs[param_name] = kde
+        except Exception as e:
+            print(f"Error computing KDE for {param_name}: {e}")
+            param_pdfs[param_name] = None
 
     # Compute joint distribution parameters
     X = np.array([list(p.values()) for p in params])
