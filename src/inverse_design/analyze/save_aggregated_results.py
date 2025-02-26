@@ -86,6 +86,7 @@ class SimulationMetrics:
                 # "initial_colony_diameter": colony_metrics.get("intercept", 0.0),
                 # "initial_colony_diameter_std": colony_metrics.get("intercept_std", 0.0),
                 #"colony_g_r_squared": colony_metrics.get("r_squared", 0.0),
+                "shannon_score": metrics["shannon_t2"],
                 # "states_t1": metrics["states_t1"],
                 "states_t2": metrics["states_t2"],
             }

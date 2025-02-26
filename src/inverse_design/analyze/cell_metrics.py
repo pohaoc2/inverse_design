@@ -95,6 +95,30 @@ class CellMetrics:
 
         return states
 
+    @staticmethod
+    def calculate_shannon_entropy(cells: List[Dict[str, Any]]) -> float:
+        """Calculate the Shannon entropy of the cell state distribution.
+
+        Args:
+            cells: List of cell dictionaries containing state information.
+
+        Returns:
+            Shannon entropy value.
+        """
+        state_counts = CellMetrics.calculate_cell_states(cells)
+        total_cells = sum(state_counts.values())
+
+        if total_cells == 0:
+            return 0.0
+
+        entropy = 0.0
+        for count in state_counts.values():
+            if count > 0:
+                p_i = count / total_cells
+                entropy -= p_i * math.log2(p_i)
+
+        return entropy
+
     def parse_cell_file(self, filename: str) -> Dict[str, str]:
         """Parse cell filename to extract experiment info"""
         return FileParser.parse_simulation_file(filename, "CELLS")

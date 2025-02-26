@@ -130,117 +130,110 @@ def plot_parameter_kde(pdf_results: Dict, abc_config: Dict, save_path: str):
     """
     param_names = pdf_results["param_names"]
     n_params = len(param_names)
-    fig, axes = plt.subplots(2, n_params, figsize=(15, 8), height_ratios=[1, 2])
+    
+    # Calculate number of rows and columns needed
+    plots_per_row = 4
+    n_rows = (n_params + plots_per_row - 1) // plots_per_row  # Ceiling division
+    n_cols = min(n_params, plots_per_row)
+    
+    # Create figure with appropriate size
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 4 * n_rows))
+    
+    # Make axes 2D if it's 1D
+    if n_rows == 1:
+        axes = axes.reshape(1, -1)
 
-    for i in range(n_params):
-        param_name = param_names[i]
+    for idx, param_name in enumerate(param_names):
+        # Calculate row and column indices
+        row_idx = idx // plots_per_row
+        col_idx = idx % plots_per_row
+        ax = axes[row_idx, col_idx]
+        
         kde = pdf_results["independent"][param_name]
 
-        # Get prior range
+        # Get prior range for x-axis limits
         prior_min = abc_config.parameter_ranges[param_name].min
         prior_max = abc_config.parameter_ranges[param_name].max
 
-        # Plot prior in top row (uniform probability)
-        prior_prob = 1.0 / (prior_max - prior_min)
-        axes[0, i].fill_between(
-            [prior_min, prior_max], [prior_prob, prior_prob], alpha=0.5, color="gray"
-        )
-        axes[0, i].axhline(y=prior_prob, color="gray", linestyle=":", alpha=0.5)
-        axes[0, i].set_title(f"{param_name} Prior")
-        axes[0, i].set_xlabel("Value")
-        if i == 0:
-            axes[0, i].set_ylabel("Prior Probability")
-
-        # Plot posterior in bottom row
+        # Plot posterior
         x = np.linspace(prior_min, prior_max, 200)
         y = kde(x)
 
         # Convert to probability mass per bin
         bin_width = x[1] - x[0]  # Width of each bin
         y = y * bin_width  # Convert density to probability mass per bin
-
-        # Normalize to ensure total probability = 1
-        y = y / np.sum(y)
-
-        # Verify total probability is 1
-        total_prob = np.sum(y)
-
-        # For prior, also convert to probability mass per bin
-        prior_prob = (1.0 / (prior_max - prior_min)) * bin_width
+        y = y / np.sum(y)  # Normalize to ensure total probability = 1
 
         # Find mode (highest probability point)
         mode_idx = np.argmax(y)
         mode = x[mode_idx]
 
-        # Calculate 95% HPD interval
-        def compute_hpd_interval(x, y, alpha=0.95):
-            # y is already normalized to probability
-            sorted_indices = np.argsort(y)[::-1]  # Sort in descending order
-            x_sorted = x[sorted_indices]
-            y_sorted = y[sorted_indices]
+        def hpd_interval_kde(x, y, credible_mass=0.95):
+            """
+            Compute the HPD interval for a posterior distribution given as a KDE function.
 
-            # Calculate cumulative probability
-            cumsum = np.zeros_like(y_sorted)
-            for i in range(len(y_sorted)):
-                if i == 0:
-                    cumsum[i] = 0
-                else:
-                    width = x_sorted[i] - x_sorted[i - 1]
-                    height = (y_sorted[i] + y_sorted[i - 1]) / 2
-                    cumsum[i] = cumsum[i - 1] + width * height
+            Parameters:
+            - x: np.ndarray, grid points where KDE is evaluated.
+            - kde: np.ndarray, density values at each x.
+            - credible_mass: float, desired credible interval (e.g., 0.95 for a 95% HPD interval).
 
-            # Normalize cumsum
-            cumsum = cumsum / cumsum[-1]
+            Returns:
+            - (lower_bound, upper_bound): tuple, bounds of the HPD interval.
+            """
+            # Sort by density (descending) to find the highest-density region
+            sorted_indices = np.argsort(-y)
+            sorted_x = x[sorted_indices]
+            sorted_kde = y[sorted_indices]
 
-            # Find the threshold that gives us alpha probability mass
-            threshold_idx = np.searchsorted(cumsum, alpha)
-            if threshold_idx >= len(y_sorted):
-                threshold_idx = len(y_sorted) - 1
-            threshold = y_sorted[threshold_idx]
+            # Compute cumulative sum of density (normalized to sum to 1)
+            cumulative_density = np.cumsum(sorted_kde) / np.sum(sorted_kde)
 
-            # Find all points above the threshold
-            hpd_mask = y >= threshold
+            # Find the threshold density that gives the credible mass
+            cutoff_index = np.argmax(cumulative_density >= credible_mass)
+            density_threshold = sorted_kde[cutoff_index]
 
-            # Get the bounds
-            hpd_x = x[hpd_mask]
-            if len(hpd_x) == 0:  # If no points found, use the mode
-                hpd_min = x[np.argmax(y)]
-                hpd_max = hpd_min
-            else:
-                hpd_min = np.min(hpd_x)
-                hpd_max = np.max(hpd_x)
+            # Find x-values where kde is above threshold
+            within_hpd = y >= density_threshold
+            hpd_x = x[within_hpd]
 
-            return hpd_min, hpd_max, threshold
-
-        hpd_min, hpd_max, threshold = compute_hpd_interval(x, y)
+            return min(hpd_x), max(hpd_x)  # HPD interval bounds
+        credible_mass = 0.95
+        hpd_min, hpd_max = hpd_interval_kde(x, y, credible_mass=credible_mass)
 
         # Plot posterior probability distribution
-        axes[1, i].plot(x, y, "b-", label="Posterior")
+        ax.plot(x, y, "b-", label="Posterior")
 
         # Plot mode and HPD interval
-        axes[1, i].axvline(mode, color="r", linestyle="--", label="Mode")
-        axes[1, i].axvline(hpd_min, color="g", linestyle=":", alpha=0.7, label="95% HPD")
-        axes[1, i].axvline(hpd_max, color="g", linestyle=":", alpha=0.7)
+        ax.axvline(mode, color="r", linestyle="--", label="Mode")
+        ax.axvline(hpd_min, color="g", linestyle=":", alpha=0.7, label=f"{credible_mass*100}% HPD")
+        ax.axvline(hpd_max, color="g", linestyle=":", alpha=0.7)
 
         # Fill HPD interval
         hpd_mask = (x >= hpd_min) & (x <= hpd_max)
-        axes[1, i].fill_between(x[hpd_mask], y[hpd_mask], alpha=0.2, color="g")
+        ax.fill_between(x[hpd_mask], y[hpd_mask], alpha=0.2, color="g")
 
-        axes[1, i].set_title(f"Mode={mode:.3f}\nHPD: [{hpd_min:.3f}, {hpd_max:.3f}]")
-        axes[1, i].set_xlabel("Value")
-        if i == 0:
-            axes[1, i].set_ylabel("Posterior Probability")
-            axes[1, i].legend(loc="upper right")
+        ax.set_title(f"{param_name}\nMode={mode:.3f}\nHPD: [{hpd_min:.3f}, {hpd_max:.3f}]")
+        ax.set_xlabel("Value")
+        ax.set_ylabel("Posterior Probability")
+        
+        # Add legend to first plot only
+        if idx == 0:
+            ax.legend(loc="upper right")
 
+        # Set x-axis limits with some padding
         xlim = (
             prior_min - 0.1 * (prior_max - prior_min),
             prior_max + 0.1 * (prior_max - prior_min),
         )
-        axes[0, i].set_xlim(xlim)
-        axes[1, i].set_xlim(xlim)
+        ax.set_xlim(xlim)
+
+    # Hide empty subplots if any
+    for idx in range(len(param_names), n_rows * n_cols):
+        row_idx = idx // plots_per_row
+        col_idx = idx % plots_per_row
+        axes[row_idx, col_idx].set_visible(False)
 
     plt.tight_layout()
-    plt.subplots_adjust(left=0.1)
     plt.savefig(save_path)
     plt.close()
 
