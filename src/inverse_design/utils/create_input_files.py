@@ -393,8 +393,8 @@ def main():
         "GLUCOSE_UPTAKE_RATE_SIGMA": (0.072, 0.107),
         "ATP_PRODUCTION_RATE_MU": (7.14, 10.71),
         "ATP_PRODUCTION_RATE_SIGMA": (0.57, 0.86),
-        "MIGRATORY_THRESHOLD_MU": (8, 12),
-        "MIGRATORY_THRESHOLD_SIGMA": (0.64, 0.96),
+        #"MIGRATORY_THRESHOLD_MU": (8, 12),
+        #"MIGRATORY_THRESHOLD_SIGMA": (0.64, 0.96),
     }
     
     generate_perturbed_parameters(

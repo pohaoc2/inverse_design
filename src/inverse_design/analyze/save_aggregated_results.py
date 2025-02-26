@@ -9,6 +9,7 @@ from inverse_design.analyze.cell_metrics import CellMetrics
 from inverse_design.analyze.spatial_metrics import SpatialMetrics
 from inverse_design.analyze.analyze_seed_results import SeedAnalyzer
 from inverse_design.analyze.analyze_utils import collect_parameter_data
+from inverse_design.analyze.parameter_config import PARAMETER_LIST
 
 
 class SimulationMetrics:
@@ -19,10 +20,11 @@ class SimulationMetrics:
             base_output_dir: Base directory containing all simulation output folders
         """
         self.base_output_dir = Path(base_output_dir)
+        self.input_folder = Path(base_output_dir + "/inputs")
         self.logger = logging.getLogger(__name__)
         self.cell_metrics = CellMetrics()
         self.spatial_metrics = SpatialMetrics()
-        self.seed_analyzer = SeedAnalyzer(base_output_dir)
+        self.seed_analyzer = SeedAnalyzer(self.input_folder)
     def _round_metrics(self, metrics_dict: Dict[str, Any], decimals: int = 3) -> Dict[str, Any]:
         """Round all numeric values in a dictionary to specified decimals.
 
@@ -99,7 +101,7 @@ class SimulationMetrics:
         results = []
 
         sim_folders = sorted(
-            [f for f in self.base_output_dir.glob("input_*")],
+            [f for f in self.input_folder.glob("input_*")],
             key=lambda x: int(re.search(r"input_(\d+)", x.name).group(1)),
         )
         for folder in sim_folders:
@@ -134,7 +136,7 @@ class SimulationMetrics:
         """
         growth_results = []
         fit_results = []
-        sim_folders = [f for f in self.base_output_dir.glob("input_*")]
+        sim_folders = [f for f in self.input_folder.glob("input_*")]
 
         for folder in sim_folders:
             try:
@@ -182,8 +184,8 @@ class SimulationMetrics:
         growth_df = pd.DataFrame(growth_results)
         fit_df = pd.DataFrame(fit_results)
 
-        growth_df.to_csv(self.base_output_dir / "colony_growth_metrics.csv", index=False)
-        fit_df.to_csv(self.base_output_dir / "colony_growth_fit_metrics.csv", index=False)
+        growth_df.to_csv(self.input_folder / "colony_growth_metrics.csv", index=False)
+        fit_df.to_csv(self.input_folder / "colony_growth_fit_metrics.csv", index=False)
 
         self.logger.info("Saved colony growth and fit metrics")
         return growth_df, fit_df
@@ -202,10 +204,9 @@ class SimulationMetrics:
             random_seed: Random seed for reproducibility
         """
         try:
-            output_file = self.base_output_dir / "colony_growth_comparison.png"
-            output_file = "colony_growth_comparison.png"
+            output_file = self.input_folder / "colony_growth_comparison.png"
             self.spatial_metrics.plot_multiple_colony_growth(
-                self.base_output_dir,
+                self.input_folder,
                 n_inputs,
                 timestamps,
                 output_file=output_file,
@@ -219,7 +220,8 @@ class SimulationMetrics:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/STEM_CELL/"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY"
+    input_folder = parameter_base_folder + "/inputs"
     metrics_calculator = SimulationMetrics(parameter_base_folder)
 
     timestamps = [
@@ -241,18 +243,10 @@ def main():
     ]
     metrics_calculator.analyze_all_simulations(timestamps=timestamps, t1="000000", t2="010080")
 
-    input_files = list(Path(parameter_base_folder).glob("input_*"))
+    input_files = list(Path(input_folder).glob("input_*"))
     input_files = [f.name for f in input_files]
-    parameter_list = [
-        #"CELL_VOLUME_MU",
-        "CELL_VOLUME_SIGMA",
-        "NECROTIC_FRACTION",
-        #"APOPTOSIS_AGE_SIGMA",
-        "ACCURACY",
-        "AFFINITY",
-        "COMPRESSION_TOLERANCE",
-    ]
-    all_param_df = collect_parameter_data(input_files, parameter_base_folder, parameter_list)
+    
+    all_param_df = collect_parameter_data(input_files, input_folder, PARAMETER_LIST)
     all_param_df.to_csv(f"{parameter_base_folder}/all_param_df.csv", index=False)
 
     if 0:

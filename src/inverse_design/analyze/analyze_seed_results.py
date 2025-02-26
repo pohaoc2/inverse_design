@@ -18,6 +18,7 @@ class SeedAnalyzer:
             base_output_dir: Base directory containing all simulation output folders
         """
         self.base_output_dir = Path(base_output_dir)
+        self.input_folder = Path(base_output_dir + "/inputs")
         self.cell_metrics = CellMetrics()
         self.spatial_metrics = SpatialMetrics()
 
@@ -135,7 +136,7 @@ class SeedAnalyzer:
         all_seed_metrics = {}
 
         for folder_name in input_folders:
-            folder_path = self.base_output_dir / folder_name
+            folder_path = self.input_folder / folder_name
 
             # Load cell data
             cells_data_t1 = self.cell_metrics.load_cells_data(folder_path, t1)
@@ -160,15 +161,20 @@ class SeedAnalyzer:
         timestamps: List[str] = None,
         metrics_to_plot: List[str] = None,
         save_file: str = None,
+        remove_outliers_flag: bool = True,
     ):
         """Plot violin plots comparing seed distributions for top and bottom performers.
 
         Args:
             csv_file: Path to aggregated metrics CSV file
             metric_name: Name of metric to analyze
+            percentile: Percentile for top/bottom selection
             t1: First timepoint
             t2: Second timepoint
             timestamps: List of timestamps for analysis
+            metrics_to_plot: List of metrics to plot
+            save_file: Path to save the plot (if None, display plot)
+            remove_outliers_flag: Whether to remove outliers from the data
         """
         # Get top and bottom folders
         top_n_input_file, bottom_n_input_file, _ = analyze_metric_percentiles(
@@ -194,19 +200,20 @@ class SeedAnalyzer:
                             {"metric": metric, "value": value, "group": group, "folder": folder}
                         )
 
-        # Convert to DataFrame and remove outliers for each metric separately
-        plot_df = pd.DataFrame(plot_data)
-        cleaned_plot_data = []
-        for metric in metrics_to_plot:
-            metric_data = plot_df[plot_df["metric"] == metric].copy()
-            cleaned_data, _, _ = remove_outliers(
-                metric_data, 
-                verbose=True
-            )
-            cleaned_plot_data.append(cleaned_data)
-            
-        # Combine cleaned data back into single DataFrame
-        plot_df = pd.concat(cleaned_plot_data, axis=0)
+        original_plot_df = pd.DataFrame(plot_data)
+        if remove_outliers_flag:
+            cleaned_plot_data = []
+            for metric in metrics_to_plot:
+                metric_data = original_plot_df[original_plot_df["metric"] == metric].copy()
+                cleaned_data, _, _ = remove_outliers(
+                    metric_data, 
+                    verbose=True
+                )
+                cleaned_plot_data.append(cleaned_data)
+            print(f"number of outliers removed: {len(original_plot_df) - len(cleaned_plot_data)}")
+            plot_df = pd.concat(cleaned_plot_data, axis=0)
+        else:
+            plot_df = original_plot_df
 
         print(f"number of top {percentile}% folders: {len(top_n_input_file)}")
         print(f"number of bottom {percentile}% folders: {len(bottom_n_input_file)}")
@@ -264,7 +271,7 @@ class SeedAnalyzer:
 
 if __name__ == "__main__":
     # Example usage
-    base_dir = "ARCADE_OUTPUT/STEM_CELL/STEM_CELL"
+    base_dir = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY"
     csv_file = f"{base_dir}/simulation_metrics.csv"
     percentile = 10
     metrics_to_plot = ["doub_time", "act_t2", "n_cells_t2"]
@@ -277,5 +284,6 @@ if __name__ == "__main__":
         metrics_to_plot=metrics_to_plot,
         t1="000000",
         t2="010080",
-        save_file=f"{base_dir}/seed_comparisons_{metric_name}.png"
+        save_file=f"{base_dir}/seed_comparisons_{metric_name}.png",
+        remove_outliers_flag=True
     )

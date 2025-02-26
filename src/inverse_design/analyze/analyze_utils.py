@@ -13,17 +13,32 @@ def get_parameters_from_json(input_folder, parameter_list):
         data = json.load(f)
 
     params = {}
-    # Create mapping dynamically from parameter names
-    param_mapping = {
-        param: ("populations", "cancerous", param) for param in parameter_list
-    }
     for param in parameter_list:
-        path = param_mapping[param]
-        value = data
-        for key in path:
-            value = value[key]
-
-        params[param] = value
+        # Remove any prefix (e.g., "metabolism/") from parameter name
+        base_param = param.split('/')[-1]
+        
+        # Check different possible paths for the parameter
+        possible_paths = [
+            ("populations", "cancerous", param),  # Direct path
+            ("populations", "cancerous", f"metabolism/{base_param}"),  # With metabolism prefix
+            ("populations", "cancerous", f"proliferation/{base_param}"),  # With proliferation prefix
+        ]
+        
+        value = None
+        for path in possible_paths:
+            try:
+                temp_value = data
+                for key in path:
+                    temp_value = temp_value[key]
+                value = temp_value
+                break
+            except (KeyError, TypeError):
+                continue
+        
+        if value is None:
+            raise KeyError(f"Parameter {param} not found in any expected location in the JSON file")
+            
+        params[base_param] = value
 
     return params
 

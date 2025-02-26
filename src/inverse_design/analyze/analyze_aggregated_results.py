@@ -8,7 +8,7 @@ from typing import List, Optional
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from inverse_design.analyze.analyze_utils import collect_parameter_data, analyze_metric_percentiles
-
+from inverse_design.analyze.parameter_config import PARAMETER_LIST
 
 
 def plot_top_bottom_parameter_distributions(
@@ -414,19 +414,11 @@ def plot_cell_states_histogram(csv_file, save_file=None):
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/STEM_CELL"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY"
+    input_folder = parameter_base_folder + "/inputs"
     csv_file = f"{parameter_base_folder}/simulation_metrics.csv"
 
     metrics_name = "doub_time"
-    #metrics_name = "n_cells_t2"
-    parameter_list = [
-        "CELL_VOLUME_SIGMA",
-        # "NECROTIC_FRACTION",
-        # "APOPTOSIS_AGE_SIGMA",
-        "ACCURACY",
-        "AFFINITY",
-        "COMPRESSION_TOLERANCE",
-    ]
 
     percentile = 10
     top_n_input_file, bottom_n_input_file, labeled_metrics_df = analyze_metric_percentiles(
@@ -438,7 +430,7 @@ if __name__ == "__main__":
 
     labels = ["top"] * len(top_n_input_file) + ["bottom"] * len(bottom_n_input_file)
     analyzed_param_df = collect_parameter_data(
-        input_files, parameter_base_folder, parameter_list, labels
+        input_files, input_folder, PARAMETER_LIST, labels
     )
     analyzed_param_df = analyzed_param_df.sort_values(
         "input_folder",
@@ -447,12 +439,12 @@ if __name__ == "__main__":
     # Run analyses with the combined DataFrame
     save_file = f"{parameter_base_folder}/parameter_distributions_{metrics_name}.png"
     plot_top_bottom_parameter_distributions(
-        analyzed_param_df, parameter_list, parameter_base_folder, percentile, save_file
+        analyzed_param_df, PARAMETER_LIST, parameter_base_folder, percentile, save_file
     )
     save_file = f"{parameter_base_folder}/pca_parameters_{metrics_name}.png"
     plot_pca_parameters(
         analyzed_param_df,
-        parameter_list,
+        PARAMETER_LIST,
         parameter_base_folder,
         metrics_name,
         percentile,
