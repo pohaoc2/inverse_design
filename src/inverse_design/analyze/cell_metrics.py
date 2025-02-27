@@ -1,4 +1,5 @@
 from typing import List, Dict, Any, Tuple
+import math
 import numpy as np
 import json
 import re
@@ -12,19 +13,7 @@ class CellMetrics:
         self.logger = logging.getLogger(__name__)
 
     @staticmethod
-    def calculate_growth_rate(
-        cells_t1: List[Dict[str, Any]], cells_t2: List[Dict[str, Any]], time_difference: float
-    ) -> float:
-        """Calculate growth rate between two timepoints"""
-        if not cells_t1 or not cells_t2:
-            return 0.0
-
-        n1 = len(cells_t1)
-        n2 = len(cells_t2)
-        return (n2 - n1) / time_difference
-
-    @staticmethod
-    def calculate_average_volume(cells: List[Dict[str, Any]]) -> float:
+    def calculate_vol(cells: List[Dict[str, Any]]) -> float:
         """Calculate average cell volume"""
         if not cells:
             return 0.0
@@ -32,21 +21,6 @@ class CellMetrics:
         volumes = [cell["volume"] for cell in cells]
         return sum(volumes) / len(volumes)
 
-    @staticmethod
-    def calculate_activity(cells: List[Dict[str, Any]]) -> float:
-        """Calculate cell activity (proliferative + migratory cells fraction)
-
-        Args:
-            cells: List of cell dictionaries
-
-        Returns:
-            Activity ratio between 0 and 1
-        """
-        if not cells:
-            return 0.0
-
-        active_cells = sum(1 for cell in cells if cell["state"] in ["PROLIFERATIVE", "MIGRATORY"])
-        return active_cells / len(cells)
 
     @staticmethod
     def calculate_doubling_time(n1: float, n2: float, time_difference: float) -> float:
@@ -66,7 +40,7 @@ class CellMetrics:
         return doubling_time / 60
 
     @staticmethod
-    def calculate_cell_states(cells: List[Dict[str, Any]]) -> Dict[str, int]:
+    def calculate_states(cells: List[Dict[str, Any]]) -> Dict[str, int]:
         """Calculate the number of cells in each state
 
         Args:
@@ -96,28 +70,12 @@ class CellMetrics:
         return states
 
     @staticmethod
-    def calculate_shannon_entropy(cells: List[Dict[str, Any]]) -> float:
-        """Calculate the Shannon entropy of the cell state distribution.
-
-        Args:
-            cells: List of cell dictionaries containing state information.
-
-        Returns:
-            Shannon entropy value.
-        """
-        state_counts = CellMetrics.calculate_cell_states(cells)
-        total_cells = sum(state_counts.values())
-
-        if total_cells == 0:
+    def calculate_age(cells: List[Dict[str, Any]]) -> float:
+        """Calculate the average age of the cells"""
+        if not cells:
             return 0.0
 
-        entropy = 0.0
-        for count in state_counts.values():
-            if count > 0:
-                p_i = count / total_cells
-                entropy -= p_i * math.log2(p_i)
-
-        return entropy
+        return sum([cell["age"] for cell in cells]) / len(cells)
 
     def parse_cell_file(self, filename: str) -> Dict[str, str]:
         """Parse cell filename to extract experiment info"""

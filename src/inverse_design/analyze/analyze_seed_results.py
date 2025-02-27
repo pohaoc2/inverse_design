@@ -6,7 +6,6 @@ import seaborn as sns
 from inverse_design.analyze.analyze_utils import analyze_metric_percentiles
 from typing import List
 from inverse_design.analyze.cell_metrics import CellMetrics
-from inverse_design.analyze.spatial_metrics import SpatialMetrics
 from inverse_design.analyze.analyze_utils import remove_outliers
 
 
@@ -20,7 +19,6 @@ class SeedAnalyzer:
         self.base_output_dir = Path(base_output_dir)
         self.input_folder = Path(base_output_dir + "/inputs")
         self.cell_metrics = CellMetrics()
-        self.spatial_metrics = SpatialMetrics()
 
     def filter_valid_metrics(self, metrics_list):
         """Filter out seeds with NaN or inf values from a list of metrics"""

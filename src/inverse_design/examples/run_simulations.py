@@ -110,6 +110,6 @@ if __name__ == "__main__":
         input_dir="inputs/STEM_CELL/meta_signal_heterogeneity/inputs",
         output_dir="ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY/",
         jar_path="models/arcade-test-cycle.jar",
-        max_workers=4,
+        max_workers=6,
         start_index=1,
     )
