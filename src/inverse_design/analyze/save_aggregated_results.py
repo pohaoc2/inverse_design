@@ -54,6 +54,7 @@ class SimulationMetrics:
         # First collect all metrics by timestamp and seed
         metrics_by_timestamp = {}
         for timestamp in timestamps:
+            print(f"timestamp: {timestamp}")
             cells_data = self.cell_metrics.load_cells_data(folder_path, timestamp)
             locations_data = self.population_metrics.load_locations_data(folder_path, timestamp)
             metrics_for_timestamp = {
@@ -81,8 +82,8 @@ class SimulationMetrics:
         for timestamp, metrics_for_timestamp in metrics_by_timestamp.items():
             for seed_idx, seed_metrics in enumerate(metrics_for_timestamp["colony_diameter"]):
                 colony_diameters_over_time[seed_idx].append(seed_metrics)
-        timestamps_hr = [int(timestamp) / 60 for timestamp in timestamps]
-        colony_growth_rates_results = self.population_metrics.calculate_colony_growth(colony_diameters_over_time, timestamps_hr)
+        timestamps_days = [int(timestamp) / 60 / 24 for timestamp in timestamps]
+        colony_growth_rates_results = self.population_metrics.calculate_colony_growth(colony_diameters_over_time, timestamps_days)
 
         doub_times = []
         for n1, n2 in zip(n_cells_t1_list, n_cells_t2_list):
@@ -150,16 +151,16 @@ class SimulationMetrics:
             key=lambda x: int(re.search(r"input_(\d+)", x.name).group(1)),
         )
         
-        for folder in sim_folders[:]:
-            try:
+        for folder in sim_folders[:1]:
+            #try:
                 print(folder)
                 metrics = self.analyze_simulation(folder, timestamps)
                 final_metrics_flat = metrics["final_metrics"].copy()
                 final_metrics_flat["input_folder"] = folder.name
                 final_results.append(final_metrics_flat)
                 temporal_results[folder.name] = metrics["temporal_metrics"]
-            except Exception as e:
-                self.logger.error(f"Error processing {folder}: {str(e)}")
+            #except Exception as e:
+            #    self.logger.error(f"Error processing {folder}: {str(e)}")
         # Create DataFrame for final metrics
         df = pd.DataFrame(final_results)
         

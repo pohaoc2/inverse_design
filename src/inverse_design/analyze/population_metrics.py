@@ -63,42 +63,60 @@ class PopulationMetrics:
 
     @staticmethod
     def calculate_symmetry(cells: List[Dict[str, Any]], locations: List[Dict[str, Any]]) -> float:
-        """Calculate colony symmetry based on cell distribution.
+        """Calculate colony symmetry based on hexagonal coordinate system.
 
+        For each occupied location (u,v,w), checks if the 5 corresponding symmetric positions
+        are also occupied: (-w,-u,-v), (v,w,u), (-u,-v,-w), (w,u,v), and (-v,-w,-u).
+        The symmetry score is calculated as 1 - (average proportion of missing positions).
         Args:
-            cells: no used
-            locations: List of location dictionaries containing cell coordinates
+            cells: not used
+            locations: List of location dictionaries containing cell coordinates in hex system
 
         Returns:
-            Symmetry score between 0 and 1
+            Symmetry score between 0 and 1, where:
+            1 = perfect symmetry (all symmetric positions are occupied)
+            0 = no symmetry
         """
-        return 0.0
-        if not cells:
+        if not locations:
             return 0.0
 
-        # Calculate center of mass
-        com_x = np.mean([cell["coordinate"][0] for cell in cells])
-        com_y = np.mean([cell["coordinate"][1] for cell in cells])
-        com_z = np.mean([cell["coordinate"][2] for cell in cells])
-
-        # Calculate radial distribution
-        distances = [
-            np.sqrt(
-                (cell["coordinate"][0] - com_x)**2 +
-                (cell["coordinate"][1] - com_y)**2 +
-                (cell["coordinate"][2] - com_z)**2
-            )
-            for cell in cells
-        ]
-
-        # Calculate symmetry score based on distance distribution
-        std_dist = np.std(distances)
-        mean_dist = np.mean(distances)
-        cv = std_dist / mean_dist if mean_dist > 0 else float('inf')
+        # Convert locations to set of tuples for efficient lookup
+        occupied = {tuple(loc["coordinate"][:3]) for loc in locations}
         
-        # Convert to score between 0 and 1 (lower CV means higher symmetry)
-        symmetry_score = 1 / (1 + cv)
-        return symmetry_score
+        # Track unique locations to avoid counting duplicates
+        processed = set()
+        total_missing = 0
+        unique_locations = 0
+
+        for loc in locations:
+            u, v, w, _ = loc["coordinate"]
+            base_pos = (u, v, w)
+            
+            if base_pos in processed:
+                continue
+                
+            processed.add(base_pos)
+            unique_locations += 1
+            
+            # Generate the 5 symmetric positions
+            symmetric_positions = [
+                (-w, -u, -v),
+                (v, w, u),
+                (-u, -v, -w),
+                (w, u, v),
+                (-v, -w, -u)
+            ]
+
+            # Count missing symmetric positions
+            missing = sum(1 for pos in symmetric_positions if pos not in occupied)
+            total_missing += missing
+
+        if unique_locations == 0:
+            return 0.0
+            
+        # Calculate symmetry score: 1 - (average proportion of missing positions)
+        symmetry = 1 - (total_missing / (5 * unique_locations))
+        return max(0.0, min(1.0, symmetry))  # Ensure result is between 0 and 1
 
     @staticmethod
     def calculate_shannon(cells: List[Dict[str, Any]]) -> float:
@@ -110,7 +128,6 @@ class PopulationMetrics:
         Returns:
             Shannon diversity index
         """
-        return 0.0
         if not cells:
             return 0.0
 
@@ -200,12 +217,14 @@ class PopulationMetrics:
 
         Args:
             colony_diameters: Dictionary of diameters structured as {(exp_group, exp_name): {seed: [diameters]}}
-            timestamps: List of timepoints in hours
+            timestamps: List of timepoints in days
 
         Returns:
             Dictionary with structure:
             {
-
+                "slope": float (um^2/day),
+                "slope_std": float,
+                "r_value": float
             }
         """
         results = {}

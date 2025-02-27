@@ -22,6 +22,8 @@ class CellMetrics:
         return sum(volumes) / len(volumes)
 
 
+    
+
     @staticmethod
     def calculate_doubling_time(n1: float, n2: float, time_difference: float) -> float:
         """Calculate cell population doubling time based on initial and final cell counts
@@ -76,6 +78,39 @@ class CellMetrics:
             return 0.0
 
         return sum([cell["age"] for cell in cells]) / len(cells)
+
+    @staticmethod
+    def calculate_cycle_length(cells: List[Dict[str, Any]]) -> float:
+        """Calculate average cell cycle length across all cells.
+        
+        For each cell, averages its recorded cycle lengths (time between entering
+        proliferative state and successful division, in minutes), then averages
+        across all cells.
+
+        Args:
+            cells: List of cell dictionaries containing cycle length data
+
+        Returns:
+            Average cycle length in hours. Returns 0.0 if no cycle data available.
+        """
+        if not cells:
+            return 0.0
+
+        # Calculate average cycle length for each cell that has cycles
+        cell_averages = []
+        for cell in cells:
+            cycles = cell.get("cycles", [])
+            if cycles:  # Only include cells that have completed at least one cycle
+                cycles = [int(cycle) for cycle in cycles]
+                cell_avg = sum(cycles) / len(cycles)
+                cell_averages.append(cell_avg)
+        
+        # Calculate average across all cells
+        if not cell_averages:
+            return 0.0
+            
+        # Convert from minutes to hours
+        return (sum(cell_averages) / len(cell_averages)) / 60
 
     def parse_cell_file(self, filename: str) -> Dict[str, str]:
         """Parse cell filename to extract experiment info"""
