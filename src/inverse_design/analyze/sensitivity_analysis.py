@@ -120,7 +120,7 @@ def plot_sensitivity_analysis(sensitivity_results, save_path=None):
         # Add value labels on bars
         for i, (mi, corr) in enumerate(zip(mi_scores[sorted_idx], spearman_corr[sorted_idx])):
             label = f'MI={mi:.3f}, ρ={corr:.2f}'
-            ax.text(mi, i, label, va='center')
+            ax.text(mi+0.01, i, label, va='center')
 
         # Customize plot
         ax.set_xlabel('Mutual Information Score')

@@ -397,7 +397,7 @@ if __name__ == "__main__":
 
     metrics_name = "n_cells"
     metrics_df = pd.read_csv(csv_file)
-    if 0:
+    if 1:
         posterior_metrics_file = csv_file
         prior_metrics_file = (
             "prior_metrics_formatted.csv"
@@ -405,7 +405,7 @@ if __name__ == "__main__":
         target_metrics = {
             "doub_time": 35.0,
             "doub_time_std": 10.0,
-            "act_t2": 0.6,
+            "act": 0.6,
         }
 
         save_file = f"{parameter_base_folder}/metric_distributions.png"
@@ -450,12 +450,12 @@ if __name__ == "__main__":
             save_file
         )
 
-    if 0:
+    if 1:
         save_file = f"{parameter_base_folder}/parameter_distributions_{metrics_name}.png"
         plot_top_bottom_parameter_distributions(
             analyzed_param_df, PARAMETER_LIST, parameter_base_folder, percentile, save_file
         )
-    if 0:
+    if 1:
         save_file = f"{parameter_base_folder}/pca_parameters_{metrics_name}.png"
         plot_pca_parameters(
             analyzed_param_df,
@@ -466,7 +466,7 @@ if __name__ == "__main__":
         save_file,
     )
 
-    if 0:
+    if 1:
         plot_cell_states_histogram(
             csv_file,
             f"{parameter_base_folder}/cell_states_histogram.png",
