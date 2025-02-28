@@ -107,9 +107,9 @@ def run_simulations(
 
 if __name__ == "__main__":
     run_simulations(
-        input_dir="inputs/STEM_CELL/meta_signal_heterogeneity/inputs",
-        output_dir="ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY/",
+        input_dir="inputs/meta_signal_heterogeneity_posterior/inputs",
+        output_dir="ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY_POSTERIOR/",
         jar_path="models/arcade-test-cycle.jar",
-        max_workers=6,
+        max_workers=4,
         start_index=1,
     )
