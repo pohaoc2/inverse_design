@@ -82,9 +82,9 @@ def analyze_metric_percentiles(csv_file_path, metrics_name: str, percentile: flo
         print(f"\nAnalysis for {metrics_name}")
         print("=" * 80)
         print(f"\nLow {metrics_name} cases ({percentile}%) (≤ {lower_bound:.3f}):")
-        print(low_metric_cases.drop(columns=['states_t2'] if 'states_t2' in low_metric_cases.columns else []))
+        print((low_metric_cases.drop(columns=['states'] if 'states' in low_metric_cases.columns else [])).head())
         print(f"\nHigh {metrics_name} cases ({percentile}%) (≥ {upper_bound:.3f}):")
-        print(high_metric_cases.drop(columns=['states_t2'] if 'states_t2' in high_metric_cases.columns else []))
+        print((high_metric_cases.drop(columns=['states'] if 'states' in high_metric_cases.columns else [])).head())
         print("\nLabel distribution:")
         print(all_data['percentile_label'].value_counts())
 

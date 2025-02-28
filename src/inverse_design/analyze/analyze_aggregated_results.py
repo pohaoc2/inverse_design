@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from inverse_design.analyze.analyze_utils import collect_parameter_data, analyze_metric_percentiles
@@ -162,77 +162,6 @@ def plot_pca_parameters(
     print(loadings_df)
 
 
-def plot_doubling_time_relationship(labeled_df, save_file=None):
-    """
-    Plot the relationship between doubling time and its standard deviation.
-
-    Args:
-        labeled_df: DataFrame containing labeled data
-        save_file: Path to save the plot
-    """
-    # Create figure
-    plt.figure(figsize=(10, 8))
-
-    # Define plot settings for each group
-    plot_settings = {
-        "top": {"color": "blue", "marker": "o"},
-        "bottom": {"color": "red", "marker": "s"},
-    }
-
-    # Plot data and fit lines for each group
-    for group, settings in plot_settings.items():
-        if group == "top":
-            plot_settings[group]["corr"] = 0
-            continue
-        group_data = labeled_df[labeled_df["percentile_label"] == group]
-
-        # Scatter plot
-        scatter = plt.scatter(
-            group_data["doub_time"],
-            group_data["doub_time_std"],
-            alpha=0.6,
-            c=group_data["colony_g_rate"],
-            cmap="viridis",
-            marker=settings["marker"],
-            label=f"{group.capitalize()} percentile",
-        )
-
-        # Fit line
-        z = np.polyfit(group_data["doub_time"], group_data["doub_time_std"], 1)
-        p = np.poly1d(z)
-        plt.plot(
-            group_data["doub_time"],
-            p(group_data["doub_time"]),
-            f"--",
-            color=settings["color"],
-            alpha=0.8,
-            label=f"{group.capitalize()} fit (slope: {z[0]:.2f})",
-        )
-
-        # Calculate correlation coefficient
-        corr = group_data["doub_time"].corr(group_data["doub_time_std"])
-        plot_settings[group]["corr"] = corr
-
-    # Add colorbar
-    cbar = plt.colorbar(scatter)
-    cbar.set_label("Colony Growth Rate", rotation=270, labelpad=15)
-
-    # Add labels and title
-    plt.xlabel("Doubling Time")
-    plt.ylabel("Doubling Time Std")
-    plt.title(
-        "Relationship between Doubling Time and its Standard Deviation\n"
-        + f'Correlation coefficients: Top={plot_settings["top"]["corr"]:.2f}, '
-        + f'Bottom={plot_settings["bottom"]["corr"]:.2f}'
-    )
-    plt.legend()
-    if save_file is not None:
-        plt.savefig(save_file)
-    else:
-        plt.show()
-    plt.close()
-
-
 def get_kde_bounds(kde_plot, percentile: float = 0.01):
     """
     Get the x-axis bounds that contain (1 - 2*percentile)% of the KDE distribution.
@@ -352,19 +281,10 @@ def plot_cell_states_histogram(csv_file, save_file=None):
         "NECROTIC": [],
         "SENESCENT": [],
     }
-
     # Calculate average counts for each state across seeds
     for states_list in states_data:
-        # Sum up counts across all seeds
-        seed_sums = {state: 0 for state in state_counts.keys()}
-        for seed_data in states_list:
-            for state, count in seed_data.items():
-                seed_sums[state] += count
-
-        # Calculate average across seeds
-        n_seeds = len(states_list)
-        for state in state_counts:
-            state_counts[state].append(seed_sums[state] / n_seeds)
+        for state, count in states_list.items():
+            state_counts[state].append(count)
 
     # Create figure
     plt.figure(figsize=(12, 6))
@@ -409,18 +329,76 @@ def plot_cell_states_histogram(csv_file, save_file=None):
             print(f"  Max:  {np.max(counts):.2f}")
 
 
+def plot_metric_pairplot(
+    metrics_df: pd.DataFrame,
+    metrics_list: List[str],
+    percentile_labels: Optional[pd.Series] = None,
+    save_file: Optional[str] = None,
+):
+    """
+    Create a pairplot showing relationships between different metrics.
+    
+    Args:
+        metrics_df: DataFrame containing the metrics
+        metrics_list: List of metric names to include
+        percentile_labels: Optional series of labels for coloring points (e.g., 'top'/'bottom')
+        save_file: Optional path to save the plot
+    """
+    # Create plot DataFrame with only the metrics we want
+    plot_df = metrics_df[metrics_list].copy()
+    
+    # Add percentile labels if provided
+    if percentile_labels is not None:
+        plot_df['Performance'] = percentile_labels
+        hue = 'Performance'
+        palette = {'low': 'blue', 'high': 'red', "None": 'gray'}
+    else:
+        hue = None
+        palette = None
+    
+    # Create pairplot
+    g = sns.pairplot(
+        data=plot_df,
+        hue=hue,
+        palette=palette,
+        diag_kind='kde',  # Use KDE plots on diagonal
+        plot_kws={'alpha': 0.6},  # Add some transparency to points
+        diag_kws={'fill': True},  # Fill the KDE plots
+    )
+    
+    # Add correlation coefficients to the upper triangle
+    for i, var1 in enumerate(metrics_list):
+        for j, var2 in enumerate(metrics_list):
+            if i < j:  # Upper triangle only
+                ax = g.axes[i, j]
+                corr = plot_df[var1].corr(plot_df[var2])
+                ax.text(0.9, 0.9, f'corr = {corr:.2f}',
+                       horizontalalignment='center',
+                       verticalalignment='center',
+                       transform=ax.transAxes,
+                       fontsize=10)
+    
+    # Adjust layout and title
+    g.fig.suptitle('Pairwise Relationships Between Metrics', y=1.02)
+    plt.tight_layout()
+    
+    if save_file is not None:
+        plt.savefig(save_file, bbox_inches='tight', dpi=300)
+        plt.close()
+    else:
+        plt.show()
+
+
 if __name__ == "__main__":
     # Specify your parameters
     parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY"
     input_folder = parameter_base_folder + "/inputs"
-    csv_file = f"{parameter_base_folder}/simulation_metrics.csv"
+    csv_file = f"{parameter_base_folder}/final_metrics.csv"
 
-    metrics_name = "doub_time"
-
+    metrics_name = "n_cells"
+    metrics_df = pd.read_csv(csv_file)
     if 0:
-        posterior_metrics_file = (
-            f"{parameter_base_folder}/simulation_metrics.csv"
-        )
+        posterior_metrics_file = csv_file
         prior_metrics_file = (
             "prior_metrics_formatted.csv"
         )
@@ -454,8 +432,25 @@ if __name__ == "__main__":
         "input_folder",
         key=lambda x: x.str.split("_").str[1].astype(int)
     )
-    # Run analyses with the combined DataFrame
+
+    # add a column to metrics_df with the percentile label
+    # if the metric['input_folder'] is in the top_n_input_file, assign label "top", otherwise "bottom"
+    metrics_df['percentile_label'] = metrics_df['input_folder'].apply(
+        lambda x: "high" if x in top_n_input_file else "low" if x in bottom_n_input_file else "None"
+    )
+
     if 1:
+        save_file = f"{parameter_base_folder}/metric_pairplot_{metrics_name}.png"
+        remove_metrics = ['input_folder', 'percentile_label', 'age', 'age_std', 'states', 'colony_growth_r', 'colony_growth', "doub_time",]
+        metrics_list = [col for col in metrics_df.columns if col not in remove_metrics and not col.endswith('_std')]
+        plot_metric_pairplot(
+            metrics_df,
+            metrics_list,
+            metrics_df['percentile_label'],
+            save_file
+        )
+
+    if 0:
         save_file = f"{parameter_base_folder}/parameter_distributions_{metrics_name}.png"
         plot_top_bottom_parameter_distributions(
             analyzed_param_df, PARAMETER_LIST, parameter_base_folder, percentile, save_file
@@ -471,10 +466,8 @@ if __name__ == "__main__":
         save_file,
     )
 
-    # Plot doubling time relationship
-    # plot_doubling_time_relationship(labeled_metrics_df, parameter_base_folder)
     if 0:
         plot_cell_states_histogram(
-            f"{parameter_base_folder}/simulation_metrics.csv",
+            csv_file,
             f"{parameter_base_folder}/cell_states_histogram.png",
         )

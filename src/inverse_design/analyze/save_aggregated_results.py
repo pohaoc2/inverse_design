@@ -54,7 +54,6 @@ class SimulationMetrics:
         # First collect all metrics by timestamp and seed
         metrics_by_timestamp = {}
         for timestamp in timestamps:
-            print(f"timestamp: {timestamp}")
             cells_data = self.cell_metrics.load_cells_data(folder_path, timestamp)
             locations_data = self.population_metrics.load_locations_data(folder_path, timestamp)
             metrics_for_timestamp = {
@@ -110,7 +109,6 @@ class SimulationMetrics:
     def _aggregate_timestamp_metrics(self, metrics_for_timestamp: Dict[str, Dict[str, List[float]]]) -> Dict[str, Dict[str, float]]:
         """Aggregate metrics for a single timestamp."""
         aggregated_metrics = {}
-        #print(metrics_for_timestamp)
         for metric_name, values in metrics_for_timestamp.items():
             aggregated_metrics[metric_name] = {}
             
@@ -151,16 +149,18 @@ class SimulationMetrics:
             key=lambda x: int(re.search(r"input_(\d+)", x.name).group(1)),
         )
         
-        for folder in sim_folders[:1]:
-            #try:
-                print(folder)
+        for folder in sim_folders[:]:
+            try:
+                folder_number = int(re.search(r"input_(\d+)", folder.name).group(1))
+                if folder_number % 50 == 0:
+                    print(f"Analyzing {folder.name} ({folder_number}/{len(sim_folders)})")
                 metrics = self.analyze_simulation(folder, timestamps)
                 final_metrics_flat = metrics["final_metrics"].copy()
                 final_metrics_flat["input_folder"] = folder.name
                 final_results.append(final_metrics_flat)
                 temporal_results[folder.name] = metrics["temporal_metrics"]
-            #except Exception as e:
-            #    self.logger.error(f"Error processing {folder}: {str(e)}")
+            except Exception as e:
+                self.logger.error(f"Error processing {folder}: {str(e)}")
         # Create DataFrame for final metrics
         df = pd.DataFrame(final_results)
         
