@@ -3,47 +3,8 @@ from SALib.sample import saltelli
 from SALib.analyze import sobol
 import pandas as pd
 from typing import List
+from scipy.stats import spearmanr
 
-
-def perform_sobol_analysis_from_data(param_df, metrics_df, parameter_names):
-    """
-    Perform Sobol sensitivity analysis on pre-computed parameter-output pairs.
-
-    Args:
-        param_df (pd.DataFrame): DataFrame of parameter values
-        metrics_df (pd.DataFrame): DataFrame of output values
-        parameter_names (list): List of parameter names
-
-    Returns:
-        dict: Dictionary containing Sobol indices and other sensitivity metrics
-    """
-
-    X = param_df.to_numpy()
-
-    results = {}
-    for metric in metrics_df.columns:
-        Y = metrics_df[metric].to_numpy()
-
-        # Calculate correlation coefficients
-        correlations = np.corrcoef(X.T, Y)[-1, :-1]  # Get correlations with output
-        total_correlation = np.sum(np.abs(correlations))
-
-        # Calculate sensitivity indices as normalized correlations
-        sensitivity = (
-            np.abs(correlations) / total_correlation
-            if total_correlation != 0
-            else np.zeros_like(correlations)
-        )
-
-        results[metric] = {
-            "S1": sensitivity,  # First-order indices
-            "ST": sensitivity,  # Total-order indices (same as S1 in this simple case)
-            "S1_conf": np.zeros_like(sensitivity),  # No confidence intervals in this method
-            "ST_conf": np.zeros_like(sensitivity),  # No confidence intervals in this method
-            "names": parameter_names,
-        }
-
-    return results
 
 
 def load_data(param_file, metrics_file, target_name: List[str]):
@@ -69,7 +30,6 @@ def load_data(param_file, metrics_file, target_name: List[str]):
 def clean_param_df(param_df):
     constant_columns = param_df.columns[param_df.nunique() == 1]
     param_df = param_df.drop(columns=constant_columns)
-    param_df = param_df.drop(columns=["file_name"])
     return param_df
 
 
@@ -77,59 +37,132 @@ def clean_metrics_df(metrics_df, target_name: List[str]):
     return metrics_df[target_name]
 
 
-def plot_sobol_indices(sensitivity_results, save_path=None):
+def perform_sensitivity_analysis(param_df, metrics_df, parameter_names):
     """
-    Plot sensitivity indices for each metric.
+    Perform sensitivity analysis using Mutual Information for strength of relationship
+    and Spearman correlation for direction of effect.
 
     Args:
-        sensitivity_results (dict): Results from perform_sobol_analysis_from_data
-        save_path (str, optional): Path to save the plot. If None, displays plot.
+        param_df (pd.DataFrame): DataFrame of parameter values
+        metrics_df (pd.DataFrame): DataFrame of output values
+        parameter_names (list): List of parameter names
+
+    Returns:
+        dict: Dictionary containing sensitivity metrics
+    """
+    from sklearn.feature_selection import mutual_info_regression
+    from scipy.stats import spearmanr
+    
+    X = param_df.to_numpy()
+    
+    results = {}
+    for metric in metrics_df.columns:
+        Y = metrics_df[metric].to_numpy()
+
+        # Calculate Mutual Information scores
+        mi_scores = mutual_info_regression(X, Y, random_state=42)
+        
+        # Normalize MI scores to sum to 1
+        mi_scores = mi_scores / np.sum(mi_scores) if np.sum(mi_scores) > 0 else mi_scores
+
+        # Calculate Spearman correlations for direction
+        spearman_corr = np.array([spearmanr(X[:, i], Y)[0] for i in range(X.shape[1])])
+        results[metric] = {
+            "MI": mi_scores,
+            "spearman": spearman_corr,
+            "names": parameter_names
+        }
+
+    return results
+
+
+def plot_sensitivity_analysis(sensitivity_results, save_path=None):
+    """
+    Plot sensitivity analysis results showing both magnitude (MI) and direction (Spearman).
+
+    Args:
+        sensitivity_results (dict): Results from perform_sensitivity_analysis
+        save_path (str, optional): Path to save the plot
     """
     import matplotlib.pyplot as plt
 
     n_metrics = len(sensitivity_results)
-    fig, axes = plt.subplots(n_metrics, 1, figsize=(6, 3 * n_metrics))
+    fig, axes = plt.subplots(1, n_metrics, figsize=(8 * n_metrics, 8))
     if n_metrics == 1:
         axes = [axes]
 
     for ax, (metric, results) in zip(axes, sensitivity_results.items()):
         names = results["names"]
-        S1 = results["S1"]
+        mi_scores = results["MI"]
+        spearman_corr = results["spearman"]
+        
+        # Sort parameters by importance
+        sorted_idx = np.argsort(mi_scores)
+        pos = np.arange(len(names))
 
-        # Create bar plot
-        y_pos = np.arange(len(names))
-        ax.barh(y_pos, S1)
+        # Create horizontal bar plot
+        bars = ax.barh(pos, mi_scores[sorted_idx])
+        
+        # Color bars based on Spearman correlation
+        for idx, bar in enumerate(bars):
+            corr = spearman_corr[sorted_idx[idx]]
+            # Red for positive correlation, Blue for negative
+            color = 'red' if corr > 0 else 'blue'
+            # Opacity based on correlation strength
+            alpha = min(abs(corr) + 0.2, 1.0)  # minimum opacity of 0.2
+            bar.set_color(color)
+            bar.set_alpha(alpha)
+        
+        # Add parameter names
+        ax.set_yticks(pos)
+        ax.set_yticklabels([names[i] for i in sorted_idx])
+        
+        # Add value labels on bars
+        for i, (mi, corr) in enumerate(zip(mi_scores[sorted_idx], spearman_corr[sorted_idx])):
+            label = f'MI={mi:.3f}, ρ={corr:.2f}'
+            ax.text(mi, i, label, va='center')
 
         # Customize plot
-        ax.set_yticks(y_pos)
-        ax.set_yticklabels(names)
-        ax.set_xlabel("Sensitivity Index")
-        ax.set_title(f"Parameter Sensitivity for {metric}")
+        ax.set_xlabel('Mutual Information Score')
+        ax.set_title(f'{metric}\n' + 
+                    'Red: Positive effect, Blue: Negative effect\n' +
+                    'Color intensity: Strength of directional relationship')
 
-        # Add value labels on bars
-        for i, v in enumerate(S1):
-            ax.text(v, i, f"{v:.3f}", va="center")
+        # Add a note about interpretation
+    ax.text(0, -0.1, 
+            'Note: MI shows overall importance (including non-linear effects)\n' +
+            'ρ (Spearman) shows direction of monotonic relationship',
+            transform=ax.transAxes, fontsize=12, ha='left', va='top')
 
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path)
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
+        plt.close()
     else:
         plt.show()
 
 
 def main():
-    param_file = "completed_params.csv"
-    metrics_file = "completed_doubling.csv"
-    target_names = ["doubling_time", "activity", "colony_growth_rate"]
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY"
+    input_folder = parameter_base_folder + "/inputs"
+    csv_file = f"{parameter_base_folder}/final_metrics.csv"
+
+    param_file = f"{parameter_base_folder}/all_param_df.csv"
+    metrics_file = f"{parameter_base_folder}/final_metrics.csv"
+    target_names = ["colony_diameter", 'symmetry', 'cycle_length', 'input_folder']
 
     param_df, metrics_df = load_data(param_file, metrics_file, target_names)
+    if len(param_df) != len(metrics_df):
+        print(f"Warning: param_df and metrics_df have different lengths: {len(param_df)} != {len(metrics_df)}")
+        input_folders = metrics_df['input_folder'].unique()
+        param_df = param_df[param_df['input_folder'].isin(input_folders)]
+        param_df = param_df.drop(columns=["input_folder"])
+        metrics_df = metrics_df.drop(columns=["input_folder"])
     param_names = param_df.columns.tolist()
-    sensitivity_results = perform_sobol_analysis_from_data(param_df, metrics_df, param_names)
 
-    # Plot results
-    plot_sobol_indices(sensitivity_results)
-
+    sensitivity_results = perform_sensitivity_analysis(param_df, metrics_df, param_names)
+    plot_sensitivity_analysis(sensitivity_results, save_path=f"{parameter_base_folder}/sensitivity_analysis.png")
 
 if __name__ == "__main__":
     main()
