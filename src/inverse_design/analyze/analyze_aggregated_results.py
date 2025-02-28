@@ -397,7 +397,7 @@ if __name__ == "__main__":
 
     metrics_name = "n_cells"
     metrics_df = pd.read_csv(csv_file)
-    if 1:
+    if 0:
         posterior_metrics_file = csv_file
         prior_metrics_file = (
             "prior_metrics_formatted.csv"
@@ -443,6 +443,7 @@ if __name__ == "__main__":
         save_file = f"{parameter_base_folder}/metric_pairplot_{metrics_name}.png"
         remove_metrics = ['input_folder', 'percentile_label', 'age', 'age_std', 'states', 'colony_growth_r', 'colony_growth', "doub_time",]
         metrics_list = [col for col in metrics_df.columns if col not in remove_metrics and not col.endswith('_std')]
+        #metrics_list = [col for col in metrics_df.columns if col not in remove_metrics and col.endswith('_std')]
         plot_metric_pairplot(
             metrics_df,
             metrics_list,
@@ -450,12 +451,12 @@ if __name__ == "__main__":
             save_file
         )
 
-    if 1:
+    if 0:
         save_file = f"{parameter_base_folder}/parameter_distributions_{metrics_name}.png"
         plot_top_bottom_parameter_distributions(
             analyzed_param_df, PARAMETER_LIST, parameter_base_folder, percentile, save_file
         )
-    if 1:
+    if 0:
         save_file = f"{parameter_base_folder}/pca_parameters_{metrics_name}.png"
         plot_pca_parameters(
             analyzed_param_df,
@@ -466,7 +467,7 @@ if __name__ == "__main__":
         save_file,
     )
 
-    if 1:
+    if 0:
         plot_cell_states_histogram(
             csv_file,
             f"{parameter_base_folder}/cell_states_histogram.png",
