@@ -3,6 +3,7 @@ from SALib.sample import saltelli
 from SALib.analyze import sobol
 import pandas as pd
 from typing import List
+import json
 from scipy.stats import spearmanr
 
 
@@ -37,7 +38,7 @@ def clean_metrics_df(metrics_df, target_name: List[str]):
     return metrics_df[target_name]
 
 
-def perform_sensitivity_analysis(param_df, metrics_df, parameter_names):
+def perform_sensitivity_analysis(param_df, metrics_df, parameter_names, save_sensitivity_json=None):
     """
     Perform sensitivity analysis using Mutual Information for strength of relationship
     and Spearman correlation for direction of effect.
@@ -69,6 +70,17 @@ def perform_sensitivity_analysis(param_df, metrics_df, parameter_names):
             "spearman": spearman_corr,
             "names": parameter_names
         }
+    if save_sensitivity_json:
+        results_json = {}
+        for metric, result in results.items():
+            results_json[metric] = {
+                "MI": result["MI"].tolist(),
+                "spearman": result["spearman"].tolist(),
+                "names": result["names"]
+            }
+
+        with open(save_sensitivity_json, 'w') as f:
+            json.dump(results_json, f)
 
     return results
 
@@ -183,14 +195,15 @@ def main():
 
     param_file = f"{parameter_base_folder}/all_param_df.csv"
     metrics_file = f"{parameter_base_folder}/final_metrics.csv"
-    target_metrics = ['symmetry', 'cycle_length', 'vol_std']
+    target_metrics = ['symmetry', 'cycle_length', 'act']
     alignment_columns = ['input_folder']
     
     param_df, metrics_df = load_data(param_file, metrics_file, target_metrics + alignment_columns)
     param_df, metrics_df = align_dataframes(param_df, metrics_df)
     param_names = param_df.columns.tolist()
 
-    sensitivity_results = perform_sensitivity_analysis(param_df, metrics_df, param_names)
+    save_sensitivity_json = f"{parameter_base_folder}/sensitivity_analysis.json"
+    sensitivity_results = perform_sensitivity_analysis(param_df, metrics_df, param_names, save_sensitivity_json)
     plot_sensitivity_analysis(sensitivity_results, save_path=f"{parameter_base_folder}/sensitivity_analysis.png")
 
 if __name__ == "__main__":

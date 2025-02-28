@@ -5,7 +5,7 @@ from pathlib import Path
 import scipy.stats.qmc
 from typing import Dict
 import os
-
+import json
 
 def save_parameter_ranges(param_ranges: dict, output_dir: str):
     """Save the parameter ranges used for generating inputs to a CSV file."""
@@ -359,6 +359,202 @@ def generate_parameters_from_kde(
     print(f"Generated {n_samples} XML files and parameter log in {output_dir}/")
 
 
+def generate_2param_perturbation(
+    sensitivity_json: str,
+    metric: str,
+    template_path: str = "sample_input_v3.xml",
+    perturbation_range: range = range(-50, 51, 10),
+    output_dir: str = "inputs/STEM_CELL/",
+):
+    """Generate input files by perturbing the top 2 parameters based on MI scores.
+    
+    Args:
+        sensitivity_json: Path to sensitivity analysis JSON file
+        metric: Metric name to analyze ('symmetry', 'cycle_length', or 'vol_std')
+        template_path: Path to template XML file
+        perturbation_range: Range of perturbation percentages
+    """
+    # Load sensitivity analysis results
+    with open(sensitivity_json, 'r') as f:
+        sensitivity_data = json.load(f)
+    
+    if metric not in sensitivity_data:
+        raise ValueError(f"Metric {metric} not found in sensitivity analysis data")
+    
+    # Get parameter names and MI scores
+    param_names = sensitivity_data[metric]["names"]
+    mi_scores = sensitivity_data[metric]["MI"]
+    
+    # Find top 2 parameters
+    top_2_indices = np.argsort(mi_scores)[-2:][::-1]  # Sort descending
+    top_2_params = [param_names[i] for i in top_2_indices]
+    
+    print(f"Top 2 parameters for {metric}:")
+    print(f"1. {top_2_params[0]} (MI = {mi_scores[top_2_indices[0]]:.4f})")
+    print(f"2. {top_2_params[1]} (MI = {mi_scores[top_2_indices[1]]:.4f})")
+    
+    # Create output directory
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    # Read template XML to get default values
+    tree = ET.parse(template_path)
+    root = tree.getroot()
+    cancerous_pop = root.find(".//population[@id='cancerous']")
+    
+    # Get default values for the top 2 parameters
+    default_values = {}
+    for param in cancerous_pop.findall("population.parameter"):
+        param_id = param.get("id")
+        full_param_id = param_id
+        
+        # Handle parameters in subfolders
+        if param_id.startswith("metabolism/") or param_id.startswith("signaling/") or param_id.startswith("proliferation/"):
+            full_param_id = param_id
+            param_id = param_id.split("/")[1]
+        
+        # Case 1: Direct parameter (like CELL_VOLUME)
+        base_param = param_id.split("/")[-1]
+        if base_param in [p.replace("_MU", "").replace("_SIGMA", "") for p in top_2_params]:
+            value_str = param.get("value")
+            if "NORMAL" not in value_str:
+                default_values[base_param] = {
+                    "type": "direct",
+                    "value": float(value_str)
+                }
+            else:
+                # Store both MU and SIGMA values
+                mu = float(value_str.split("MU=")[1].split(",")[0])
+                sigma = float(value_str.split("SIGMA=")[1].split(")")[0])
+                default_values[base_param] = {
+                    "type": "normal",
+                    "mu": mu,
+                    "sigma": sigma
+                }
+    
+    # Generate perturbed parameter combinations
+    param_log = []
+    file_counter = 1
+    for p1_pct in perturbation_range:
+        for p2_pct in perturbation_range:
+            # Calculate perturbed values
+            p1_base = top_2_params[0].replace("_MU", "").replace("_SIGMA", "")
+            p2_base = top_2_params[1].replace("_MU", "").replace("_SIGMA", "")
+            p1_property = top_2_params[0].split("_")[-1]  # MU or SIGMA
+            p2_property = top_2_params[1].split("_")[-1]  # MU or SIGMA
+            
+            # Calculate perturbed values based on parameter type
+            if default_values[p1_base]["type"] == "direct":
+                p1_value = default_values[p1_base]["value"] * (1 + p1_pct/100)
+            else:
+                if p1_property == "MU":
+                    p1_value = default_values[p1_base]["mu"] * (1 + p1_pct/100)
+                else:  # SIGMA
+                    p1_value = default_values[p1_base]["sigma"] * (1 + p1_pct/100)
+                    
+            if default_values[p2_base]["type"] == "direct":
+                p2_value = default_values[p2_base]["value"] * (1 + p2_pct/100)
+            else:
+                if p2_property == "MU":
+                    p2_value = default_values[p2_base]["mu"] * (1 + p2_pct/100)
+                else:  # SIGMA
+                    p2_value = default_values[p2_base]["sigma"] * (1 + p2_pct/100)
+            
+            # Create new XML tree for this combination
+            tree = ET.parse(template_path)
+            root = tree.getroot()
+            cancerous_pop = root.find(".//population[@id='cancerous']")
+            
+            # Update parameters
+            for param in cancerous_pop.findall("population.parameter"):
+                param_id = param.get("id")
+                full_param_id = param_id
+                
+                # Handle parameters in subfolders
+                if param_id.startswith("metabolism/") or param_id.startswith("signaling/") or param_id.startswith("proliferation/"):
+                    full_param_id = param_id
+                    param_id = param_id.split("/")[1]
+                
+                base_param = full_param_id.split("/")[-1]
+                if base_param == p1_base:
+                    param_info = default_values[base_param]
+                    if param_info["type"] == "direct":
+                        # Case 1: Direct parameter
+                        new_value = param_info["value"] * (1 + p1_pct/100)
+                        param.set("value", f"{new_value:.6f}")
+                    else:
+                        # Case 2 & 3: NORMAL distribution
+                        mu = param_info["mu"]
+                        sigma = param_info["sigma"]
+                        if p1_property == "MU":
+                            mu = mu * (1 + p1_pct/100)
+                        else:  # SIGMA
+                            sigma = sigma * (1 + p1_pct/100)
+                        param.set("value", f"NORMAL(MU={mu:.6f},SIGMA={sigma:.6f})")
+                
+                elif base_param == p2_base:
+                    param_info = default_values[base_param]
+                    if param_info["type"] == "direct":
+                        # Case 1: Direct parameter
+                        new_value = param_info["value"] * (1 + p2_pct/100)
+                        param.set("value", f"{new_value:.6f}")
+                    else:
+                        # Case 2 & 3: NORMAL distribution
+                        mu = param_info["mu"]
+                        sigma = param_info["sigma"]
+                        if p2_property == "MU":
+                            mu = mu * (1 + p2_pct/100)
+                        else:  # SIGMA
+                            sigma = sigma * (1 + p2_pct/100)
+                        param.set("value", f"NORMAL(MU={mu:.6f},SIGMA={sigma:.6f})")
+            
+            # Save modified XML
+            if not os.path.exists(f"{output_dir}/inputs"):
+                os.makedirs(f"{output_dir}/inputs")
+            output_file = f"{output_dir}/inputs/input_{file_counter}.xml"
+            tree.write(output_file, encoding="utf-8", xml_declaration=True)
+            
+            # Log parameters
+            param_log.append({
+                "file_name": f"input_{file_counter}.xml",
+                f"{top_2_params[0]}_perturbation": p1_pct,
+                f"{top_2_params[1]}_perturbation": p2_pct,
+                top_2_params[0]: p1_value,
+                top_2_params[1]: p2_value
+            })
+            
+            file_counter += 1
+    
+    # Save parameter log
+    df = pd.DataFrame(param_log)
+    df.to_csv(f"{output_dir}/parameter_log.csv", index=False)
+    
+    # Calculate parameter ranges based on parameter type and property
+    parameter_ranges = {}
+    for param, base_param, property_type in [(top_2_params[0], p1_base, p1_property), 
+                                           (top_2_params[1], p2_base, p2_property)]:
+        param_info = default_values[base_param]
+        if param_info["type"] == "direct":
+            base_value = param_info["value"]
+            parameter_ranges[param] = (
+                base_value * (1 + min(perturbation_range)/100),
+                base_value * (1 + max(perturbation_range)/100)
+            )
+        else:  # normal distribution
+            if property_type == "MU":
+                base_value = param_info["mu"]
+            else:  # SIGMA
+                base_value = param_info["sigma"]
+            parameter_ranges[param] = (
+                base_value * (1 + min(perturbation_range)/100),
+                base_value * (1 + max(perturbation_range)/100)
+            )
+    
+    save_parameter_ranges(parameter_ranges, output_dir)
+    
+    print(f"Generated {len(param_log)} XML files and parameter log in {output_dir}/")
+
+
 def main():
     output_dir = "inputs/STEM_CELL/meta_signal_heterogeneity"
     param_ranges = {
@@ -370,7 +566,6 @@ def main():
         "ACCURACY": (0.3, 1.0),
         "AFFINITY": (0.0, 1.0),
         "COMPRESSION_TOLERANCE": (3, 10),
-        
         "SYNTHESIS_DURATION_MU": (580, 680),
         "SYNTHESIS_DURATION_SIGMA": (20, 70),
         "BASAL_ENERGY_MU": (0.0008, 0.0012),
@@ -396,12 +591,21 @@ def main():
         #"MIGRATORY_THRESHOLD_MU": (8, 12),
         #"MIGRATORY_THRESHOLD_SIGMA": (0.64, 0.96),
     }
-    
-    generate_perturbed_parameters(
-        sobol_power=9,
-        param_ranges=param_ranges,
-        output_dir=output_dir,
-    )
+    if 0:
+        generate_perturbed_parameters(
+            sobol_power=9,
+            param_ranges=param_ranges,
+            output_dir=output_dir,
+        )
+    metric = "act"
+    output_dir = f"inputs/sensitivity_analysis/{metric}"
+    if 1:
+        generate_2param_perturbation(
+            sensitivity_json="ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY/sensitivity_analysis.json",
+            metric=metric,
+            perturbation_range=range(-50, 51, 10),
+            output_dir=output_dir,
+        )
 
 
 if __name__ == "__main__":

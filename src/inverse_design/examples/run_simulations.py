@@ -106,10 +106,11 @@ def run_simulations(
 
 
 if __name__ == "__main__":
+    metric = "act"
     run_simulations(
-        input_dir="inputs/STEM_CELL/meta_signal_heterogeneity/inputs",
-        output_dir="ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY/",
+        input_dir=f"inputs/sensitivity_analysis/{metric}/inputs",
+        output_dir=f"ARCADE_OUTPUT/SENSITIVITY/{metric}/",
         jar_path="models/arcade-test-cycle.jar",
-        max_workers=6,
+        max_workers=2,
         start_index=1,
     )
