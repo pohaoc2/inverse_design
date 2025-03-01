@@ -391,20 +391,20 @@ def plot_metric_pairplot(
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY_POSTERIOR"
     input_folder = parameter_base_folder + "/inputs"
     csv_file = f"{parameter_base_folder}/final_metrics.csv"
 
     metrics_name = "n_cells"
     metrics_df = pd.read_csv(csv_file)
-    if 0:
+    if 1:
         posterior_metrics_file = csv_file
         prior_metrics_file = (
-            "prior_metrics_formatted.csv"
+            "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY/final_metrics.csv"
         )
         target_metrics = {
-            "doub_time": 35.0,
-            "doub_time_std": 10.0,
+            "symmetry": 0.8,
+            "cycle_length": 30.0,
             "act": 0.6,
         }
 
@@ -451,12 +451,12 @@ if __name__ == "__main__":
             save_file
         )
 
-    if 0:
+    if 1:
         save_file = f"{parameter_base_folder}/parameter_distributions_{metrics_name}.png"
         plot_top_bottom_parameter_distributions(
             analyzed_param_df, PARAMETER_LIST, parameter_base_folder, percentile, save_file
         )
-    if 0:
+    if 1:
         save_file = f"{parameter_base_folder}/pca_parameters_{metrics_name}.png"
         plot_pca_parameters(
             analyzed_param_df,
@@ -467,7 +467,7 @@ if __name__ == "__main__":
         save_file,
     )
 
-    if 0:
+    if 1:
         plot_cell_states_histogram(
             csv_file,
             f"{parameter_base_folder}/cell_states_histogram.png",

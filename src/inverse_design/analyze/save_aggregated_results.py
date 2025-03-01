@@ -184,7 +184,7 @@ class SimulationMetrics:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY"
+    parameter_base_folder = "ARCADE_OUTPUT/SENSITIVITY/cycle_length"
     input_folder = parameter_base_folder + "/inputs"
     metrics_calculator = SimulationMetrics(parameter_base_folder)
 
@@ -205,8 +205,8 @@ def main():
         "009360",
         "010080",
     ]
-    timestamps = [timestamp for idx, timestamp in enumerate(timestamps) if idx % 4 == 0]
-    timestamps += ["010080"]
+    #timestamps = [timestamp for idx, timestamp in enumerate(timestamps) if idx % 4 == 0]
+    #timestamps += ["010080"]
     metrics_calculator.analyze_all_simulations(timestamps=timestamps)
 
     input_files = list(Path(input_folder).glob("input_*"))

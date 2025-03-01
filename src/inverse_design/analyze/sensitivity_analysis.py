@@ -1,8 +1,10 @@
 import numpy as np
 from SALib.sample import saltelli
 from SALib.analyze import sobol
+from SALib.util import extract_group_names
 import pandas as pd
 from typing import List
+import json
 from scipy.stats import spearmanr
 
 
@@ -37,7 +39,9 @@ def clean_metrics_df(metrics_df, target_name: List[str]):
     return metrics_df[target_name]
 
 
-def perform_sensitivity_analysis(param_df, metrics_df, parameter_names):
+
+
+def perform_sensitivity_analysis(param_df, metrics_df, parameter_names, save_sensitivity_json=None):
     """
     Perform sensitivity analysis using Mutual Information for strength of relationship
     and Spearman correlation for direction of effect.
@@ -69,6 +73,17 @@ def perform_sensitivity_analysis(param_df, metrics_df, parameter_names):
             "spearman": spearman_corr,
             "names": parameter_names
         }
+    if save_sensitivity_json:
+        results_json = {}
+        for metric, result in results.items():
+            results_json[metric] = {
+                "MI": result["MI"].tolist(),
+                "spearman": result["spearman"].tolist(),
+                "names": result["names"]
+            }
+
+        with open(save_sensitivity_json, 'w') as f:
+            json.dump(results_json, f)
 
     return results
 
@@ -176,22 +191,126 @@ def align_dataframes(param_df, metrics_df):
     return param_df, metrics_df
 
 
+def perform_sobol_analysis(param_df, metrics_df, parameter_names, calc_second_order=True, save_sobol_json=None):
+    """
+    Perform Sobol sensitivity analysis.
+
+    Args:
+        param_df (pd.DataFrame): DataFrame of parameter values
+        metrics_df (pd.DataFrame): DataFrame of output values
+        parameter_names (list): List of parameter names
+        n_samples (int): Number of samples for Sobol analysis
+        save_sobol_json (str, optional): Path to save results as JSON
+
+    Returns:
+        dict: Dictionary containing Sobol sensitivity indices
+    """
+    # Define the problem dictionary for SALib
+    problem = {
+        'num_vars': len(parameter_names),
+        'names': parameter_names,
+        'bounds': [[param_df[param].min(), param_df[param].max()] for param in parameter_names]
+    }
+    
+    results = {}
+    for metric in metrics_df.columns:
+        Y = metrics_df[metric].to_numpy()
+        n_del_samples = Y.size % (2*len(parameter_names) + 2) if calc_second_order else Y.size % (len(parameter_names) + 2)
+        Y = Y[:-n_del_samples]
+        Si = sobol.analyze(problem, Y, calc_second_order=calc_second_order, print_to_console=False)
+        if calc_second_order:
+            results[metric] = {
+                'S1': Si['S1'],  # First-order indices
+                'ST': Si['ST'],  # Total-order indices
+                'S2': Si['S2'],  # Second-order indices
+                'names': parameter_names
+            }
+        else:
+            results[metric] = {
+                'S1': Si['S1'],  # First-order indices
+                'ST': Si['ST'],  # Total-order indices
+                'names': parameter_names
+            }
+
+    if save_sobol_json:
+        results_json = {}
+        for metric, result in results.items():
+            results_json[metric] = {
+                'S1': result['S1'].tolist(),
+                'ST': result['ST'].tolist(),
+                'S2': result['S2'].tolist() if calc_second_order else None,
+                'names': result['names']
+            }
+        
+        with open(save_sobol_json, 'w') as f:
+            json.dump(results_json, f)
+
+    return results
+
+def plot_sobol_analysis(sobol_results, metrics_name, calc_second_order=True, save_path=None):
+    """
+    Plot Sobol sensitivity analysis results.
+
+    Args:
+        sobol_results (dict): Results from perform_sobol_analysis
+        metrics_name (str): Name of the metric to plot
+        save_path (str, optional): Path to save the plot
+    """
+    import matplotlib.pyplot as plt
+
+    # Extract and clean indices (replace negative values with 0)
+    S1 = np.maximum(sobol_results[metrics_name]['S1'], 0)
+    ST = np.maximum(sobol_results[metrics_name]['ST'], 0)
+    S2 = np.maximum(sobol_results[metrics_name]['S2'], 0) if calc_second_order else None
+    names = sobol_results[metrics_name]['names']
+
+    # Create subplots for first-order and total-order indices
+    fig, axes = plt.subplots(2, 1, figsize=(10, 8))
+    
+    # Plot first-order indices
+    axes[0].barh(names, S1)
+    axes[0].set_xlabel('First-Order Index')
+    axes[0].set_title(f'First-Order Sobol Indices for {metrics_name}')
+    
+    # Plot total-order indices
+    axes[1].barh(names, ST)
+    axes[1].set_xlabel('Total-Order Index')
+    axes[1].set_title(f'Total-Order Sobol Indices for {metrics_name}')
+    
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
+        plt.close()
+    else:
+        plt.show()
+    
+
 def main():
     parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY"
-    input_folder = parameter_base_folder + "/inputs"
-    csv_file = f"{parameter_base_folder}/final_metrics.csv"
-
     param_file = f"{parameter_base_folder}/all_param_df.csv"
     metrics_file = f"{parameter_base_folder}/final_metrics.csv"
-    target_metrics = ['symmetry', 'cycle_length', 'vol_std']
+    target_metrics = ['symmetry', 'cycle_length', 'act']
     alignment_columns = ['input_folder']
     
     param_df, metrics_df = load_data(param_file, metrics_file, target_metrics + alignment_columns)
     param_df, metrics_df = align_dataframes(param_df, metrics_df)
     param_names = param_df.columns.tolist()
 
-    sensitivity_results = perform_sensitivity_analysis(param_df, metrics_df, param_names)
-    plot_sensitivity_analysis(sensitivity_results, save_path=f"{parameter_base_folder}/sensitivity_analysis.png")
+    # Perform both types of sensitivity analysis
+    save_sensitivity_json = f"{parameter_base_folder}/sensitivity_analysis.json"
+    save_sobol_json = f"{parameter_base_folder}/sobol_analysis.json"
+    
+    #sensitivity_results = perform_sensitivity_analysis(param_df, metrics_df, param_names, save_sensitivity_json)
+    sobol_results = perform_sobol_analysis(param_df, metrics_df, param_names,
+                                            calc_second_order=False,
+                                            save_sobol_json=save_sobol_json)
+
+    plot_sobol_analysis(sobol_results,
+                        metrics_name='symmetry',
+                        calc_second_order=False,
+                        save_path=f"{parameter_base_folder}/sobol_analysis_symmetry.png")
+    #plot_sensitivity_analysis(sensitivity_results, save_path=f"{parameter_base_folder}/sensitivity_analysis.png")
 
 if __name__ == "__main__":
     main()
