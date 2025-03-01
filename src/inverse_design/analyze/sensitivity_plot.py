@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+from inverse_design.analyze.sensitivity_analysis import align_dataframes
 
 def get_varying_parameters(params_df, threshold=1e-10):
     """
@@ -20,22 +20,18 @@ def get_varying_parameters(params_df, threshold=1e-10):
     return list(params_std[params_std.abs() > threshold].index)
 
 
-def plot_sensitivity_bubble(param_file, metrics_file, target_metric="symmetry", save_file=None):
+def plot_sensitivity_bubble(param_df, metrics_df, target_metric="symmetry", save_file=None):
     """
     Create a bubble plot showing parameter relationships.
 
     Args:
-        param_file (str): Path to parameters CSV file
-        metrics_file (str): Path to metrics CSV file
+        param_df (pd.DataFrame): DataFrame containing parameters
+        metrics_df (pd.DataFrame): DataFrame containing metrics
         target_metric (str): Target metric to analyze (default: 'symmetry')
         save_file (str): Path to save the figure (optional)
     """
-    # Read data
-    params_df = pd.read_csv(param_file)
-    metrics_df = pd.read_csv(metrics_file)
-
     # Get varying parameters
-    varying_cols = get_varying_parameters(params_df)
+    varying_cols = get_varying_parameters(param_df)
     if len(varying_cols) != 2:
         raise ValueError(f"Expected 2 varying parameters, found {len(varying_cols)}")
 
@@ -51,11 +47,10 @@ def plot_sensitivity_bubble(param_file, metrics_file, target_metric="symmetry", 
     min_std = min(metrics_df[std_col])
     max_std = max(metrics_df[std_col])
     normalized_sizes = 50 + (metrics_df[std_col] - min_std) * (500 - 50) / (max_std - min_std)
-
     # Create scatter plot with colormap for metric value and size for std
     scatter = plt.scatter(
-        params_df[varying_cols[0]],
-        params_df[varying_cols[1]],
+        param_df[varying_cols[0]],
+        param_df[varying_cols[1]],
         s=normalized_sizes,
         c=metrics_df[target_metric],
         cmap="viridis",
@@ -95,7 +90,7 @@ def plot_sensitivity_bubble(param_file, metrics_file, target_metric="symmetry", 
 
 
 def plot_partial_dependence(
-    param_file, metrics_file, target_metric="symmetry", save_file=None
+    param_df, metrics_df, target_metric="symmetry", save_file=None
 ):
     """
     Create partial dependence plots showing relationship between parameters and metric.
@@ -104,14 +99,12 @@ def plot_partial_dependence(
         - Second subplot: Shows param_2 vs metric, with separate lines for each unique param_1 value
     
     Args:
-        param_file (str): Path to parameters CSV file
-        metrics_file (str): Path to metrics CSV file
+        param_df (pd.DataFrame): DataFrame containing parameters
+        metrics_df (pd.DataFrame): DataFrame containing metrics
         target_metric (str): Target metric to analyze
         save_file (str): Path to save the figure (optional)
     """
-    param_df = pd.read_csv(param_file)
-    metrics_df = pd.read_csv(metrics_file)  
-    df = pd.merge(param_df, metrics_df, on="input_folder")
+    df = pd.concat([param_df, metrics_df], axis=1)
     varying_cols = get_varying_parameters(param_df)
     if len(varying_cols) != 2:
         raise ValueError(f"Expected 2 varying parameters, found {len(varying_cols)}")
@@ -120,10 +113,12 @@ def plot_partial_dependence(
     
     # Create figure with two subplots
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-    markers = ['o', 'x', '+', 's', 'D', 'P', 'H', 'X', 'd', 'p', 'h']
+    markers = ['o', 'x', '+', 's', 'D', 'P', 'H', 'X', 'd', 'p', 'h', 'v', '8']
+    
     for i, (main_param, other_param) in enumerate([(param_1, param_2), (param_2, param_1)]):
         unique_values = sorted(df[other_param].unique())
         palette = sns.color_palette(n_colors=len(unique_values))
+        
         for j, value in enumerate(unique_values):
             mask = np.isclose(df[other_param], value, rtol=1e-10)
             subset = df[mask].copy()
@@ -132,7 +127,7 @@ def plot_partial_dependence(
                 subset[main_param],
                 subset[target_metric],
                 '-',
-                marker=markers[j],
+                marker=markers[j % len(markers)],
                 color=palette[j],
                 label=f"{other_param}={value:.3f}",
                 markersize=4,
@@ -153,22 +148,26 @@ def plot_partial_dependence(
 
 
 def main():
-    target_metric = "cycle_length"
+    target_metric = "symmetry"
     parameter_base_folder = f"ARCADE_OUTPUT/SENSITIVITY/{target_metric}"
-
     save_file = f"{parameter_base_folder}/sensitivity_bubble.png"
-    if 0:
+    param_df = pd.read_csv(f"{parameter_base_folder}/all_param_df.csv")
+    metrics_df = pd.read_csv(f"{parameter_base_folder}/final_metrics.csv")
+    param_df, metrics_df = align_dataframes(param_df, metrics_df)
+
+
+    if 1:
         plot_sensitivity_bubble(
-            f"{parameter_base_folder}/all_param_df.csv",
-            f"{parameter_base_folder}/final_metrics.csv",
+            param_df,
+            metrics_df,
             target_metric=target_metric,
             save_file=save_file,
         )
     save_file = f"{parameter_base_folder}/sensitivity_partial_dependence.png"
     if 1:
         plot_partial_dependence(
-            f"{parameter_base_folder}/all_param_df.csv",
-            f"{parameter_base_folder}/final_metrics.csv",
+            param_df,
+            metrics_df,
             target_metric=target_metric,
             save_file=save_file,
         )

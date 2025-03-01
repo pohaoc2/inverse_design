@@ -39,8 +39,6 @@ def clean_metrics_df(metrics_df, target_name: List[str]):
     return metrics_df[target_name]
 
 
-
-
 def perform_mi_analysis(param_df, metrics_df, parameter_names, save_mi_json=None):
     """
     Perform sensitivity analysis using Mutual Information for strength of relationship
@@ -174,6 +172,7 @@ def plot_mi_analysis(mi_results, save_path=None):
 def align_dataframes(param_df, metrics_df):
     """
     Align parameter and metrics dataframes based on input folders.
+    Ensures both DataFrames have matching rows in the same order.
     
     Args:
         param_df (pd.DataFrame): DataFrame containing parameters
@@ -184,10 +183,23 @@ def align_dataframes(param_df, metrics_df):
     """
     if len(param_df) != len(metrics_df):
         print(f"Warning: param_df and metrics_df have different lengths: {len(param_df)} != {len(metrics_df)}")
-        input_folders = metrics_df['input_folder'].unique()
-        param_df = param_df[param_df['input_folder'].isin(input_folders)]
-        param_df = param_df.drop(columns=["input_folder"])
-        metrics_df = metrics_df.drop(columns=["input_folder"])
+    
+    # Get common input folders and sort them
+    common_folders = sorted(
+        set(param_df['input_folder']) & set(metrics_df['input_folder'])
+    )
+    
+    # Filter and sort both DataFrames by input_folder
+    param_df = param_df[param_df['input_folder'].isin(common_folders)].copy()
+    metrics_df = metrics_df[metrics_df['input_folder'].isin(common_folders)].copy()
+    
+    param_df = param_df.set_index('input_folder').loc[common_folders].reset_index()
+    metrics_df = metrics_df.set_index('input_folder').loc[common_folders].reset_index()
+    
+    # Drop input_folder columns
+    param_df = param_df.drop(columns=["input_folder"])
+    metrics_df = metrics_df.drop(columns=["input_folder"])
+    
     return param_df, metrics_df
 
 
