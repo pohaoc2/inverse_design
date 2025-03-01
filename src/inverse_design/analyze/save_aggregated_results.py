@@ -184,7 +184,7 @@ class SimulationMetrics:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    parameter_base_folder = "ARCADE_OUTPUT/SENSITIVITY/cycle_length"
+    parameter_base_folder = "ARCADE_OUTPUT/SENSITIVITY/symmetry"
     input_folder = parameter_base_folder + "/inputs"
     metrics_calculator = SimulationMetrics(parameter_base_folder)
 
