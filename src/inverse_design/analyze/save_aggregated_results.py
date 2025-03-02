@@ -90,7 +90,6 @@ class SimulationMetrics:
             doub_times.append(doub_time)
 
         for timestamp, metrics_for_timestamp in metrics_by_timestamp.items():
-            print(metrics_for_timestamp)
             temporal_metrics[timestamp] = self._aggregate_timestamp_metrics(metrics_for_timestamp)
         # Add median doubling time to final metrics
         final_metrics = temporal_metrics[timestamps[-1]]
@@ -148,8 +147,8 @@ class SimulationMetrics:
             key=lambda x: int(re.search(r"input_(\d+)", x.name).group(1)),
         )
         
-        for folder in sim_folders[421:]:
-            #try:
+        for folder in sim_folders:
+            try:
                 folder_number = int(re.search(r"input_(\d+)", folder.name).group(1))
                 if folder_number % 50 == 0:
                     print(f"Analyzing {folder.name} ({folder_number}/{len(sim_folders)})")
@@ -158,8 +157,8 @@ class SimulationMetrics:
                 final_metrics_flat["input_folder"] = folder.name
                 final_results.append(final_metrics_flat)
                 temporal_results[folder.name] = metrics["temporal_metrics"]
-            #except Exception as e:
-           #     self.logger.error(f"Error processing {folder}: {str(e)}")
+            except Exception as e:
+                self.logger.error(f"Error processing {folder}: {str(e)}")
         # Create DataFrame for final metrics
         df = pd.DataFrame(final_results)
         
@@ -183,7 +182,7 @@ class SimulationMetrics:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    parameter_base_folder = "ARCADE_OUTPUT/SENSITIVITY/symmetry"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY_POSTERIOR/n256"
     input_folder = parameter_base_folder + "/inputs"
     metrics_calculator = SimulationMetrics(parameter_base_folder)
 
@@ -204,8 +203,8 @@ def main():
         "009360",
         "010080",
     ]
-    #timestamps = [timestamp for idx, timestamp in enumerate(timestamps) if idx % 4 == 0]
-    #timestamps += ["010080"]
+    timestamps = [timestamp for idx, timestamp in enumerate(timestamps) if idx % 4 == 0]
+    timestamps += ["010080"]
     metrics_calculator.analyze_all_simulations(timestamps=timestamps)
 
     input_files = list(Path(input_folder).glob("input_*"))

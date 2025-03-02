@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import json
+from scipy.stats import gaussian_kde
+
 
 def get_parameters_from_json(input_folder, parameter_list):
     """Extract parameters from json file."""
@@ -158,3 +160,39 @@ def remove_outliers(data: pd.DataFrame, iqr_multiplier: float = 1.5, verbose: bo
         print(f"Remaining data points: {len(cleaned_data)}")
 
     return cleaned_data, outlier_indices, outlier_data
+
+
+def calculate_metrics_statistics(metrics_df, metrics_names):
+    """
+    Calculate statistics (mode from KDE and std) for each metric.
+    
+    Args:
+        metrics_df (pd.DataFrame): DataFrame containing metrics
+        metrics_names (list): List of metric names to analyze
+    
+    Returns:
+        dict: Dictionary containing mode and std for each metric
+    """
+    metrics_dict = {}
+    for metric in metrics_names:
+        values = metrics_df[metric].values
+        
+        # Fit KDE
+        kde = gaussian_kde(values)
+        
+        # Find mode by evaluating KDE on a fine grid
+        x_grid = np.linspace(min(values), max(values), 1000)
+        kde_values = kde(x_grid)
+        mode_idx = np.argmax(kde_values)
+        mode = x_grid[mode_idx]
+        
+        # Calculate standard deviation
+        std = np.std(values)
+        
+        metrics_dict[metric] = {
+            "mode": mode,
+            "metric": values,
+            "std": std
+        }
+        
+    return metrics_dict
