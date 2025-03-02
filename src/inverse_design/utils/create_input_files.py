@@ -273,7 +273,7 @@ def generate_parameters_from_kde(
     param_names = parameter_pdfs["param_names"]
 
     # Generate samples for each parameter
-    sampled_params = {param: kde.resample(n_samples)[0] for param, kde in kde_dict.items()}
+    sampled_params = {param: kde.resample(n_samples, seed=42)[0] for param, kde in kde_dict.items()}
 
     # Generate XML files for each parameter set
     for i in range(n_samples):

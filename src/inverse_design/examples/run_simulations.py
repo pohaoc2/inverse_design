@@ -120,11 +120,11 @@ def run_simulations(
 
 if __name__ == "__main__":
     metric = "act"
-    n_samples = 64
+    n_samples = 256
     run_simulations(
         input_dir=f"inputs/meta_signal_heterogeneity_posterior_n{n_samples}/inputs",
         output_dir=f"ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY_POSTERIOR_n{n_samples}/",
         jar_path="models/arcade-test-cycle.jar",
-        max_workers=4,
+        max_workers=6,
         start_index=1,
     )

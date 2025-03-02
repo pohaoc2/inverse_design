@@ -95,4 +95,48 @@ SUMMARY_METRICS = {
         "spatial": True,
         "unit": "um^2/hour"
     }
-} 
+}
+
+DEFAULT_METRICS = {
+    "vol": {
+        "mean": 2250,
+        "std": 100
+    },
+    "cycle_length": {
+        "mean": 26.54,
+        "std": 20/24
+    },
+    "n_cells": {
+        "mean": 1000,
+        "std": 100
+    },
+    "symmetry": {
+        "mean": 0.5,
+        "std": 0.1
+    },
+    "shannon": {
+        "mean": 0.5,
+        "std": 0.1
+    },
+    "colony_diameter": {
+        "mean": 100,
+        "std": 10
+    },
+    "act": {
+        "mean": 0.5,
+        "std": 0.1
+    },
+
+    "col_dia": {
+        "mean": 0.5,
+        "std": 0.1
+    },
+    "doub_time": {
+        "mean": 24,
+        "std": 2
+    },
+    "colony_growth": {
+        "mean": 100,
+        "std": 10
+    }
+}

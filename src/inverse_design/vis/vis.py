@@ -121,7 +121,7 @@ def plot_metric_distribution(
     plt.close()
 
 
-def plot_parameter_kde(pdf_results: Dict, abc_config: Dict, save_path: str):
+def plot_parameter_kde(pdf_results: Dict, abc_config: Dict, param_defaults: Dict, save_path: str):
     """Plot KDE distributions for each parameter with HPD interval and mode
     Args:
         pdf_results: Results from _estimate_pdfs containing KDE objects
@@ -154,6 +154,11 @@ def plot_parameter_kde(pdf_results: Dict, abc_config: Dict, save_path: str):
         # Get prior range for x-axis limits
         prior_min = abc_config.parameter_ranges[param_name].min
         prior_max = abc_config.parameter_ranges[param_name].max
+        param_default = param_defaults[param_name]
+        if prior_min > param_default:
+            prior_min = param_default
+        if prior_max < param_default:
+            prior_max = param_default
 
         # Plot posterior
         x = np.linspace(prior_min, prior_max, 200)
@@ -203,8 +208,8 @@ def plot_parameter_kde(pdf_results: Dict, abc_config: Dict, save_path: str):
         # Plot posterior probability distribution
         ax.plot(x, y, "b-", label="Posterior")
 
-        # Plot mode and HPD interval
-        ax.axvline(mode, color="r", linestyle="--", label="Mode")
+        # Plot parameter default and HPD interval
+        ax.axvline(param_default, color="r", linestyle="--", label="Parameter default")
         ax.axvline(hpd_min, color="g", linestyle=":", alpha=0.7, label=f"{credible_mass*100}% HPD")
         ax.axvline(hpd_max, color="g", linestyle=":", alpha=0.7)
 

@@ -16,8 +16,10 @@ from inverse_design.vis.vis import (
 )
 from inverse_design.analyze import evaluate
 from inverse_design.utils.create_input_files import generate_parameters_from_kde
+from inverse_design.analyze.parameter_config import PARAMS_DEFAULTS
 import matplotlib.pyplot as plt
 from scipy import stats
+
 
 
 @hydra.main(version_base=None, config_path="../conf", config_name="config")
@@ -55,12 +57,13 @@ def run_abc_precomputed(cfg: DictConfig):
     param_file = "inputs/meta_signal_heterogeneity/parameter_log.csv"
     metrics_file = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY/final_metrics.csv"
     output_dir = "inputs/meta_signal_heterogeneity_posterior"
-    n_samples = 64
+    n_samples = 256
     output_dir += f"_n{n_samples}"
     param_df = pd.read_csv(param_file)
     constant_columns = param_df.columns[param_df.nunique() == 1]
     param_df = param_df.drop(columns=constant_columns)
     param_names = param_df.columns.tolist()
+    param_defaults = {param: PARAMS_DEFAULTS[param] for param in param_names if param in PARAMS_DEFAULTS}
     targets = [
         Target(metric=Metric.get("symmetry"), value=0.8, weight=1.0),
         Target(metric=Metric.get("cycle_length"), value=30, weight=1.0),
@@ -105,7 +108,7 @@ def run_abc_precomputed(cfg: DictConfig):
         generate_parameters_from_kde(parameter_pdfs, n_samples, output_dir=output_dir)
         if 1:
             save_path = f"{output_dir}/prior_posterior_pdfs_{i}.png"
-            plot_parameter_kde(parameter_pdfs, abc_config, save_path)
+            plot_parameter_kde(parameter_pdfs, abc_config, param_defaults, save_path)
 
         if 0:
             save_path = f"{output_dir}/joint_distribution_{i}.png"

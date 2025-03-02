@@ -9,6 +9,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from inverse_design.analyze.analyze_utils import collect_parameter_data, analyze_metric_percentiles
 from inverse_design.analyze.parameter_config import PARAMETER_LIST
+from inverse_design.analyze.metrics_config import DEFAULT_METRICS
 
 
 def plot_top_bottom_parameter_distributions(
@@ -186,28 +187,20 @@ def get_kde_bounds(kde_plot, percentile: float = 0.01):
     return x_min, x_max
 
 
-def plot_metric_distributions(
-    posterior_metrics_file,
-    prior_metrics_file,
-    target_metrics,
-    save_file: Optional[str] = None,
-):
+def plot_distributions(prior_df, posterior_df, target_metrics, metrics_list, default_metrics=None, save_path=None):
     """
-    Plot density distributions of metrics from posterior and/or prior, with optional target values.
-
+    Plot distributions of metrics with prior, posterior, target, and default values.
+    
     Args:
-        posterior_metrics_file: Path to simulation_metrics.csv (posterior)
-        prior_metrics_file: Path to completed_doubling.csv (prior)
-        target_metrics: Dictionary of target values for each metric
-        save_file: Path to save the plot, optional
+        prior_df (pd.DataFrame): DataFrame containing prior samples
+        posterior_df (pd.DataFrame): DataFrame containing posterior samples
+        target_metrics (dict): Dictionary of target metric values
+        metrics_list (list): List of metrics to plot
+        default_metrics (dict): Dictionary containing mean and std for default metrics
+            Format: {'metric_name': {'mean': value, 'std': value}}
+        save_path (str, optional): Path to save the figure
     """
-    # Explicitly type the variables
-    posterior_df = pd.read_csv(posterior_metrics_file)
-    prior_df = pd.read_csv(prior_metrics_file)
-    metrics_list = list(target_metrics.keys())
-
-    # Create subplot for each metric
-    fig, axes = plt.subplots(1, len(metrics_list), figsize=(15, 5))
+    fig, axes = plt.subplots(len(metrics_list), 1, figsize=(10, 4*len(metrics_list)))
     if len(metrics_list) == 1:
         axes = [axes]
 
@@ -216,6 +209,7 @@ def plot_metric_distributions(
         prior_kde = sns.kdeplot(data=prior_df[metric], ax=ax, label="Prior", color="gray")
         ax.set_ylabel("Prior Density", color="gray")
         ax.tick_params(axis="y", labelcolor="gray")
+        
         ax2 = ax.twinx()
         posterior_kde = sns.kdeplot(data=posterior_df[metric], ax=ax2, label="Posterior", color="blue")
         ax2.set_ylabel("Posterior Density", color="blue")
@@ -223,31 +217,64 @@ def plot_metric_distributions(
 
         prior_x_min, prior_x_max = get_kde_bounds(prior_kde, percentile=0.01)
         posterior_x_min, posterior_x_max = get_kde_bounds(posterior_kde, percentile=0.01)
-        x_min = min(prior_x_min, posterior_x_min)
-        x_max = max(prior_x_max, posterior_x_max)
-            
-        padding = 0.1 * (x_max - x_min)
-        ax.set_xlim(x_min - padding, x_max + padding)
+        x_min = min(target_metrics[metric], min(prior_x_min, posterior_x_min))
+        x_max = max(target_metrics[metric], max(prior_x_max, posterior_x_max))
+        
 
+        # Plot target line
         ax.axvline(
             x=target_metrics[metric],
             color="red",
             linestyle="--",
-            label=f"Target ({target_metrics[metric]})",
+            label=f"Target ({target_metrics[metric]:.3f})",
         )
+        
+        if default_metrics and metric in default_metrics:
+            mean = default_metrics[metric]['mean']
+            std = default_metrics[metric]['std']
+            ax.axvline(
+                x=mean,
+                color="green",
+                linestyle="-",
+                label=f"Default ({mean:.3f} ± {std:.3f})",
+            )
+            # Add striped region for mean ± std
+            ax.fill_between(
+                [mean - std, mean + std],
+                ax.get_ylim()[0],
+                ax.get_ylim()[1],
+                color="green",
+                alpha=0.2,
+                hatch='///',  # diagonal stripes
+                label="Default ±1σ"
+            )
+            # Add edges to make the region more visible
+            ax.axvline(x=mean - std, color='green', linestyle=':', alpha=0.5)
+            ax.axvline(x=mean + std, color='green', linestyle=':', alpha=0.5)
+            x_min = min(x_min, mean - std)
+            x_max = max(x_max, mean + std)
+
+        # Combine legends
         lines1, labels1 = ax.get_legend_handles_labels()
         lines2, labels2 = ax2.get_legend_handles_labels()
-        ax2.legend(lines1 + lines2, labels1 + labels2)
+        ax2.legend(
+            lines1 + lines2, 
+            labels1 + labels2,
+            bbox_to_anchor=(1.15, 1),
+            loc='upper left'
+        )
 
         ax.set_title(f"{metric} Distribution")
         ax.set_xlabel(metric)
+        padding = 0.1 * (x_max - x_min)
+        ax.set_xlim(x_min - padding, x_max + padding)
 
     plt.tight_layout()
-    if save_file is not None:
-        plt.savefig(save_file)
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
+        plt.close()
     else:
         plt.show()
-    plt.close()
 
 
 def plot_cell_states_histogram(csv_file, save_file=None):
@@ -391,7 +418,7 @@ def plot_metric_pairplot(
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "ARCADE_OUTPUT/SENSITIVITY/symmetry"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY"
     input_folder = parameter_base_folder + "/inputs"
     csv_file = f"{parameter_base_folder}/final_metrics.csv"
 
@@ -407,13 +434,15 @@ if __name__ == "__main__":
             "cycle_length": 30.0,
             "act": 0.6,
         }
-
+        default_metrics = {metric: DEFAULT_METRICS[metric] for metric in target_metrics}
         save_file = f"{parameter_base_folder}/metric_distributions.png"
-        plot_metric_distributions(
-            posterior_metrics_file=posterior_metrics_file,
-            prior_metrics_file=prior_metrics_file,
-            target_metrics=target_metrics,
-            save_file=save_file,
+        plot_distributions(
+            pd.read_csv(prior_metrics_file),
+            pd.read_csv(posterior_metrics_file),
+            target_metrics,
+            list(target_metrics.keys()),
+            default_metrics,
+            save_file
         )
 
     percentile = 10
@@ -439,7 +468,7 @@ if __name__ == "__main__":
         lambda x: "high" if x in top_n_input_file else "low" if x in bottom_n_input_file else "None"
     )
 
-    if 1:
+    if 0:
         save_file = f"{parameter_base_folder}/metric_pairplot_{metrics_name}.png"
         remove_metrics = ['input_folder', 'percentile_label', 'age', 'age_std', 'states', 'colony_growth_r', 'colony_growth', "doub_time",]
         metrics_list = [col for col in metrics_df.columns if col not in remove_metrics and not col.endswith('_std')]
@@ -451,12 +480,12 @@ if __name__ == "__main__":
             save_file
         )
 
-    if 1:
+    if 0:
         save_file = f"{parameter_base_folder}/parameter_distributions_{metrics_name}.png"
         plot_top_bottom_parameter_distributions(
             analyzed_param_df, PARAMETER_LIST, parameter_base_folder, percentile, save_file
         )
-    if 1:
+    if 0:
         save_file = f"{parameter_base_folder}/pca_parameters_{metrics_name}.png"
         plot_pca_parameters(
             analyzed_param_df,
