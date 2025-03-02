@@ -99,44 +99,39 @@ SUMMARY_METRICS = {
 
 DEFAULT_METRICS = {
     "vol": {
-        "mean": 2250,
-        "std": 100
+        "mean": 3680.141,
+        "std": 161.766
     },
     "cycle_length": {
-        "mean": 26.54,
-        "std": 20/24
+        "mean": 24.063,
+        "std": 0.881
     },
     "n_cells": {
-        "mean": 1000,
-        "std": 100
+        "mean": 122.0,
+        "std": 17.131
     },
     "symmetry": {
-        "mean": 0.5,
-        "std": 0.1
+        "mean": 0.913,
+        "std": 0.03
     },
     "shannon": {
-        "mean": 0.5,
-        "std": 0.1
+        "mean": 0.781,
+        "std": 0.058
     },
     "colony_diameter": {
-        "mean": 100,
-        "std": 10
+        "mean": 300.0,
+        "std": 24.661
     },
     "act": {
-        "mean": 0.5,
-        "std": 0.1
-    },
-
-    "col_dia": {
-        "mean": 0.5,
-        "std": 0.1
+        "mean": 0.486,
+        "std": 0.038
     },
     "doub_time": {
-        "mean": 24,
-        "std": 2
+        "mean": 40.743,
+        "std": 2.298
     },
     "colony_growth": {
-        "mean": 100,
-        "std": 10
+        "mean": 31.402,
+        "std": 3.137
     }
 }
