@@ -556,14 +556,14 @@ def generate_2param_perturbation(
 
 
 def main():
-    output_dir = "inputs/STEM_CELL/meta_signal_heterogeneity"
+    output_dir = "inputs/STEM_CELL/ms_prior_n1024"
     param_ranges = {
         "CELL_VOLUME_MU": (2000, 2500),
         "CELL_VOLUME_SIGMA": (50, 250),
         "APOPTOSIS_AGE_MU": (120960, 120960),
         "APOPTOSIS_AGE_SIGMA": (6000, 6000),
         "NECROTIC_FRACTION": (1.0, 1.0),
-        "ACCURACY": (0.3, 1.0),
+        "ACCURACY": (0.0, 1.0),
         "AFFINITY": (0.0, 1.0),
         "COMPRESSION_TOLERANCE": (3, 10),
         "SYNTHESIS_DURATION_MU": (580, 680),
@@ -588,18 +588,18 @@ def main():
         "GLUCOSE_UPTAKE_RATE_SIGMA": (0.072, 0.107),
         "ATP_PRODUCTION_RATE_MU": (7.14, 10.71),
         "ATP_PRODUCTION_RATE_SIGMA": (0.57, 0.86),
-        #"MIGRATORY_THRESHOLD_MU": (8, 12),
-        #"MIGRATORY_THRESHOLD_SIGMA": (0.64, 0.96),
+        "MIGRATORY_THRESHOLD_MU": (8, 12),
+        "MIGRATORY_THRESHOLD_SIGMA": (0.64, 0.96),
     }
-    if 0:
+    if 1:
         generate_perturbed_parameters(
-            sobol_power=9,
+            sobol_power=10,
             param_ranges=param_ranges,
             output_dir=output_dir,
         )
     metric = "symmetry"
     output_dir = f"inputs/sensitivity_analysis/{metric}"
-    if 1:
+    if 0:
         generate_2param_perturbation(
             sensitivity_json="ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY/sensitivity_analysis.json",
             metric=metric,

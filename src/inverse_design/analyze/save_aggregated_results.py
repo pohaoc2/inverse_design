@@ -182,7 +182,7 @@ class SimulationMetrics:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY_POSTERIOR/n256"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512/MS_POSTERIOR_15P/n32"
     input_folder = parameter_base_folder + "/inputs"
     metrics_calculator = SimulationMetrics(parameter_base_folder)
 

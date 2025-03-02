@@ -54,11 +54,11 @@ def run_abc_precomputed(cfg: DictConfig):
     else:
         # Use model defaults if no targets in config
         targets = model.get_default_targets()
-    param_file = "inputs/meta_signal_heterogeneity/parameter_log.csv"
-    metrics_file = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY/final_metrics.csv"
-    output_dir = "inputs/meta_signal_heterogeneity_posterior"
-    n_samples = 256
-    output_dir += f"_n{n_samples}"
+    param_file = "inputs/ms_prior/parameter_log.csv"
+    metrics_file = "ARCADE_OUTPUT/SCELL_MS_PRIOR/final_metrics.csv"
+    output_dir = "inputs/ms_posterior_20p/"
+    n_samples = 32
+    output_dir += f"n{n_samples}"
     param_df = pd.read_csv(param_file)
     constant_columns = param_df.columns[param_df.nunique() == 1]
     param_df = param_df.drop(columns=constant_columns)
