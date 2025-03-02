@@ -597,13 +597,13 @@ def main():
             param_ranges=param_ranges,
             output_dir=output_dir,
         )
-    metric = "act"
+    metric = "symmetry"
     output_dir = f"inputs/sensitivity_analysis/{metric}"
     if 1:
         generate_2param_perturbation(
             sensitivity_json="ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY/sensitivity_analysis.json",
             metric=metric,
-            perturbation_range=range(-50, 51, 10),
+            perturbation_range=range(-100, 101, 10),
             output_dir=output_dir,
         )
 

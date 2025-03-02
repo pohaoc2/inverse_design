@@ -36,6 +36,14 @@ def run_single_simulation(input_file: Path, output_base_dir: Path, jar_path: str
         return False
 
 
+def get_input_number(filename):
+    """Extract the numerical value from input filename."""
+    try:
+        return int(filename.stem.split('_')[1])
+    except (IndexError, ValueError):
+        return -1
+
+
 def run_simulations(
     input_dir: str = "perturbed_inputs",
     output_dir: str = "simulation_results",
@@ -69,8 +77,13 @@ def run_simulations(
     if not input_files:
         raise FileNotFoundError(f"No XML files found in {input_dir}")
 
-    start_file = f"input_{start_index}"
-    input_files = [f for f in input_files if f.stem >= start_file]
+    input_files = sorted(
+        input_dir.glob("input_*"), 
+        key=get_input_number
+    )
+    
+    # Filter files based on numerical comparison
+    input_files = [f for f in input_files if get_input_number(f) >= start_index]
 
     if not input_files:
         raise FileNotFoundError(f"No XML files found with index >= {start_index}")

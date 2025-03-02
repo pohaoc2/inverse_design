@@ -39,9 +39,7 @@ def clean_metrics_df(metrics_df, target_name: List[str]):
     return metrics_df[target_name]
 
 
-
-
-def perform_sensitivity_analysis(param_df, metrics_df, parameter_names, save_sensitivity_json=None):
+def perform_mi_analysis(param_df, metrics_df, parameter_names, save_mi_json=None):
     """
     Perform sensitivity analysis using Mutual Information for strength of relationship
     and Spearman correlation for direction of effect.
@@ -73,7 +71,7 @@ def perform_sensitivity_analysis(param_df, metrics_df, parameter_names, save_sen
             "spearman": spearman_corr,
             "names": parameter_names
         }
-    if save_sensitivity_json:
+    if save_mi_json:
         results_json = {}
         for metric, result in results.items():
             results_json[metric] = {
@@ -82,13 +80,13 @@ def perform_sensitivity_analysis(param_df, metrics_df, parameter_names, save_sen
                 "names": result["names"]
             }
 
-        with open(save_sensitivity_json, 'w') as f:
+        with open(save_mi_json, 'w') as f:
             json.dump(results_json, f)
 
     return results
 
 
-def plot_sensitivity_analysis(sensitivity_results, save_path=None):
+def plot_mi_analysis(mi_results, save_path=None):
     """
     Plot sensitivity analysis results showing both absolute and relative importance.
     For each metric, creates two subplots:
@@ -96,23 +94,23 @@ def plot_sensitivity_analysis(sensitivity_results, save_path=None):
     2. Normalized MI values (relative importance) with direction (Spearman)
 
     Args:
-        sensitivity_results (dict): Results from perform_sensitivity_analysis
+        mi_results (dict): Results from perform_mi_analysis
         save_path (str, optional): Path to save the plot
     """
     import matplotlib.pyplot as plt
 
-    n_metrics = len(sensitivity_results)
+    n_metrics = len(mi_results)
     fig, axes = plt.subplots(2, n_metrics, figsize=(8 * n_metrics, 12))
     if n_metrics == 1:
         axes = axes.reshape(2, 1)
 
     max_mi = 0
-    for col, (metric, results) in enumerate(sensitivity_results.items()):
+    for col, (metric, results) in enumerate(mi_results.items()):
         mi_scores = results["MI"]
         if np.max(mi_scores) > max_mi:
             max_mi = np.max(mi_scores)
 
-    for col, (metric, results) in enumerate(sensitivity_results.items()):
+    for col, (metric, results) in enumerate(mi_results.items()):
         names = results["names"]
         mi_scores = results["MI"]
         spearman_corr = results["spearman"]
@@ -174,6 +172,7 @@ def plot_sensitivity_analysis(sensitivity_results, save_path=None):
 def align_dataframes(param_df, metrics_df):
     """
     Align parameter and metrics dataframes based on input folders.
+    Ensures both DataFrames have matching rows in the same order.
     
     Args:
         param_df (pd.DataFrame): DataFrame containing parameters
@@ -184,10 +183,23 @@ def align_dataframes(param_df, metrics_df):
     """
     if len(param_df) != len(metrics_df):
         print(f"Warning: param_df and metrics_df have different lengths: {len(param_df)} != {len(metrics_df)}")
-        input_folders = metrics_df['input_folder'].unique()
-        param_df = param_df[param_df['input_folder'].isin(input_folders)]
-        param_df = param_df.drop(columns=["input_folder"])
-        metrics_df = metrics_df.drop(columns=["input_folder"])
+    
+    # Get common input folders and sort them
+    common_folders = sorted(
+        set(param_df['input_folder']) & set(metrics_df['input_folder'])
+    )
+    
+    # Filter and sort both DataFrames by input_folder
+    param_df = param_df[param_df['input_folder'].isin(common_folders)].copy()
+    metrics_df = metrics_df[metrics_df['input_folder'].isin(common_folders)].copy()
+    
+    param_df = param_df.set_index('input_folder').loc[common_folders].reset_index()
+    metrics_df = metrics_df.set_index('input_folder').loc[common_folders].reset_index()
+    
+    # Drop input_folder columns
+    param_df = param_df.drop(columns=["input_folder"])
+    metrics_df = metrics_df.drop(columns=["input_folder"])
+    
     return param_df, metrics_df
 
 
@@ -249,7 +261,7 @@ def perform_sobol_analysis(param_df, metrics_df, parameter_names, calc_second_or
 
 def plot_sobol_analysis(sobol_results, metrics_name, calc_second_order=True, save_path=None):
     """
-    Plot Sobol sensitivity analysis results.
+    Plot Sobol sensitivity analysis results with indices sorted in decreasing order.
 
     Args:
         sobol_results (dict): Results from perform_sobol_analysis
@@ -264,18 +276,38 @@ def plot_sobol_analysis(sobol_results, metrics_name, calc_second_order=True, sav
     S2 = np.maximum(sobol_results[metrics_name]['S2'], 0) if calc_second_order else None
     names = sobol_results[metrics_name]['names']
 
-    # Create subplots for first-order and total-order indices
+    # Sort indices and names
+    S1_sorted_idx = np.argsort(S1)
+    ST_sorted_idx = np.argsort(ST)
+
+    S1_sorted = S1[S1_sorted_idx]
+    ST_sorted = ST[ST_sorted_idx]
+    names_S1 = [names[i] for i in S1_sorted_idx]
+    names_ST = [names[i] for i in ST_sorted_idx]
+
     fig, axes = plt.subplots(2, 1, figsize=(10, 8))
     
-    # Plot first-order indices
-    axes[0].barh(names, S1)
+    bars_S1 = axes[0].barh(range(len(names)), S1_sorted)
+    axes[0].set_yticks(range(len(names)))
+    axes[0].set_yticklabels(names_S1)
     axes[0].set_xlabel('First-Order Index')
     axes[0].set_title(f'First-Order Sobol Indices for {metrics_name}')
     
-    # Plot total-order indices
-    axes[1].barh(names, ST)
+    for i, bar in enumerate(bars_S1):
+        width = bar.get_width()
+        axes[0].text(width + 0.01, i, f'{width:.3f}', 
+                    va='center', ha='left')
+    
+    bars_ST = axes[1].barh(range(len(names)), ST_sorted)
+    axes[1].set_yticks(range(len(names)))
+    axes[1].set_yticklabels(names_ST)
     axes[1].set_xlabel('Total-Order Index')
     axes[1].set_title(f'Total-Order Sobol Indices for {metrics_name}')
+    
+    for i, bar in enumerate(bars_ST):
+        width = bar.get_width()
+        axes[1].text(width + 0.01, i, f'{width:.3f}', 
+                    va='center', ha='left')
     
     plt.tight_layout()
     
@@ -298,19 +330,21 @@ def main():
     param_names = param_df.columns.tolist()
 
     # Perform both types of sensitivity analysis
-    save_sensitivity_json = f"{parameter_base_folder}/sensitivity_analysis.json"
+    save_mi_json = f"{parameter_base_folder}/mi_analysis.json"
     save_sobol_json = f"{parameter_base_folder}/sobol_analysis.json"
     
-    #sensitivity_results = perform_sensitivity_analysis(param_df, metrics_df, param_names, save_sensitivity_json)
+    mi_results = perform_mi_analysis(param_df, metrics_df, param_names, save_mi_json)
+    plot_mi_analysis(mi_results, save_path=f"{parameter_base_folder}/mi_analysis.png")
+
     sobol_results = perform_sobol_analysis(param_df, metrics_df, param_names,
                                             calc_second_order=False,
                                             save_sobol_json=save_sobol_json)
-
+    metrics_name = 'symmetry'
     plot_sobol_analysis(sobol_results,
-                        metrics_name='symmetry',
+                        metrics_name=metrics_name,
                         calc_second_order=False,
-                        save_path=f"{parameter_base_folder}/sobol_analysis_symmetry.png")
-    #plot_sensitivity_analysis(sensitivity_results, save_path=f"{parameter_base_folder}/sensitivity_analysis.png")
+                        save_path=f"{parameter_base_folder}/sobol_analysis_{metrics_name}.png")
+    
 
 if __name__ == "__main__":
     main()
