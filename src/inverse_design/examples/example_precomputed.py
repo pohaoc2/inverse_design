@@ -55,6 +55,8 @@ def run_abc_precomputed(cfg: DictConfig):
     param_file = "inputs/meta_signal_heterogeneity/parameter_log.csv"
     metrics_file = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY/final_metrics.csv"
     output_dir = "inputs/meta_signal_heterogeneity_posterior"
+    n_samples = 64
+    output_dir += f"_n{n_samples}"
     param_df = pd.read_csv(param_file)
     constant_columns = param_df.columns[param_df.nunique() == 1]
     param_df = param_df.drop(columns=constant_columns)
@@ -100,7 +102,7 @@ def run_abc_precomputed(cfg: DictConfig):
             raise ValueError("No accepted parameters")
         accepted_params_list.append(accepted_params)
         parameter_pdfs = evaluate.estimate_pdfs(accepted_params)
-        generate_parameters_from_kde(parameter_pdfs, 128, output_dir=output_dir)
+        generate_parameters_from_kde(parameter_pdfs, n_samples, output_dir=output_dir)
         if 1:
             save_path = f"{output_dir}/prior_posterior_pdfs_{i}.png"
             plot_parameter_kde(parameter_pdfs, abc_config, save_path)
