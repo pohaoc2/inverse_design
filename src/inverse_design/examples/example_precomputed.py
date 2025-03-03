@@ -30,20 +30,15 @@ def run_abc_precomputed(cfg: DictConfig):
     - All parameter variations
     - All calculated metrics for each parameter set
     """
-    # Get model implementation
     model = ModelRegistry.get_model(cfg.abc.model_type)
     abc_config = ABCConfig.from_dictconfig(cfg.abc)
 
-    # Get model config using the appropriate config class
     config_class = model.get_config_class()
     model_config_key = cfg.abc.model_type.lower()
     if not hasattr(cfg, model_config_key):
         raise ValueError(f"Configuration for model type {cfg.abc.model_type} not found in config")
 
-    # Convert to model-specific config class
     model_config = config_class.from_dictconfig(cfg[model_config_key])
-
-    # Get targets from config or use model defaults
     if hasattr(cfg.abc, "targets") and cfg.abc.targets:
         targets = [
             Target(
@@ -52,12 +47,11 @@ def run_abc_precomputed(cfg: DictConfig):
             for target in cfg.abc.targets
         ]
     else:
-        # Use model defaults if no targets in config
         targets = model.get_default_targets()
-    param_file = "inputs/STEM_CELL/ms_prior_n1024/parameter_log.csv"
-    metrics_file = "ARCADE_OUTPUT/STEM_CELL/MS_PRIOR_N1024/final_metrics.csv"
-    output_dir = "inputs/STEM_CELL/ms_posterior_n1024/ms_posterior_10p/"
-    n_samples = 32
+    param_file = "inputs/STEM_CELL/ms_posterior_n512/ms_posterior_10p/n256/kde_sampled_parameters_log.csv"
+    metrics_file = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512/MS_POSTERIOR_10P/n256/final_metrics.csv"
+    output_dir = "inputs/STEM_CELL/ms_posterior_n512/ms_posterior_10p_5p/"
+    n_samples = 256
     output_dir += f"n{n_samples}"
     param_df = pd.read_csv(param_file)
     constant_columns = param_df.columns[param_df.nunique() == 1]

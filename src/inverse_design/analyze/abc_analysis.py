@@ -416,7 +416,7 @@ def plot_error_vs_n_parameters(
                               prior_errors, prior_errors_std,
                               error_dict["default_error"], error_dict["default_error_std"], use_log2_scale)
         
-        axes[idx].set_xlabel('Number of Parameters')
+        axes[idx].set_xlabel('Number of Parameter combinations')
         axes[idx].set_ylabel('Error')
         axes[idx].set_title(f'{loss_function} Error vs Parameters for {metric} (target = {target})')
     
@@ -428,7 +428,7 @@ def plot_error_vs_n_parameters(
                           total_prior_errors, None,
                           np.sum(all_errors["default_errors"]), None, use_log2_scale)
     
-    axes[-1].set_xlabel('Number of Parameters')
+    axes[-1].set_xlabel('Number of Parameter combinations')
     axes[-1].set_ylabel('Total Error')
     axes[-1].set_title(f'Total {loss_function} Error vs Parameters (All Metrics)')
     
@@ -493,7 +493,7 @@ def main():
         )
     if 1:
         parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR"
-        number_of_parameters = [2 ** n for n in range(6, 11) if n !=8]
+        number_of_parameters = [2 ** n for n in range(6, 11)]
         posterior_metrics_dict = {}
         prior_metrics_dict = {}
 
