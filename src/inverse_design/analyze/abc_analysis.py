@@ -142,13 +142,73 @@ def calculate_metric_errors(
     error_dict = {
         "posterior_errors": posterior_errors,
         "posterior_errors_std": posterior_errors_std,
-        "prior_errors": prior_error,
-        "prior_errors_std": prior_error_std,
-        "default_errors": default_error,
-        "default_errors_std": default_error_std,
+        "prior_error": prior_error,
+        "prior_error_std": prior_error_std,
+        "default_error": default_error,
+        "default_error_std": default_error_std,
     }
 
     return error_dict
+
+
+def _plot_error_with_bands(ax, plot_x, errors, errors_std=None, prior_errors=None, prior_errors_std=None, 
+                          default_error=None, default_error_std=None, use_log2_scale=False):
+    """Helper function to plot errors with error bands.
+    
+    Args:
+        ax (matplotlib.axes.Axes): Axes to plot on
+        plot_x (array-like): X-axis values
+        errors (array-like): Error values to plot
+        errors_std (array-like): Standard deviation of errors
+        prior_errors (float or array-like, optional): Prior error value(s)
+        prior_errors_std (float or array-like, optional): Prior error standard deviation(s)
+        default_error (float, optional): Default error value
+        default_error_std (float, optional): Default error standard deviation
+        use_log2_scale (bool): Whether to use log2 scale for x-axis
+    """
+    # Plot posterior with error band
+    best_absolute_error = np.min(errors)
+    ax.plot(plot_x, errors, '-o', 
+           label=f'Posterior (lowest = {best_absolute_error:.2f})')
+    if errors_std is not None:
+        ax.fill_between(plot_x,
+                   np.array(errors) - np.array(errors_std),
+                   np.array(errors) + np.array(errors_std),
+                   alpha=0.2)
+
+    # Plot prior with error band
+    if prior_errors is not None:
+        if isinstance(prior_errors, (float, int)):
+            ax.axhline(y=prior_errors, color='gray', linestyle='--',
+                      label=f'Prior error: {prior_errors:.2f}')
+            if prior_errors_std is not None:
+                ax.axhspan(prior_errors - prior_errors_std,
+                          prior_errors + prior_errors_std,
+                          color='gray', alpha=0.2)
+        else:
+            best_prior_error = np.min(prior_errors)
+            ax.plot(plot_x, prior_errors, '--', color='gray', label=f'Prior errors (lowest = {best_prior_error:.2f})')
+            if prior_errors_std is not None:
+                ax.fill_between(plot_x,
+                              np.array(prior_errors) - np.array(prior_errors_std),
+                              np.array(prior_errors) + np.array(prior_errors_std),
+                              color='gray', alpha=0.2)
+
+    # Plot default with error band
+    if default_error is not None:
+        ax.axhline(y=default_error, color='green', linestyle='--',
+                  label=f'Default error: {default_error:.2f}')
+        if default_error_std is not None:
+            ax.axhspan(default_error - default_error_std,
+                      default_error + default_error_std,
+                      color='green', alpha=0.2)
+
+    if use_log2_scale:
+        ax.set_xticks(plot_x)
+        ax.set_xticklabels([f'2^{int(x)}' for x in plot_x])
+
+    ax.grid(True)
+    ax.legend()
 
 
 def plot_error_analysis(
@@ -200,88 +260,37 @@ def plot_error_analysis(
             loss_function,
         )
         all_errors["posterior_errors"].append(error_dict["posterior_errors"])
-        all_errors["prior_errors"].append(error_dict["prior_errors"])
-        all_errors["default_errors"].append(error_dict["default_errors"])
+        all_errors["prior_errors"].append(error_dict["prior_error"])
+        all_errors["default_errors"].append(error_dict["default_error"])
 
-        best_absolute_error = np.min(error_dict["posterior_errors"])
-
-        # Plot posterior with error band
-        axes[idx].plot(
-            plot_x,
-            error_dict["posterior_errors"],
-            "-o",
-            label=f"Posterior (lowest error = {best_absolute_error:.2f})",
+        _plot_error_with_bands(
+            axes[idx], plot_x,
+            error_dict["posterior_errors"], error_dict["posterior_errors_std"],
+            error_dict["prior_error"], error_dict["prior_error_std"],
+            error_dict["default_error"], error_dict["default_error_std"],
+            use_log2_scale
         )
-        axes[idx].fill_between(
-            plot_x,
-            np.array(error_dict["posterior_errors"]) - np.array(error_dict["posterior_errors_std"]),
-            np.array(error_dict["posterior_errors"]) + np.array(error_dict["posterior_errors_std"]),
-            alpha=0.2,
-        )
-
-        # Plot prior with error band
-        axes[idx].axhline(
-            y=error_dict["prior_errors"],
-            color="gray",
-            linestyle="--",
-            label=f'Prior error: {error_dict["prior_errors"]:.2f}',
-        )
-        axes[idx].axhspan(
-            error_dict["prior_errors"] - error_dict["prior_errors_std"],
-            error_dict["prior_errors"] + error_dict["prior_errors_std"],
-            color="gray",
-            alpha=0.2,
-        )
-
-        # Plot default with error band
-        axes[idx].axhline(
-            y=error_dict["default_errors"],
-            color="green",
-            linestyle="--",
-            label=f'Default error: {error_dict["default_errors"]:.2f}',
-        )
-        axes[idx].axhspan(
-            error_dict["default_errors"] - error_dict["default_errors_std"],
-            error_dict["default_errors"] + error_dict["default_errors_std"],
-            color="green",
-            alpha=0.2,
-        )
-
-        if use_log2_scale:
-            axes[idx].set_xticks(plot_x)
-            axes[idx].set_xticklabels([f"2^{int(x)}" for x in plot_x])
-
+        
         axes[idx].set_xlabel(x_label)
         axes[idx].set_ylabel("Error")
         axes[idx].set_title(f"{loss_function} Error vs {x_label} for {metric} (target = {target})")
-        axes[idx].grid(True)
-        axes[idx].legend()
 
-    # Plot total errors
+    # Plot total errors using the helper
     total_errors = np.sum(all_errors["posterior_errors"], axis=0)
-    axes[-1].plot(plot_x, total_errors, "-o", label="Posterior")
-    axes[-1].axhline(
-        y=np.sum(all_errors["prior_errors"]),
-        color="gray",
-        linestyle="--",
-        label=f'Total prior error: {np.sum(all_errors["prior_errors"]):.2f}',
+    total_prior_error = np.sum(all_errors["prior_errors"])
+    total_default_error = np.sum(all_errors["default_errors"])
+    
+    _plot_error_with_bands(
+        axes[-1], plot_x,
+        total_errors, None,
+        total_prior_error, None,
+        total_default_error, None,
+        use_log2_scale
     )
-    axes[-1].axhline(
-        y=np.sum(all_errors["default_errors"]),
-        color="green",
-        linestyle="--",
-        label=f'Total default error: {np.sum(all_errors["default_errors"]):.2f}',
-    )
-
-    if use_log2_scale:
-        axes[-1].set_xticks(plot_x)
-        axes[-1].set_xticklabels([f"2^{int(x)}" for x in plot_x])
-
+    
     axes[-1].set_xlabel(x_label)
     axes[-1].set_ylabel("Total Error")
     axes[-1].set_title(f"Total {loss_function} Error vs {x_label} (All Metrics)")
-    axes[-1].grid(True)
-    axes[-1].legend()
 
     plt.tight_layout()
 
@@ -342,6 +351,96 @@ def plot_error_vs_acceptance(
     )
 
 
+def plot_error_vs_n_parameters(
+    posterior_df_dict,
+    prior_metrics_dict,
+    target_metrics,
+    default_metrics,
+    metrics_list,
+    loss_function="absolute",
+    use_log2_scale=True,
+    save_path=None,
+):
+    """
+    Plot error vs number of parameters for each metric and mean error.
+    
+    Args:
+        posterior_df_dict (dict): Dictionary of posterior dataframes for different parameter counts
+        prior_metrics_dict (dict): Dictionary of prior metrics for different parameter counts
+        target_metrics (dict): Target values for each metric
+        default_metrics (dict): Default metrics values
+        metrics_list (list): List of metrics to analyze
+        loss_function (str): Loss function to use
+        save_path (str, optional): Path to save the plot
+    """
+    n_plots = len(metrics_list) + 1
+    fig, axes = plt.subplots(n_plots, 1, figsize=(10, 4*n_plots))
+    
+    if not isinstance(axes, np.ndarray):
+        axes = [axes]
+    
+    n_parameters = sorted(posterior_df_dict.keys())
+    plot_x = np.log2(n_parameters)  # Use log2 scale for parameters
+    all_errors = {"posterior_errors": [], "prior_errors": [], "default_errors": []}
+    
+    # Plot for each individual metric
+    for idx, metric in enumerate(metrics_list):
+        target = target_metrics[metric]
+        posterior_errors = []
+        posterior_errors_std = []
+        prior_errors = []
+        prior_errors_std = []
+        # Calculate errors for each parameter count
+        for n in n_parameters:
+            # Get posterior errors
+            error_dict = calculate_metric_errors(
+                {n: posterior_df_dict[n]},
+                prior_metrics_dict[n],
+                default_metrics,
+                metric,
+                target,
+                [n],
+                loss_function,
+            )
+            posterior_errors.append(error_dict["posterior_errors"][0])  # Take first (only) value
+            posterior_errors_std.append(error_dict["posterior_errors_std"][0])
+            prior_errors.append(error_dict["prior_error"])
+            prior_errors_std.append(error_dict["prior_error_std"])
+
+
+        all_errors["posterior_errors"].append(posterior_errors)
+        all_errors["prior_errors"].append(prior_errors)
+        all_errors["default_errors"].append(error_dict["default_error"])
+
+        _plot_error_with_bands(axes[idx], plot_x, posterior_errors, posterior_errors_std,
+                              prior_errors, prior_errors_std,
+                              error_dict["default_error"], error_dict["default_error_std"], use_log2_scale)
+        
+        axes[idx].set_xlabel('Number of Parameters')
+        axes[idx].set_ylabel('Error')
+        axes[idx].set_title(f'{loss_function} Error vs Parameters for {metric} (target = {target})')
+    
+    # Plot total errors
+    total_posterior_errors = np.sum(all_errors["posterior_errors"], axis=0)
+    total_prior_errors = np.sum(all_errors["prior_errors"], axis=0)
+    
+    _plot_error_with_bands(axes[-1], plot_x, total_posterior_errors, None,
+                          total_prior_errors, None,
+                          np.sum(all_errors["default_errors"]), None, use_log2_scale)
+    
+    axes[-1].set_xlabel('Number of Parameters')
+    axes[-1].set_ylabel('Total Error')
+    axes[-1].set_title(f'Total {loss_function} Error vs Parameters (All Metrics)')
+    
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
+        plt.close()
+    else:
+        plt.show()
+
+
 def main():
     metrics_names = ["symmetry", "cycle_length", "act"]
     target_metrics = {"symmetry": 0.8, "cycle_length": 30.0, "act": 0.6}
@@ -352,7 +451,7 @@ def main():
 
     loss_function = "absolute"
 
-    if 1:
+    if 0:
         parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512/MS_POSTERIOR_10P"
         sample_sizes = [2**i for i in range(4, 9)]
         posterior_metrics_dict = {}
@@ -370,7 +469,7 @@ def main():
             loss_function,
             save_file,
         )
-    if 1:
+    if 0:
         parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512"
         acceptance_percentages = [5, 10, 15, 20]
         posterior_metrics_dict = {}
@@ -391,6 +490,30 @@ def main():
             metrics_names,
             loss_function,
             save_file,
+        )
+    if 1:
+        parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR"
+        number_of_parameters = [2 ** n for n in range(6, 11) if n !=8]
+        posterior_metrics_dict = {}
+        prior_metrics_dict = {}
+
+        for n in number_of_parameters:
+            posterior_df = pd.read_csv(f"{parameter_base_folder}_N{n}/MS_POSTERIOR_10P/n32/final_metrics.csv")
+            posterior_metrics_dict[n] = calculate_metrics_statistics(posterior_df, metrics_names)
+            prior_metrics_file = f"ARCADE_OUTPUT/STEM_CELL/MS_PRIOR_N{n}/final_metrics.csv"
+            prior_metrics_df = pd.read_csv(prior_metrics_file)
+            prior_metrics_dict[n] = calculate_metrics_statistics(prior_metrics_df, metrics_names)
+        
+        save_file = f"{parameter_base_folder}_N1024/error_vs_n_parameters.png"
+        plot_error_vs_n_parameters(
+            posterior_metrics_dict,
+            prior_metrics_dict,
+            target_metrics,
+            default_metrics,
+            metrics_names,
+            loss_function="absolute",
+            use_log2_scale=True,
+            save_path=save_file,
         )
 
 

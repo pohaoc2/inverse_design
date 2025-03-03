@@ -54,9 +54,9 @@ def run_abc_precomputed(cfg: DictConfig):
     else:
         # Use model defaults if no targets in config
         targets = model.get_default_targets()
-    param_file = "inputs/ms_prior/parameter_log.csv"
-    metrics_file = "ARCADE_OUTPUT/SCELL_MS_PRIOR/final_metrics.csv"
-    output_dir = "inputs/ms_posterior_20p/"
+    param_file = "inputs/STEM_CELL/ms_prior_n1024/parameter_log.csv"
+    metrics_file = "ARCADE_OUTPUT/STEM_CELL/MS_PRIOR_N1024/final_metrics.csv"
+    output_dir = "inputs/STEM_CELL/ms_posterior_n1024/ms_posterior_10p/"
     n_samples = 32
     output_dir += f"n{n_samples}"
     param_df = pd.read_csv(param_file)

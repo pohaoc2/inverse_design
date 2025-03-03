@@ -120,10 +120,10 @@ def run_simulations(
 
 if __name__ == "__main__":
     metric = "act"
-    n_samples = 32
+    n_samples = 256
     run_simulations(
-        input_dir=f"inputs/STEM_CELL/ms_prior_n1024/inputs",
-        output_dir=f"ARCADE_OUTPUT/STEM_CELL/MS_PRIOR_N1024",
+        input_dir=f"inputs/STEM_CELL/ms_prior_n{n_samples}/inputs",
+        output_dir=f"ARCADE_OUTPUT/STEM_CELL/MS_PRIOR_N{n_samples}",
         jar_path="models/arcade-test-cycle.jar",
         max_workers=6,
         start_index=1,

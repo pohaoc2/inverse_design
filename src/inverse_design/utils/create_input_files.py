@@ -556,7 +556,7 @@ def generate_2param_perturbation(
 
 
 def main():
-    output_dir = "inputs/STEM_CELL/ms_prior_n1024"
+    output_dir = "inputs/STEM_CELL/ms_prior_n256"
     param_ranges = {
         "CELL_VOLUME_MU": (2000, 2500),
         "CELL_VOLUME_SIGMA": (50, 250),
@@ -593,7 +593,7 @@ def main():
     }
     if 1:
         generate_perturbed_parameters(
-            sobol_power=10,
+            sobol_power=8,
             param_ranges=param_ranges,
             output_dir=output_dir,
         )

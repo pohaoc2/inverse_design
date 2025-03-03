@@ -182,7 +182,7 @@ class SimulationMetrics:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    parameter_base_folder = "ARCADE_OUTPUT/DEFAULT"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_PRIOR_N128/"
     input_folder = parameter_base_folder + "/inputs"
     metrics_calculator = SimulationMetrics(parameter_base_folder)
 
