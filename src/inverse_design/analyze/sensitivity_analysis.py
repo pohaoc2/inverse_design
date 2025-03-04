@@ -285,7 +285,7 @@ def plot_sobol_analysis(sobol_results, metrics_name, calc_second_order=True, sav
     names_S1 = [names[i] for i in S1_sorted_idx]
     names_ST = [names[i] for i in ST_sorted_idx]
 
-    fig, axes = plt.subplots(2, 1, figsize=(10, 8))
+    fig, axes = plt.subplots(1, 2, figsize=(15, 6))
     
     bars_S1 = axes[0].barh(range(len(names)), S1_sorted)
     axes[0].set_yticks(range(len(names)))
@@ -319,7 +319,7 @@ def plot_sobol_analysis(sobol_results, metrics_name, calc_second_order=True, sav
     
 
 def main():
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_PRIOR_N1024/"
     param_file = f"{parameter_base_folder}/all_param_df.csv"
     metrics_file = f"{parameter_base_folder}/final_metrics.csv"
     target_metrics = ['symmetry', 'cycle_length', 'act']
@@ -332,18 +332,19 @@ def main():
     # Perform both types of sensitivity analysis
     save_mi_json = f"{parameter_base_folder}/mi_analysis.json"
     save_sobol_json = f"{parameter_base_folder}/sobol_analysis.json"
-    
-    mi_results = perform_mi_analysis(param_df, metrics_df, param_names, save_mi_json)
-    plot_mi_analysis(mi_results, save_path=f"{parameter_base_folder}/mi_analysis.png")
+    if 0:
+        mi_results = perform_mi_analysis(param_df, metrics_df, param_names, save_mi_json)
+        plot_mi_analysis(mi_results, save_path=f"{parameter_base_folder}/mi_analysis.png")
 
-    sobol_results = perform_sobol_analysis(param_df, metrics_df, param_names,
+    if 1:
+        sobol_results = perform_sobol_analysis(param_df, metrics_df, param_names,
                                             calc_second_order=False,
                                             save_sobol_json=save_sobol_json)
-    metrics_name = 'symmetry'
-    plot_sobol_analysis(sobol_results,
-                        metrics_name=metrics_name,
-                        calc_second_order=False,
-                        save_path=f"{parameter_base_folder}/sobol_analysis_{metrics_name}.png")
+        metrics_name = 'symmetry'
+        plot_sobol_analysis(sobol_results,
+                            metrics_name=metrics_name,
+                            calc_second_order=False,
+                            save_path=f"{parameter_base_folder}/sobol_analysis_{metrics_name}.png")
     
 
 if __name__ == "__main__":
