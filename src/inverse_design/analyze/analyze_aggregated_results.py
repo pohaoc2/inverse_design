@@ -439,7 +439,7 @@ def plot_metric_pairplot(
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512/MS_POSTERIOR_10P_N256_5P/n256/"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_PRIOR_N512"
     input_folder = parameter_base_folder + "/inputs"
     csv_file = f"{parameter_base_folder}/final_metrics.csv"
 
@@ -447,7 +447,6 @@ if __name__ == "__main__":
     metrics_df = pd.read_csv(csv_file)
     if 1:
         posterior_metrics_files = [f"{parameter_base_folder}/accepted_metrics_{i}p.csv" for i in range(20, 4, -5)]
-        posterior_metrics_files = [f"{parameter_base_folder}/final_metrics.csv"]
         posterior_metrics_dfs = [pd.read_csv(posterior_metrics_file) for posterior_metrics_file in posterior_metrics_files]
         prior_metrics_file = (
             "ARCADE_OUTPUT/STEM_CELL/MS_PRIOR_N512/final_metrics.csv"

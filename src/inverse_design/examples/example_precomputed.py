@@ -48,10 +48,10 @@ def run_abc_precomputed(cfg: DictConfig):
         ]
     else:
         targets = model.get_default_targets()
-    param_file = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512/MS_POSTERIOR_10P/n256/all_param_df.csv"
-    metrics_output_dir = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512/MS_POSTERIOR_10P/n256/"
+    param_file = "inputs/STEM_CELL/ms_prior_n512/parameter_log.csv"
+    metrics_output_dir = "ARCADE_OUTPUT/STEM_CELL/MS_PRIOR_N512/"
     metrics_file = os.path.join(metrics_output_dir, "final_metrics.csv")
-    output_dir = "inputs/STEM_CELL/ms_posterior_n512/ms_posterior_10p_n256_5p/"
+    output_dir = "inputs/STEM_CELL/ms_prior_n512/"
     n_samples = 256
     output_dir += f"n{n_samples}"
     param_df = pd.read_csv(param_file)
@@ -63,7 +63,6 @@ def run_abc_precomputed(cfg: DictConfig):
         Target(metric=Metric.get("symmetry"), value=0.8, weight=1.0),
         Target(metric=Metric.get("cycle_length"), value=30, weight=1.0),
         Target(metric=Metric.get("act"), value=0.6, weight=1.0),
-        # Target(metric=Metric.get("colony_growth_rate"), value=0.8, weight=1.0),
     ]
 
     # Save targets to CSV
@@ -103,7 +102,8 @@ def run_abc_precomputed(cfg: DictConfig):
             if sample["accepted"]
         ]
         accepted_metrics_df = pd.DataFrame(accepted_metrics)
-        #accepted_metrics_df.to_csv(os.path.join(metrics_output_dir, "accepted_metrics_3p.csv"), index=False)
+        accepted_metrics_df.to_csv(os.path.join(metrics_output_dir, "accepted_metrics_5p.csv"), index=False)
+        asd()
         if len(accepted_params) == 0:
             raise ValueError("No accepted parameters")
         accepted_params_list.append(accepted_params)
