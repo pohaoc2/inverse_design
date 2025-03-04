@@ -48,9 +48,10 @@ def run_abc_precomputed(cfg: DictConfig):
         ]
     else:
         targets = model.get_default_targets()
-    param_file = "inputs/STEM_CELL/ms_posterior_n512/ms_posterior_10p/n256/kde_sampled_parameters_log.csv"
-    metrics_file = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512/MS_POSTERIOR_10P/n256/final_metrics.csv"
-    output_dir = "inputs/STEM_CELL/ms_posterior_n512/ms_posterior_10p_5p/"
+    param_file = "inputs/STEM_CELL/ms_prior_n512/parameter_log.csv"
+    metrics_output_dir = "ARCADE_OUTPUT/STEM_CELL/MS_PRIOR_N512/"
+    metrics_file = os.path.join(metrics_output_dir, "final_metrics.csv")
+    output_dir = "inputs/STEM_CELL/ms_posterior_n512/ms_prior_10p/"
     n_samples = 256
     output_dir += f"n{n_samples}"
     param_df = pd.read_csv(param_file)
@@ -86,6 +87,7 @@ def run_abc_precomputed(cfg: DictConfig):
         abc.update_targets(targets)
         param_metrics_distances_results = abc.run_inference()
         param_keys = list(param_metrics_distances_results[0].keys())
+        metrics_keys = [target.metric.value for target in targets]
         params = [
             {key: sample[key] for key in param_keys} for sample in param_metrics_distances_results
         ]
@@ -95,6 +97,14 @@ def run_abc_precomputed(cfg: DictConfig):
             for sample in param_metrics_distances_results
             if sample["accepted"]
         ]
+        accepted_metrics = [
+            {key: sample[key] for key in metrics_keys}
+            for sample in param_metrics_distances_results
+            if sample["accepted"]
+        ]
+        accepted_metrics_df = pd.DataFrame(accepted_metrics)
+        accepted_metrics_df.to_csv(os.path.join(metrics_output_dir, "accepted_metrics_20p.csv"), index=False)
+        asd()
         if len(accepted_params) == 0:
             raise ValueError("No accepted parameters")
         accepted_params_list.append(accepted_params)
