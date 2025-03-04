@@ -187,19 +187,27 @@ def get_kde_bounds(kde_plot, percentile: float = 0.01):
     return x_min, x_max
 
 
-def plot_distributions(prior_df, posterior_df, target_metrics, metrics_list, default_metrics=None, save_path=None):
+def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, default_metrics=None, save_path=None):
     """
-    Plot distributions of metrics with prior, posterior, target, and default values.
+    Plot distributions of metrics with prior, multiple posteriors, target, and default values.
     
     Args:
         prior_df (pd.DataFrame): DataFrame containing prior samples
-        posterior_df (pd.DataFrame): DataFrame containing posterior samples
+        posterior_dfs (list[pd.DataFrame]): List of DataFrames containing posterior samples
         target_metrics (dict): Dictionary of target metric values
         metrics_list (list): List of metrics to plot
         default_metrics (dict): Dictionary containing mean and std for default metrics
             Format: {'metric_name': {'mean': value, 'std': value}}
         save_path (str, optional): Path to save the figure
     """
+    # Convert single DataFrame to list for backwards compatibility
+    if isinstance(posterior_dfs, pd.DataFrame):
+        posterior_dfs = [posterior_dfs]
+        
+    # Define colors for multiple posteriors
+    posterior_colors = ['blue', 'purple', 'cyan', 'magenta']  # Add more colors if needed
+    posterior_labels = [f'Posterior {i+1}' for i in range(len(posterior_dfs))]
+    
     fig, axes = plt.subplots(len(metrics_list), 1, figsize=(10, 4*len(metrics_list)))
     if len(metrics_list) == 1:
         axes = [axes]
@@ -211,16 +219,27 @@ def plot_distributions(prior_df, posterior_df, target_metrics, metrics_list, def
         ax.tick_params(axis="y", labelcolor="gray")
         
         ax2 = ax.twinx()
-        posterior_kde = sns.kdeplot(data=posterior_df[metric], ax=ax2, label="Posterior", color="blue")
-        ax2.set_ylabel("Posterior Density", color="blue")
-        ax2.tick_params(axis="y", labelcolor="blue")
-
-        prior_x_min, prior_x_max = get_kde_bounds(prior_kde, percentile=0.01)
-        posterior_x_min, posterior_x_max = get_kde_bounds(posterior_kde, percentile=0.01)
-        x_min = min(target_metrics[metric], min(prior_x_min, posterior_x_min))
-        x_max = max(target_metrics[metric], max(prior_x_max, posterior_x_max))
         
+        # Plot each posterior distribution
+        posterior_kdes = []
+        x_bounds = [prior_kde.get_lines()[0].get_xdata()[[0, -1]]]  # Start with prior bounds
+        for posterior_df, color, label in zip(posterior_dfs, posterior_colors, posterior_labels):
+            posterior_kde = sns.kdeplot(
+                data=posterior_df[metric], 
+                ax=ax2, 
+                label=label, 
+                color=color
+            )
+            lines = posterior_kde.get_lines()
+            mode_value = lines[-1].get_xdata()[np.argmax(lines[-1].get_ydata())]
+            posterior_kdes.append(posterior_kde)
+            x_bounds.append(posterior_kde.get_lines()[0].get_xdata()[[0, -1]])
+            ax2.axvline(x=mode_value, color=color, linestyle='--', alpha=0.5, label=f"{label} (mode: {mode_value:.3f})")
 
+        # Calculate overall x-axis bounds
+        x_min = min(target_metrics[metric], min(bound[0] for bound in x_bounds))
+        x_max = max(target_metrics[metric], max(bound[1] for bound in x_bounds))
+        
         # Plot target line
         ax.axvline(
             x=target_metrics[metric],
@@ -268,6 +287,8 @@ def plot_distributions(prior_df, posterior_df, target_metrics, metrics_list, def
         ax.set_xlabel(metric)
         padding = 0.1 * (x_max - x_min)
         ax.set_xlim(x_min - padding, x_max + padding)
+        ax2.set_ylabel("Posterior Density", color=posterior_colors[0])
+        ax2.tick_params(axis="y", labelcolor=posterior_colors[0])
 
     plt.tight_layout()
     if save_path:
@@ -418,7 +439,7 @@ def plot_metric_pairplot(
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512/MS_POSTERIOR_10P/n256"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_POSTERIOR_N512/MS_POSTERIOR_10P/n256"
     input_folder = parameter_base_folder + "/inputs"
     csv_file = f"{parameter_base_folder}/final_metrics.csv"
 
@@ -426,8 +447,11 @@ if __name__ == "__main__":
     metrics_df = pd.read_csv(csv_file)
     if 1:
         posterior_metrics_file = csv_file
+        posterior_metrics_file_2 = (
+            "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_POSTERIOR_N512/MS_POSTERIOR_10P_5P_N256/n256/final_metrics.csv"
+        )
         prior_metrics_file = (
-            "ARCADE_OUTPUT/STEM_CELL/MS_PRIOR_N512/final_metrics.csv"
+            "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_PRIOR_N512/final_metrics.csv"
         )
         target_metrics = {
             "symmetry": 0.8,
@@ -438,13 +462,12 @@ if __name__ == "__main__":
         save_file = f"{parameter_base_folder}/metric_distributions.png"
         plot_distributions(
             pd.read_csv(prior_metrics_file),
-            pd.read_csv(posterior_metrics_file),
+            [pd.read_csv(posterior_metrics_file), pd.read_csv(posterior_metrics_file_2)],
             target_metrics,
             list(target_metrics.keys()),
             default_metrics,
             save_file
         )
-
     percentile = 10
     top_n_input_file, bottom_n_input_file, labeled_metrics_df = analyze_metric_percentiles(
         csv_file, metrics_name, percentile, verbose=True
