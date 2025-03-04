@@ -491,7 +491,7 @@ def main():
             loss_function,
             save_file,
         )
-    if 1:
+    if 0:
         parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR"
         number_of_parameters = [2 ** n for n in range(6, 11)]
         posterior_metrics_dict = {}
