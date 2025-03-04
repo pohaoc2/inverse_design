@@ -451,9 +451,9 @@ def main():
 
     loss_function = "absolute"
 
-    if 0:
+    if 1:
         parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512/MS_POSTERIOR_10P"
-        sample_sizes = [2**i for i in range(4, 9)]
+        sample_sizes = [2**i for i in range(4, 9)] #+ [48]
         posterior_metrics_dict = {}
         for n in sample_sizes:
             posterior_df = pd.read_csv(f"{parameter_base_folder}/n{n}/final_metrics.csv")
@@ -469,7 +469,7 @@ def main():
             loss_function,
             save_file,
         )
-    if 0:
+    if 1:
         parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512"
         acceptance_percentages = [5, 10, 15, 20]
         posterior_metrics_dict = {}
