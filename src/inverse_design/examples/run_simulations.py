@@ -122,9 +122,9 @@ if __name__ == "__main__":
     metric = "act"
     n_samples = 256
     run_simulations(
-        input_dir=f"inputs/STEM_CELL/ms_posterior_n512/ms_posterior_10p_5p_n256/n{n_samples}/inputs",
-        output_dir=f"ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512/MS_POSTERIOR_10P_5P_N256/n{n_samples}",
+        input_dir=f"inputs/STEM_CELL/ms_posterior_n512/ms_posterior_10p_n256_5p/n{n_samples}/inputs",
+        output_dir=f"ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512/MS_POSTERIOR_10P_N256_5P/n{n_samples}",
         jar_path="models/arcade-test-cycle.jar",
-        max_workers=6,
-        start_index=33,
+        max_workers=4,
+        start_index=1,
     )

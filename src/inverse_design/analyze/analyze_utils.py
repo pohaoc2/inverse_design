@@ -10,7 +10,8 @@ def get_parameters_from_json(input_folder, parameter_list):
     # Find the base configuration file by looking for a .json file without CELL or LOCATION in the name
     json_files = list(Path(input_folder).glob("*.json"))
     config_file = next(f for f in json_files if "CELL" not in f.name and "LOCATION" not in f.name)
-
+    print(f"json_files: {json_files}")
+    print(f"config_file: {config_file}")
     with open(config_file, "r") as f:
         data = json.load(f)
 

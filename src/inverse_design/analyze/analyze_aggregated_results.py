@@ -205,7 +205,7 @@ def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, de
         posterior_dfs = [posterior_dfs]
         
     # Define colors for multiple posteriors
-    posterior_colors = ['blue', 'purple', 'cyan', 'magenta']  # Add more colors if needed
+    posterior_colors = ['blue', 'purple', 'cyan', 'magenta', 'orange', 'green', 'red', 'brown', 'pink', 'gray']
     posterior_labels = [f'Posterior {i+1}' for i in range(len(posterior_dfs))]
     
     fig, axes = plt.subplots(len(metrics_list), 1, figsize=(10, 4*len(metrics_list)))
@@ -439,19 +439,18 @@ def plot_metric_pairplot(
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_POSTERIOR_N512/MS_POSTERIOR_10P/n256"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512/MS_POSTERIOR_10P_N256_5P/n256/"
     input_folder = parameter_base_folder + "/inputs"
     csv_file = f"{parameter_base_folder}/final_metrics.csv"
 
     metrics_name = "n_cells"
     metrics_df = pd.read_csv(csv_file)
     if 1:
-        posterior_metrics_file = csv_file
-        posterior_metrics_file_2 = (
-            "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_POSTERIOR_N512/MS_POSTERIOR_10P_5P_N256/n256/final_metrics.csv"
-        )
+        posterior_metrics_files = [f"{parameter_base_folder}/accepted_metrics_{i}p.csv" for i in range(20, 4, -5)]
+        posterior_metrics_files = [f"{parameter_base_folder}/final_metrics.csv"]
+        posterior_metrics_dfs = [pd.read_csv(posterior_metrics_file) for posterior_metrics_file in posterior_metrics_files]
         prior_metrics_file = (
-            "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_PRIOR_N512/final_metrics.csv"
+            "ARCADE_OUTPUT/STEM_CELL/MS_PRIOR_N512/final_metrics.csv"
         )
         target_metrics = {
             "symmetry": 0.8,
@@ -462,7 +461,7 @@ if __name__ == "__main__":
         save_file = f"{parameter_base_folder}/metric_distributions.png"
         plot_distributions(
             pd.read_csv(prior_metrics_file),
-            [pd.read_csv(posterior_metrics_file), pd.read_csv(posterior_metrics_file_2)],
+            posterior_metrics_dfs,
             target_metrics,
             list(target_metrics.keys()),
             default_metrics,
