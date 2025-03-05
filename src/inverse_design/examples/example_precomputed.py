@@ -48,11 +48,12 @@ def run_abc_precomputed(cfg: DictConfig):
         ]
     else:
         targets = model.get_default_targets()
-    param_file = "inputs/STEM_CELL/ms_prior_n512/parameter_log.csv"
-    metrics_output_dir = "ARCADE_OUTPUT/STEM_CELL/MS_PRIOR_N512/"
+    
+    param_file = "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_POSTERIOR_N512/MS_POSTERIOR_10P_N256_5P_N256_3P/n512/all_param_df.csv"
+    metrics_output_dir = "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_POSTERIOR_N512/MS_POSTERIOR_10P_N256_5P_N256_3P/n512/"
     metrics_file = os.path.join(metrics_output_dir, "final_metrics.csv")
-    output_dir = "inputs/STEM_CELL/ms_prior_n512/"
-    n_samples = 256
+    output_dir = "inputs/STEM_CELL/ms_all/ms_posterior_n512/ms_posterior_10p_n256_5p_n256_3p_n512_1p/"
+    n_samples = 32
     output_dir += f"n{n_samples}"
     param_df = pd.read_csv(param_file)
     constant_columns = param_df.columns[param_df.nunique() == 1]
@@ -102,13 +103,15 @@ def run_abc_precomputed(cfg: DictConfig):
             if sample["accepted"]
         ]
         accepted_metrics_df = pd.DataFrame(accepted_metrics)
-        accepted_metrics_df.to_csv(os.path.join(metrics_output_dir, "accepted_metrics_5p.csv"), index=False)
-        asd()
+        accepted_metrics_df.to_csv(os.path.join(metrics_output_dir, "accepted_metrics_5p_3p_1p.csv"), index=False)
         if len(accepted_params) == 0:
             raise ValueError("No accepted parameters")
         accepted_params_list.append(accepted_params)
         parameter_pdfs = evaluate.estimate_pdfs(accepted_params)
-        generate_parameters_from_kde(parameter_pdfs, n_samples, output_dir=output_dir)
+        none_pdf_params = [param for param in accepted_params[0].keys() if parameter_pdfs[param]['kde'] is None]
+        const_param_values = {param: accepted_params[0][param] for param in none_pdf_params}
+        parameter_pdfs = {key: value for key, value in parameter_pdfs.items() if key not in none_pdf_params}
+        generate_parameters_from_kde(parameter_pdfs, n_samples, output_dir=output_dir, const_params_values=const_param_values)
         if 1:
             save_path = f"{output_dir}/prior_posterior_pdfs_{i}.png"
             plot_parameter_kde(parameter_pdfs, abc_config, param_defaults, save_path)

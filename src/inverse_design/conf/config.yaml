@@ -29,7 +29,7 @@ arcade:
 
 abc:
   output_frequency: 100
-  epsilon: 0.19
+  epsilon: 0.033
   sobol_power: 1
   model_type: "ARCADE"
   targets:

@@ -128,7 +128,7 @@ def plot_parameter_kde(pdf_results: Dict, abc_config: Dict, param_defaults: Dict
         abc_config: ABC configuration containing parameter ranges (prior)
         save_path: Path to save the plot
     """
-    param_names = pdf_results["param_names"]
+    param_names = pdf_results.keys()
     n_params = len(param_names)
     
     # Calculate number of rows and columns needed
@@ -149,7 +149,7 @@ def plot_parameter_kde(pdf_results: Dict, abc_config: Dict, param_defaults: Dict
         col_idx = idx % plots_per_row
         ax = axes[row_idx, col_idx]
         
-        kde = pdf_results["independent"][param_name]
+        kde = pdf_results[param_name]["kde"]
 
         # Get prior range for x-axis limits
         prior_min = abc_config.parameter_ranges[param_name].min
@@ -250,7 +250,7 @@ def plot_parameter_correlations(accepted_params: List[Dict], pdf_results: Dict, 
         pdf_results: Results from _estimate_pdfs
         save_path: Path to save the plot
     """
-    param_names = pdf_results["param_names"]
+    param_names = pdf_results.keys()
     n_params = len(param_names)
 
     fig, axes = plt.subplots(n_params, n_params, figsize=(12, 12))
@@ -265,7 +265,7 @@ def plot_parameter_correlations(accepted_params: List[Dict], pdf_results: Dict, 
 
             if i == j:  # Diagonal: show marginal distributions
                 ax.hist(X[:, i], bins=20, density=True, alpha=0.6)
-                kde = pdf_results["independent"][param_names[i]]
+                kde = pdf_results[param_names[i]]["kde"]
                 x = np.linspace(X[:, i].min(), X[:, i].max(), 100)
                 ax.plot(x, kde(x))
                 if i == n_params - 1:
@@ -336,6 +336,7 @@ def plot_combined_grid_and_density(
 def plot_abc_results(
     accepted_params: List[Dict],
     pdf_results: Dict,
+    param_defaults: Dict,
     all_metrics: List[Dict],
     accepted_metrics: List[Dict],
     targets: List[Target],
@@ -357,7 +358,7 @@ def plot_abc_results(
         accepted_params, pdf_results, os.path.join(save_dir, "parameter_correlations.png")
     )
     plot_parameter_kde(
-        pdf_results, abc_config, os.path.join(save_dir, "parameter_distributions.png")
+        pdf_results, abc_config, param_defaults, os.path.join(save_dir, "parameter_distributions.png")
     )
 
     # Plot metric distributions

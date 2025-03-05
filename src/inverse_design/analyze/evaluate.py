@@ -10,11 +10,10 @@ def estimate_pdfs(params: List[Dict]) -> Dict:
     Args:
         params: List of parameter dictionaries
     Returns:
-        Dictionary containing:
-            'independent': Dict mapping parameter names to their KDE objects
-            'joint_mean': Mean vector of parameters
-            'joint_cov': Covariance matrix of parameters
-            'param_names': List of parameter names
+        Dictionary mapping each parameter name to a dict containing:
+            'pdf': KDE object for the parameter
+            'mean': Mean value of the parameter
+            'cov': Variance of the parameter
     """
     if not params:
         return {}
@@ -22,27 +21,26 @@ def estimate_pdfs(params: List[Dict]) -> Dict:
     # Extract parameter values into arrays
     param_names = list(params[0].keys())
     param_arrays = {param: np.array([p[param] for p in params]) for param in param_names}
-    # Compute independent KDEs for each parameter
-    param_pdfs = {}
+    
+    # Compute statistics for each parameter
+    result = {}
     for param_name, values in param_arrays.items():
         try:
             kde = stats.gaussian_kde(values)
-            param_pdfs[param_name] = kde
+            result[param_name] = {
+                'kde': kde,
+                'mean': np.mean(values),
+                'cov': np.var(values)
+            }
         except Exception as e:
             print(f"Error computing KDE for {param_name}: {e}")
-            param_pdfs[param_name] = None
+            result[param_name] = {
+                'kde': None,
+                'mean': np.mean(values),
+                'cov': np.var(values)
+            }
 
-    # Compute joint distribution parameters
-    X = np.array([list(p.values()) for p in params])
-    joint_mean = np.mean(X, axis=0)
-    joint_cov = np.cov(X, rowvar=False)
-
-    return {
-        "independent": param_pdfs,
-        "joint_mean": joint_mean,
-        "joint_cov": joint_cov,
-        "param_names": param_names,
-    }
+    return result
 
 
 def evaluate_parameters(abc_instance, parameters: Dict[str, float]) -> Tuple[Dict, float]:

@@ -37,7 +37,7 @@ def get_parameters_from_json(input_folder, parameter_list):
                 continue
         
         if value is None:
-            print(f"Parameter {param} not found in any expected location in the JSON file")
+            #print(f"Parameter {param} not found in any expected location in the JSON file")
             continue
             
         params[base_param] = value

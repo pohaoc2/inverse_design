@@ -147,7 +147,7 @@ class SimulationMetrics:
             key=lambda x: int(re.search(r"input_(\d+)", x.name).group(1)),
         )
         
-        for folder in sim_folders[:10]:
+        for folder in sim_folders:
             try:
                 folder_number = int(re.search(r"input_(\d+)", folder.name).group(1))
                 if folder_number % 50 == 0:
@@ -182,7 +182,7 @@ class SimulationMetrics:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512/MS_POSTERIOR_10P_N256_5P/n256/"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_POSTERIOR_N512/MS_POSTERIOR_10P_N256_5P_N256_3P/n512/"
     input_folder = parameter_base_folder + "/inputs"
     metrics_calculator = SimulationMetrics(parameter_base_folder)
 
@@ -209,7 +209,6 @@ def main():
 
     input_files = list(Path(input_folder).glob("input_*"))
     input_files = [f.name for f in input_files]
-    print(input_files)
     all_param_df = collect_parameter_data(input_files, input_folder, PARAMETER_LIST)
     all_param_df.to_csv(f"{parameter_base_folder}/all_param_df.csv", index=False)
 

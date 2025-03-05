@@ -120,11 +120,11 @@ def run_simulations(
 
 if __name__ == "__main__":
     metric = "act"
-    n_samples = 256
+    n_samples = 32
     run_simulations(
-        input_dir=f"inputs/STEM_CELL/ms_posterior_n512/ms_posterior_10p_n256_5p/n{n_samples}/inputs",
-        output_dir=f"ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512/MS_POSTERIOR_10P_N256_5P/n{n_samples}",
-        jar_path="models/arcade-test-cycle.jar",
-        max_workers=4,
+        input_dir=f"inputs/STEM_CELL/ms_all/ms_posterior_n512/ms_posterior_10p_n256_5p_n256_3p_n512_1p/n{n_samples}/inputs",
+        output_dir=f"ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_POSTERIOR_N512/MS_POSTERIOR_10P_N256_5P_N256_3P_N512_1P/n{n_samples}",
+        jar_path="models/arcade-test-cycle-fix-affinity.jar",
+        max_workers=6,
         start_index=1,
     )

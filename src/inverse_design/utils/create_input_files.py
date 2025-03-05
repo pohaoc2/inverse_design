@@ -32,13 +32,13 @@ PARAM_CONFIGS = {
     "BASAL_ENERGY": (6, False, "metabolism"),
     "PROLIFERATION_ENERGY": (6, False, "metabolism"),
     "MIGRATION_ENERGY": (6, False, "metabolism"),
-    "METABOLIC_PREFERENCE": (3, False, "metabolism"),
-    "CONVERSION_FRACTION": (3, False, "metabolism"),
-    "RATIO_GLUCOSE_PYRUVATE": (3, False, "metabolism"),
-    "LACTATE_RATE": (3, False, "metabolism"),
+    "METABOLIC_PREFERENCE": (6, False, "metabolism"),
+    "CONVERSION_FRACTION": (6, False, "metabolism"),
+    "RATIO_GLUCOSE_PYRUVATE": (6, False, "metabolism"),
+    "LACTATE_RATE": (6, False, "metabolism"),
     "AUTOPHAGY_RATE": (6, False, "metabolism"),
-    "GLUCOSE_UPTAKE_RATE": (3, False, "metabolism"),
-    "ATP_PRODUCTION_RATE": (3, False, "metabolism"),
+    "GLUCOSE_UPTAKE_RATE": (6, False, "metabolism"),
+    "ATP_PRODUCTION_RATE": (6, False, "metabolism"),
     "MIGRATORY_THRESHOLD": (3, False, "signaling"),
 }
 
@@ -247,6 +247,7 @@ def generate_parameters_from_kde(
     n_samples: int,
     output_dir: str = "kde_sampled_inputs",
     template_path: str = "sample_input_v3.xml",
+    const_params_values: Dict[str, float] = None,
 ):
     """Generate parameter sets by sampling from kernel density estimates (KDE)
 
@@ -255,6 +256,7 @@ def generate_parameters_from_kde(
         n_samples: Number of parameter sets to generate
         output_dir: Directory to save generated XML files
         template_path: Path to template XML file
+        const_params_values: Dictionary of parameters to keep constant {param_name: value}
     """
     # Create output directory
     if not os.path.exists(output_dir):
@@ -268,8 +270,8 @@ def generate_parameters_from_kde(
     param_log = []
 
     # Sample from each parameter's KDE
-    kde_dict = parameter_pdfs["independent"]
-    param_names = parameter_pdfs["param_names"]
+    kde_dict = {key: value["kde"] for key, value in parameter_pdfs.items()}
+    param_names = parameter_pdfs.keys()
 
     # Generate samples for each parameter
     sampled_params = {param: kde.resample(n_samples, seed=42)[0] for param, kde in kde_dict.items()}
@@ -278,6 +280,10 @@ def generate_parameters_from_kde(
     for i in range(n_samples):
         # Get raw parameters
         raw_params = {param: sampled_params[param][i] for param in param_names}
+        
+        # Add constant parameters to raw_params
+        if const_params_values:
+            raw_params.update(const_params_values)
         
         # Create bounded parameters dictionary
         bounded_params = {"file_name": f"input_{i+1}.xml"}
