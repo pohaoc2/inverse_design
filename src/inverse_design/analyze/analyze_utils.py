@@ -192,7 +192,8 @@ def calculate_metrics_statistics(metrics_df, metrics_names):
         metrics_dict[metric] = {
             "mode": mode,
             "metric": values,
-            "std": std
+            "std": std,
+            "kde": kde
         }
         
     return metrics_dict

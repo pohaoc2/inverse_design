@@ -442,9 +442,13 @@ def plot_error_vs_n_parameters(
 
 
 def main():
-    metrics_names = ["symmetry", "cycle_length", "act"]
-    target_metrics = {"symmetry": 0.8, "cycle_length": 30.0, "act": 0.6}
-    prior_metrics_file = "ARCADE_OUTPUT/STEM_CELL/MS_PRIOR_N512/final_metrics.csv"
+    import seaborn as sns
+    metrics_names = ["symmetry"]#, "cycle_length", "act"]
+    target_metrics = {"symmetry": 0.8,
+    #"cycle_length": 30.0,
+    #"act": 0.6
+    }
+    prior_metrics_file = "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_PRIOR_N512/final_metrics.csv"
     prior_metrics_df = pd.read_csv(prior_metrics_file)
     prior_metrics_statistics = calculate_metrics_statistics(prior_metrics_df, metrics_names)
     default_metrics = {metric: DEFAULT_METRICS[metric] for metric in target_metrics}
@@ -452,13 +456,12 @@ def main():
     loss_function = "absolute"
 
     if 1:
-        parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512/MS_POSTERIOR_10P"
-        sample_sizes = [2**i for i in range(4, 9)] #+ [48]
+        parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_POSTERIOR_N512/MS_POSTERIOR_10P"
+        sample_sizes = [2**i for i in range(5, 6)] #+ [48]
         posterior_metrics_dict = {}
         for n in sample_sizes:
             posterior_df = pd.read_csv(f"{parameter_base_folder}/n{n}/final_metrics.csv")
             posterior_metrics_dict[n] = calculate_metrics_statistics(posterior_df, metrics_names)
-
         save_file = f"{parameter_base_folder}/error_vs_samples.png"
         plot_error_vs_samples(
             posterior_metrics_dict,
@@ -469,7 +472,7 @@ def main():
             loss_function,
             save_file,
         )
-    if 1:
+    if 0:
         parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_POSTERIOR_N512"
         acceptance_percentages = [5, 10, 15, 20]
         posterior_metrics_dict = {}
