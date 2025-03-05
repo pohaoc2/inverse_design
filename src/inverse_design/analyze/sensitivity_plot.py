@@ -148,7 +148,7 @@ def plot_partial_dependence(
 
 
 def main():
-    target_metric = "symmetry"
+    target_metric = "act"
     parameter_base_folder = f"ARCADE_OUTPUT/SENSITIVITY/{target_metric}"
     save_file = f"{parameter_base_folder}/sensitivity_bubble.png"
     param_df = pd.read_csv(f"{parameter_base_folder}/all_param_df.csv")

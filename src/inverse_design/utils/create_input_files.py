@@ -7,6 +7,41 @@ from typing import Dict
 import os
 import json
 
+def _format_param_value(value: float, precision: int, is_bounded_by_one: bool) -> str:
+    """Format parameter value with bounds checking and precision."""
+    if is_bounded_by_one:
+        value = min(1, max(0, value))
+    else:
+        value = max(0, value)
+    return f"{value:.{precision}f}"
+
+def _get_param_path(base_name: str, subfolder: str | None) -> str:
+    """Get full parameter path including subfolder if any."""
+    return f"{subfolder}/{base_name}" if subfolder else base_name
+
+# Define parameter formatting configurations
+PARAM_CONFIGS = {
+    # Format: (precision, is_bounded_by_one, subfolder)
+    "CELL_VOLUME": (1, False, None),
+    "APOPTOSIS_AGE": (1, False, None),
+    "NECROTIC_FRACTION": (3, True, None),
+    "ACCURACY": (3, True, None),
+    "AFFINITY": (3, True, None),
+    "COMPRESSION_TOLERANCE": (3, False, None),
+    "SYNTHESIS_DURATION": (1, False, "proliferation"),
+    "BASAL_ENERGY": (6, False, "metabolism"),
+    "PROLIFERATION_ENERGY": (6, False, "metabolism"),
+    "MIGRATION_ENERGY": (6, False, "metabolism"),
+    "METABOLIC_PREFERENCE": (3, False, "metabolism"),
+    "CONVERSION_FRACTION": (3, False, "metabolism"),
+    "RATIO_GLUCOSE_PYRUVATE": (3, False, "metabolism"),
+    "LACTATE_RATE": (3, False, "metabolism"),
+    "AUTOPHAGY_RATE": (6, False, "metabolism"),
+    "GLUCOSE_UPTAKE_RATE": (3, False, "metabolism"),
+    "ATP_PRODUCTION_RATE": (3, False, "metabolism"),
+    "MIGRATORY_THRESHOLD": (3, False, "signaling"),
+}
+
 def save_parameter_ranges(param_ranges: dict, output_dir: str):
     """Save the parameter ranges used for generating inputs to a CSV file."""
     # Create DataFrame with min and max values
@@ -108,6 +143,30 @@ def generate_perturbed_parameters(
             MIGRATORY_THRESHOLD_SIGMA,
         ) = params
 
+        # Create a dictionary for the log entry
+        log_entry = {"file_name": f"input_{i+1}.xml"}
+        
+        # Add parameters with bounds checking using PARAM_CONFIGS
+        for base_param, (precision, is_bounded, _) in PARAM_CONFIGS.items():
+            # Handle direct parameters (those without MU/SIGMA)
+            if base_param in locals():
+                value = _format_param_value(locals()[base_param], precision, is_bounded)
+                log_entry[base_param] = float(value)
+            
+            # Handle MU/SIGMA parameters
+            mu_key = f"{base_param}_MU"
+            sigma_key = f"{base_param}_SIGMA"
+            
+            if mu_key in locals():
+                mu_value = _format_param_value(locals()[mu_key], precision, is_bounded)
+                log_entry[mu_key] = float(mu_value)
+            
+            if sigma_key in locals():
+                sigma_value = _format_param_value(locals()[sigma_key], precision, False)  # sigma is never bounded by 1
+                log_entry[sigma_key] = float(sigma_value)
+        
+        param_log.append(log_entry)
+
         # Create a dictionary for easier parameter access
         params = {
             'CELL_VOLUME_MU': CELL_VOLUME_MU,
@@ -151,90 +210,30 @@ def generate_perturbed_parameters(
         for param in cancerous_pop.findall("population.parameter"):
             param_id = param.get("id")
             
-            # Handle existing parameters
-            if param_id == "CELL_VOLUME":
-                param.set("value", f"NORMAL(MU={params['CELL_VOLUME_MU']:.1f},SIGMA={max(0, params['CELL_VOLUME_SIGMA']):.1f})")
-            elif param_id == "APOPTOSIS_AGE":
-                param.set("value", f"NORMAL(MU={params['APOPTOSIS_AGE_MU']:.1f},SIGMA={max(0, params['APOPTOSIS_AGE_SIGMA']):.1f})")
-            elif param_id == "NECROTIC_FRACTION":
-                param.set("value", f"{NECROTIC_FRACTION:.3f}")
-            elif param_id == "ACCURACY":
-                param.set("value", f"{ACCURACY:.3f}")
-            elif param_id == "AFFINITY":
-                param.set("value", f"{AFFINITY:.3f}")
-            elif param_id == "COMPRESSION_TOLERANCE":
-                param.set("value", f"{COMPRESSION_TOLERANCE:.3f}")
-            
-            # Handle metabolism parameters
-            elif param_id == "metabolism/BASAL_ENERGY":
-                param.set("value", f"NORMAL(MU={params['BASAL_ENERGY_MU']:.6f},SIGMA={params['BASAL_ENERGY_SIGMA']:.6f})")
-            elif param_id == "metabolism/PROLIFERATION_ENERGY":
-                param.set("value", f"NORMAL(MU={params['PROLIFERATION_ENERGY_MU']:.6f},SIGMA={params['PROLIFERATION_ENERGY_SIGMA']:.6f})")
-            elif param_id == "metabolism/MIGRATION_ENERGY":
-                param.set("value", f"NORMAL(MU={params['MIGRATION_ENERGY_MU']:.6f},SIGMA={params['MIGRATION_ENERGY_SIGMA']:.6f})")
-            elif param_id == "metabolism/METABOLIC_PREFERENCE":
-                param.set("value", f"NORMAL(MU={params['METABOLIC_PREFERENCE_MU']:.3f},SIGMA={params['METABOLIC_PREFERENCE_SIGMA']:.3f})")
-            elif param_id == "metabolism/CONVERSION_FRACTION":
-                param.set("value", f"NORMAL(MU={params['CONVERSION_FRACTION_MU']:.3f},SIGMA={params['CONVERSION_FRACTION_SIGMA']:.3f})")
-            elif param_id == "metabolism/RATIO_GLUCOSE_PYRUVATE":
-                param.set("value", f"NORMAL(MU={params['RATIO_GLUCOSE_PYRUVATE_MU']:.3f},SIGMA={params['RATIO_GLUCOSE_PYRUVATE_SIGMA']:.3f})")
-            elif param_id == "metabolism/LACTATE_RATE":
-                param.set("value", f"NORMAL(MU={params['LACTATE_RATE_MU']:.3f},SIGMA={params['LACTATE_RATE_SIGMA']:.3f})")
-            elif param_id == "metabolism/AUTOPHAGY_RATE":
-                param.set("value", f"NORMAL(MU={params['AUTOPHAGY_RATE_MU']:.6f},SIGMA={params['AUTOPHAGY_RATE_SIGMA']:.6f})")
-            elif param_id == "metabolism/GLUCOSE_UPTAKE_RATE":
-                param.set("value", f"NORMAL(MU={params['GLUCOSE_UPTAKE_RATE_MU']:.3f},SIGMA={params['GLUCOSE_UPTAKE_RATE_SIGMA']:.3f})")
-            elif param_id == "metabolism/ATP_PRODUCTION_RATE":
-                param.set("value", f"NORMAL(MU={params['ATP_PRODUCTION_RATE_MU']:.3f},SIGMA={params['ATP_PRODUCTION_RATE_SIGMA']:.3f})")
-            elif param_id == "signaling/MIGRATORY_THRESHOLD":
-                param.set("value", f"NORMAL(MU={params['MIGRATORY_THRESHOLD_MU']:.3f},SIGMA={params['MIGRATORY_THRESHOLD_SIGMA']:.3f})")
-            elif param_id == "proliferation/SYNTHESIS_DURATION":
-                param.set("value", f"NORMAL(MU={params['SYNTHESIS_DURATION_MU']:.1f},SIGMA={params['SYNTHESIS_DURATION_SIGMA']:.1f})")
+            # Handle all parameters
+            for base_param, (precision, is_bounded, subfolder) in PARAM_CONFIGS.items():
+                param_path = _get_param_path(base_param, subfolder)
+                
+                if param_id == param_path:
+                    mu_key = f"{base_param}_MU"
+                    sigma_key = f"{base_param}_SIGMA"
+                    
+                    # Handle direct parameters (those without MU/SIGMA)
+                    if base_param in params:
+                        value = _format_param_value(params[base_param], precision, is_bounded)
+                        param.set("value", value)
+                    
+                    # Handle normal distribution parameters
+                    elif mu_key in params and sigma_key in params:
+                        mu = _format_param_value(params[mu_key], precision, is_bounded)
+                        sigma = _format_param_value(params[sigma_key], precision, False)  # sigma is never bounded by 1
+                        param.set("value", f"NORMAL(MU={mu},SIGMA={sigma})")
 
         # Save modified XML
         if not os.path.exists(f"{output_dir}/inputs"):
             os.makedirs(f"{output_dir}/inputs")
         output_file = f"{output_dir}/inputs/input_{i+1}.xml"
         tree.write(output_file, encoding="utf-8", xml_declaration=True)
-
-        # Log parameters
-        param_log.append(
-            {
-                "file_name": f"input_{i+1}.xml",
-                "CELL_VOLUME_MU": CELL_VOLUME_MU,
-                "CELL_VOLUME_SIGMA": CELL_VOLUME_SIGMA,
-                "APOPTOSIS_AGE_MU": APOPTOSIS_AGE_MU,
-                "APOPTOSIS_AGE_SIGMA": APOPTOSIS_AGE_SIGMA,
-                "NECROTIC_FRACTION": NECROTIC_FRACTION,
-                "ACCURACY": ACCURACY,
-                "AFFINITY": AFFINITY,
-                "COMPRESSION_TOLERANCE": COMPRESSION_TOLERANCE,
-                "SYNTHESIS_DURATION_MU": SYNTHESIS_DURATION_MU,
-                "SYNTHESIS_DURATION_SIGMA": SYNTHESIS_DURATION_SIGMA,
-                "BASAL_ENERGY_MU": BASAL_ENERGY_MU,
-                "BASAL_ENERGY_SIGMA": BASAL_ENERGY_SIGMA,
-                "PROLIFERATION_ENERGY_MU": PROLIFERATION_ENERGY_MU,
-                "PROLIFERATION_ENERGY_SIGMA": PROLIFERATION_ENERGY_SIGMA,
-                "MIGRATION_ENERGY_MU": MIGRATION_ENERGY_MU,
-                "MIGRATION_ENERGY_SIGMA": MIGRATION_ENERGY_SIGMA,
-                "METABOLIC_PREFERENCE_MU": METABOLIC_PREFERENCE_MU,
-                "METABOLIC_PREFERENCE_SIGMA": METABOLIC_PREFERENCE_SIGMA,
-                "CONVERSION_FRACTION_MU": CONVERSION_FRACTION_MU,
-                "CONVERSION_FRACTION_SIGMA": CONVERSION_FRACTION_SIGMA,
-                "RATIO_GLUCOSE_PYRUVATE_MU": RATIO_GLUCOSE_PYRUVATE_MU,
-                "RATIO_GLUCOSE_PYRUVATE_SIGMA": RATIO_GLUCOSE_PYRUVATE_SIGMA,
-                "LACTATE_RATE_MU": LACTATE_RATE_MU,
-                "LACTATE_RATE_SIGMA": LACTATE_RATE_SIGMA,
-                "AUTOPHAGY_RATE_MU": AUTOPHAGY_RATE_MU,
-                "AUTOPHAGY_RATE_SIGMA": AUTOPHAGY_RATE_SIGMA,
-                "GLUCOSE_UPTAKE_RATE_MU": GLUCOSE_UPTAKE_RATE_MU,
-                "GLUCOSE_UPTAKE_RATE_SIGMA": GLUCOSE_UPTAKE_RATE_SIGMA,
-                "ATP_PRODUCTION_RATE_MU": ATP_PRODUCTION_RATE_MU,
-                "ATP_PRODUCTION_RATE_SIGMA": ATP_PRODUCTION_RATE_SIGMA,
-                "MIGRATORY_THRESHOLD_MU": MIGRATORY_THRESHOLD_MU,
-                "MIGRATORY_THRESHOLD_SIGMA": MIGRATORY_THRESHOLD_SIGMA,
-            }
-        )
 
     # Save parameters to Excel
     df = pd.DataFrame(param_log)
@@ -277,70 +276,56 @@ def generate_parameters_from_kde(
 
     # Generate XML files for each parameter set
     for i in range(n_samples):
-        params = {param: sampled_params[param][i] for param in param_names}
+        # Get raw parameters
+        raw_params = {param: sampled_params[param][i] for param in param_names}
+        
+        # Create bounded parameters dictionary
+        bounded_params = {"file_name": f"input_{i+1}.xml"}
+        
+        # Apply bounds to all parameters
+        for base_param, (precision, is_bounded, _) in PARAM_CONFIGS.items():
+            # Handle direct parameters (those without MU/SIGMA)
+            if base_param in raw_params:
+                value = float(_format_param_value(raw_params[base_param], precision, is_bounded))
+                bounded_params[base_param] = value
+            
+            # Handle MU/SIGMA parameters
+            mu_key = f"{base_param}_MU"
+            sigma_key = f"{base_param}_SIGMA"
+            
+            if mu_key in raw_params:
+                mu_value = float(_format_param_value(raw_params[mu_key], precision, is_bounded))
+                bounded_params[mu_key] = mu_value
+            
+            if sigma_key in raw_params:
+                sigma_value = float(_format_param_value(raw_params[sigma_key], precision, False))  # sigma is never bounded by 1
+                bounded_params[sigma_key] = sigma_value
 
         # Find cancerous population element
         cancerous_pop = root.find(".//population[@id='cancerous']")
 
-        # Update parameters
+        # Update parameters in XML
         for param in cancerous_pop.findall("population.parameter"):
             param_id = param.get("id")
             
-            # Handle cellular properties
-            if param_id == "CELL_VOLUME" and "CELL_VOLUME_MU" in params and "CELL_VOLUME_SIGMA" in params:
-                param.set("value", f"NORMAL(MU={params['CELL_VOLUME_MU']:.1f},SIGMA={max(0, params['CELL_VOLUME_SIGMA']):.1f})")
-            elif param_id == "APOPTOSIS_AGE" and "APOPTOSIS_AGE_MU" in params and "APOPTOSIS_AGE_SIGMA" in params:
-                param.set("value", f"NORMAL(MU={params['APOPTOSIS_AGE_MU']:.1f},SIGMA={max(0, params['APOPTOSIS_AGE_SIGMA']):.1f})")
-            elif param_id == "NECROTIC_FRACTION" and "NECROTIC_FRACTION" in params:
-                param.set("value", f"{min(1, max(0, params['NECROTIC_FRACTION'])):.3f}")
-            elif param_id == "ACCURACY" and "ACCURACY" in params:
-                param.set("value", f"{min(1, max(0, params['ACCURACY'])):.3f}")
-            elif param_id == "AFFINITY" and "AFFINITY" in params:
-                param.set("value", f"{min(1, max(0, params['AFFINITY'])):.3f}")
-            elif param_id == "COMPRESSION_TOLERANCE" and "COMPRESSION_TOLERANCE" in params:
-                param.set("value", f"{params['COMPRESSION_TOLERANCE']:.3f}")
-            
-            # Handle proliferation parameters
-            elif param_id == "proliferation/SYNTHESIS_DURATION":
-                if "SYNTHESIS_DURATION_MU" in params and "SYNTHESIS_DURATION_SIGMA" in params:
-                    param.set("value", f"NORMAL(MU={params['SYNTHESIS_DURATION_MU']:.1f},SIGMA={params['SYNTHESIS_DURATION_SIGMA']:.1f})")
-            
-            # Handle metabolism parameters
-            elif param_id == "metabolism/BASAL_ENERGY":
-                if "BASAL_ENERGY_MU" in params and "BASAL_ENERGY_SIGMA" in params:
-                    param.set("value", f"NORMAL(MU={params['BASAL_ENERGY_MU']:.6f},SIGMA={params['BASAL_ENERGY_SIGMA']:.6f})")
-            elif param_id == "metabolism/PROLIFERATION_ENERGY":
-                if "PROLIFERATION_ENERGY_MU" in params and "PROLIFERATION_ENERGY_SIGMA" in params:
-                    param.set("value", f"NORMAL(MU={params['PROLIFERATION_ENERGY_MU']:.6f},SIGMA={params['PROLIFERATION_ENERGY_SIGMA']:.6f})")
-            elif param_id == "metabolism/MIGRATION_ENERGY":
-                if "MIGRATION_ENERGY_MU" in params and "MIGRATION_ENERGY_SIGMA" in params:
-                    param.set("value", f"NORMAL(MU={params['MIGRATION_ENERGY_MU']:.6f},SIGMA={params['MIGRATION_ENERGY_SIGMA']:.6f})")
-            elif param_id == "metabolism/METABOLIC_PREFERENCE":
-                if "METABOLIC_PREFERENCE_MU" in params and "METABOLIC_PREFERENCE_SIGMA" in params:
-                    param.set("value", f"NORMAL(MU={params['METABOLIC_PREFERENCE_MU']:.3f},SIGMA={params['METABOLIC_PREFERENCE_SIGMA']:.3f})")
-            elif param_id == "metabolism/CONVERSION_FRACTION":
-                if "CONVERSION_FRACTION_MU" in params and "CONVERSION_FRACTION_SIGMA" in params:
-                    param.set("value", f"NORMAL(MU={params['CONVERSION_FRACTION_MU']:.3f},SIGMA={params['CONVERSION_FRACTION_SIGMA']:.3f})")
-            elif param_id == "metabolism/RATIO_GLUCOSE_PYRUVATE":
-                if "RATIO_GLUCOSE_PYRUVATE_MU" in params and "RATIO_GLUCOSE_PYRUVATE_SIGMA" in params:
-                    param.set("value", f"NORMAL(MU={params['RATIO_GLUCOSE_PYRUVATE_MU']:.3f},SIGMA={params['RATIO_GLUCOSE_PYRUVATE_SIGMA']:.3f})")
-            elif param_id == "metabolism/LACTATE_RATE":
-                if "LACTATE_RATE_MU" in params and "LACTATE_RATE_SIGMA" in params:
-                    param.set("value", f"NORMAL(MU={params['LACTATE_RATE_MU']:.3f},SIGMA={params['LACTATE_RATE_SIGMA']:.3f})")
-            elif param_id == "metabolism/AUTOPHAGY_RATE":
-                if "AUTOPHAGY_RATE_MU" in params and "AUTOPHAGY_RATE_SIGMA" in params:
-                    param.set("value", f"NORMAL(MU={params['AUTOPHAGY_RATE_MU']:.6f},SIGMA={params['AUTOPHAGY_RATE_SIGMA']:.6f})")
-            elif param_id == "metabolism/GLUCOSE_UPTAKE_RATE":
-                if "GLUCOSE_UPTAKE_RATE_MU" in params and "GLUCOSE_UPTAKE_RATE_SIGMA" in params:
-                    param.set("value", f"NORMAL(MU={params['GLUCOSE_UPTAKE_RATE_MU']:.3f},SIGMA={params['GLUCOSE_UPTAKE_RATE_SIGMA']:.3f})")
-            elif param_id == "metabolism/ATP_PRODUCTION_RATE":
-                if "ATP_PRODUCTION_RATE_MU" in params and "ATP_PRODUCTION_RATE_SIGMA" in params:
-                    param.set("value", f"NORMAL(MU={params['ATP_PRODUCTION_RATE_MU']:.3f},SIGMA={params['ATP_PRODUCTION_RATE_SIGMA']:.3f})")
-            
-            # Handle signaling parameters
-            elif param_id == "signaling/MIGRATORY_THRESHOLD":
-                if "MIGRATORY_THRESHOLD_MU" in params and "MIGRATORY_THRESHOLD_SIGMA" in params:
-                    param.set("value", f"NORMAL(MU={params['MIGRATORY_THRESHOLD_MU']:.3f},SIGMA={params['MIGRATORY_THRESHOLD_SIGMA']:.3f})")
+            # Handle all parameters
+            for base_param, (precision, is_bounded, subfolder) in PARAM_CONFIGS.items():
+                param_path = _get_param_path(base_param, subfolder)
+                
+                if param_id == param_path:
+                    mu_key = f"{base_param}_MU"
+                    sigma_key = f"{base_param}_SIGMA"
+                    
+                    # Handle direct parameters (those without MU/SIGMA)
+                    if base_param in bounded_params:
+                        value = f"{bounded_params[base_param]:.{precision}f}"
+                        param.set("value", value)
+                    
+                    # Handle normal distribution parameters
+                    elif mu_key in bounded_params and sigma_key in bounded_params:
+                        mu = f"{bounded_params[mu_key]:.{precision}f}"
+                        sigma = f"{bounded_params[sigma_key]:.{precision}f}"
+                        param.set("value", f"NORMAL(MU={mu},SIGMA={sigma})")
 
         # Save modified XML
         if not os.path.exists(f"{output_dir}/inputs"):
@@ -348,9 +333,8 @@ def generate_parameters_from_kde(
         output_file = f"{output_dir}/inputs/input_{i+1}.xml"
         tree.write(output_file, encoding="utf-8", xml_declaration=True)
 
-        # Log parameters
-        params["file_name"] = f"input_{i+1}.xml"
-        param_log.append(params)
+        # Log bounded parameters
+        param_log.append(bounded_params)
 
     # Save parameters to CSV
     df = pd.DataFrame(param_log)
@@ -556,9 +540,9 @@ def generate_2param_perturbation(
 
 
 def main():
-    output_dir = "inputs/STEM_CELL/ms_prior_n256"
+    output_dir = "inputs/STEM_CELL/TEST"
     param_ranges = {
-        "CELL_VOLUME_MU": (2000, 2500),
+        "CELL_VOLUME_MU": (-200, 500),
         "CELL_VOLUME_SIGMA": (50, 250),
         "APOPTOSIS_AGE_MU": (120960, 120960),
         "APOPTOSIS_AGE_SIGMA": (6000, 6000),
