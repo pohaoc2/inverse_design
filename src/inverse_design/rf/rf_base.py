@@ -52,6 +52,8 @@ class BaseRF(ABC):
             Summary statistics corresponding to simulated data from parameters.
         """
         self.reference_table = (parameters, statistics)
+        print(f"reference_table - parameters: {self.reference_table[0]}")
+        print(f"reference_table - statistics: {self.reference_table[1]}")
         self._check_input(parameters, statistics)
         self._build_forest()
         return self

@@ -23,6 +23,7 @@ def get_parameters_from_json(input_folder, parameter_list):
             ("populations", "cancerous", param),  # Direct path
             ("populations", "cancerous", f"metabolism/{base_param}"),  # With metabolism prefix
             ("populations", "cancerous", f"proliferation/{base_param}"),  # With proliferation prefix
+            ("populations", "cancerous", f"signaling/{base_param}"),  # With proliferation prefix
         ]
         
         value = None

@@ -59,6 +59,41 @@ def save_parameter_ranges(param_ranges: dict, output_dir: str):
     ranges_df.to_csv(f"{output_dir}/parameter_ranges.csv", index=False)
 
 
+def _create_parameter_log_entry(params: dict, file_number: int) -> dict:
+    """Create a parameter log entry with bounds checking.
+    
+    Args:
+        params: Dictionary of parameter values
+        file_number: Number to use in the file name
+        
+    Returns:
+        Dictionary containing the file name and formatted parameter values
+    """
+    # Create a dictionary for the log entry
+    log_entry = {"file_name": f"input_{file_number}.xml"}
+    
+    # Add parameters with bounds checking using PARAM_CONFIGS
+    for base_param, (precision, is_bounded, _) in PARAM_CONFIGS.items():
+        # Handle direct parameters (those without MU/SIGMA)
+        if base_param in params:
+            value = _format_param_value(params[base_param], precision, is_bounded)
+            log_entry[base_param] = float(value)
+        
+        # Handle MU/SIGMA parameters
+        mu_key = f"{base_param}_MU"
+        sigma_key = f"{base_param}_SIGMA"
+        
+        if mu_key in params:
+            mu_value = _format_param_value(params[mu_key], precision, is_bounded)
+            log_entry[mu_key] = float(mu_value)
+        
+        if sigma_key in params:
+            sigma_value = _format_param_value(params[sigma_key], precision, False)  # sigma is never bounded by 1
+            log_entry[sigma_key] = float(sigma_value)
+    
+    return log_entry
+
+
 def generate_perturbed_parameters(
     sobol_power: int,
     param_ranges: dict,
@@ -105,131 +140,16 @@ def generate_perturbed_parameters(
     # Generate XML files for each parameter set
     for i, sample in enumerate(samples):
         # Scale sample to parameter ranges
-        params = []
+        param_values = []
         for value, (min_val, max_val) in zip(sample, param_ranges_list):
             scaled_value = min_val + (max_val - min_val) * value
-            params.append(scaled_value)
-
-        (
-            CELL_VOLUME_MU,
-            CELL_VOLUME_SIGMA,
-            APOPTOSIS_AGE_MU,
-            APOPTOSIS_AGE_SIGMA,
-            NECROTIC_FRACTION,
-            ACCURACY,
-            AFFINITY,
-            COMPRESSION_TOLERANCE,
-            SYNTHESIS_DURATION_MU,
-            SYNTHESIS_DURATION_SIGMA,
-            BASAL_ENERGY_MU,
-            BASAL_ENERGY_SIGMA,
-            PROLIFERATION_ENERGY_MU,
-            PROLIFERATION_ENERGY_SIGMA,
-            MIGRATION_ENERGY_MU,
-            MIGRATION_ENERGY_SIGMA,
-            METABOLIC_PREFERENCE_MU,
-            METABOLIC_PREFERENCE_SIGMA,
-            CONVERSION_FRACTION_MU,
-            CONVERSION_FRACTION_SIGMA,
-            RATIO_GLUCOSE_PYRUVATE_MU,
-            RATIO_GLUCOSE_PYRUVATE_SIGMA,
-            LACTATE_RATE_MU,
-            LACTATE_RATE_SIGMA,
-            AUTOPHAGY_RATE_MU,
-            AUTOPHAGY_RATE_SIGMA,
-            GLUCOSE_UPTAKE_RATE_MU,
-            GLUCOSE_UPTAKE_RATE_SIGMA,
-            ATP_PRODUCTION_RATE_MU,
-            ATP_PRODUCTION_RATE_SIGMA,
-            MIGRATORY_THRESHOLD_MU,
-            MIGRATORY_THRESHOLD_SIGMA,
-        ) = params
-
+            param_values.append(scaled_value)
         # Create a dictionary for the log entry
-        log_entry = {"file_name": f"input_{i+1}.xml"}
-        
-        # Add parameters with bounds checking using PARAM_CONFIGS
-        for base_param, (precision, is_bounded, _) in PARAM_CONFIGS.items():
-            # Handle direct parameters (those without MU/SIGMA)
-            if base_param in locals():
-                value = _format_param_value(locals()[base_param], precision, is_bounded)
-                log_entry[base_param] = float(value)
-            
-            # Handle MU/SIGMA parameters
-            mu_key = f"{base_param}_MU"
-            sigma_key = f"{base_param}_SIGMA"
-            
-            if mu_key in locals():
-                mu_value = _format_param_value(locals()[mu_key], precision, is_bounded)
-                log_entry[mu_key] = float(mu_value)
-            
-            if sigma_key in locals():
-                sigma_value = _format_param_value(locals()[sigma_key], precision, False)  # sigma is never bounded by 1
-                log_entry[sigma_key] = float(sigma_value)
-        
+        log_entry = _create_parameter_log_entry(dict(zip(param_ranges.keys(), param_values)), i+1)
         param_log.append(log_entry)
-
         # Create a dictionary for easier parameter access
-        params = {
-            'CELL_VOLUME_MU': CELL_VOLUME_MU,
-            'CELL_VOLUME_SIGMA': CELL_VOLUME_SIGMA,
-            'APOPTOSIS_AGE_MU': APOPTOSIS_AGE_MU,
-            'APOPTOSIS_AGE_SIGMA': APOPTOSIS_AGE_SIGMA,
-            'NECROTIC_FRACTION': NECROTIC_FRACTION,
-            'ACCURACY': ACCURACY,
-            'AFFINITY': AFFINITY,
-            'COMPRESSION_TOLERANCE': COMPRESSION_TOLERANCE,
-            'SYNTHESIS_DURATION_MU': SYNTHESIS_DURATION_MU,
-            'SYNTHESIS_DURATION_SIGMA': SYNTHESIS_DURATION_SIGMA,
-            'BASAL_ENERGY_MU': BASAL_ENERGY_MU,
-            'BASAL_ENERGY_SIGMA': BASAL_ENERGY_SIGMA,
-            'PROLIFERATION_ENERGY_MU': PROLIFERATION_ENERGY_MU,
-            'PROLIFERATION_ENERGY_SIGMA': PROLIFERATION_ENERGY_SIGMA,
-            'MIGRATION_ENERGY_MU': MIGRATION_ENERGY_MU,
-            'MIGRATION_ENERGY_SIGMA': MIGRATION_ENERGY_SIGMA,
-            'METABOLIC_PREFERENCE_MU': METABOLIC_PREFERENCE_MU,
-            'METABOLIC_PREFERENCE_SIGMA': METABOLIC_PREFERENCE_SIGMA,
-            'CONVERSION_FRACTION_MU': CONVERSION_FRACTION_MU,
-            'CONVERSION_FRACTION_SIGMA': CONVERSION_FRACTION_SIGMA,
-            'RATIO_GLUCOSE_PYRUVATE_MU': RATIO_GLUCOSE_PYRUVATE_MU,
-            'RATIO_GLUCOSE_PYRUVATE_SIGMA': RATIO_GLUCOSE_PYRUVATE_SIGMA,
-            'LACTATE_RATE_MU': LACTATE_RATE_MU,
-            'LACTATE_RATE_SIGMA': LACTATE_RATE_SIGMA,
-            'AUTOPHAGY_RATE_MU': AUTOPHAGY_RATE_MU,
-            'AUTOPHAGY_RATE_SIGMA': AUTOPHAGY_RATE_SIGMA,
-            'GLUCOSE_UPTAKE_RATE_MU': GLUCOSE_UPTAKE_RATE_MU,
-            'GLUCOSE_UPTAKE_RATE_SIGMA': GLUCOSE_UPTAKE_RATE_SIGMA,
-            'ATP_PRODUCTION_RATE_MU': ATP_PRODUCTION_RATE_MU,
-            'ATP_PRODUCTION_RATE_SIGMA': ATP_PRODUCTION_RATE_SIGMA,
-            'MIGRATORY_THRESHOLD_MU': MIGRATORY_THRESHOLD_MU,
-            'MIGRATORY_THRESHOLD_SIGMA': MIGRATORY_THRESHOLD_SIGMA,
-        }
-
-        # Find cancerous population element
-        cancerous_pop = root.find(".//population[@id='cancerous']")
-
-        # Update parameters
-        for param in cancerous_pop.findall("population.parameter"):
-            param_id = param.get("id")
-            
-            # Handle all parameters
-            for base_param, (precision, is_bounded, subfolder) in PARAM_CONFIGS.items():
-                param_path = _get_param_path(base_param, subfolder)
-                
-                if param_id == param_path:
-                    mu_key = f"{base_param}_MU"
-                    sigma_key = f"{base_param}_SIGMA"
-                    
-                    # Handle direct parameters (those without MU/SIGMA)
-                    if base_param in params:
-                        value = _format_param_value(params[base_param], precision, is_bounded)
-                        param.set("value", value)
-                    
-                    # Handle normal distribution parameters
-                    elif mu_key in params and sigma_key in params:
-                        mu = _format_param_value(params[mu_key], precision, is_bounded)
-                        sigma = _format_param_value(params[sigma_key], precision, False)  # sigma is never bounded by 1
-                        param.set("value", f"NORMAL(MU={mu},SIGMA={sigma})")
+        params = {name: param_values[i] for i, name in enumerate(param_ranges.keys())}
+        update_xml_parameters(root, params)
 
         # Save modified XML
         if not os.path.exists(f"{output_dir}/inputs"):
@@ -546,6 +466,63 @@ def generate_2param_perturbation(
     
     print(f"Generated {len(param_log)} XML files and parameter log in {output_dir}/")
 
+def generate_input_files(
+    param_names: list[str],
+    param_values: list[list[float]],
+    output_dir: str,
+    template_path: str = "sample_input_v3.xml",
+) -> None:
+    """Generate input XML files from parameter values.
+    
+    Args:
+        param_names: List of parameter names
+        param_values: List of parameter value lists, where each inner list contains values
+                     corresponding to param_names
+        output_dir: Directory to save generated XML files
+        template_path: Path to template XML file
+    """
+    # Create output directory
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    if not os.path.exists(f"{output_dir}/inputs"):
+        os.makedirs(f"{output_dir}/inputs")
+
+    # Read template XML
+    tree = ET.parse(template_path)
+    root = tree.getroot()
+
+    # Prepare parameter logging
+    param_log = []
+
+    # Generate XML files for each parameter set
+    for i, values in enumerate(param_values):
+        # Create parameter dictionary
+        params = dict(zip(param_names, values))
+        
+        # Create log entry
+        log_entry = _create_parameter_log_entry(params, i+1)
+        param_log.append(log_entry)
+
+        # Update XML parameters
+        update_xml_parameters(root, params)
+
+        # Save modified XML
+        output_file = f"{output_dir}/inputs/input_{i+1}.xml"
+        tree.write(output_file, encoding="utf-8", xml_declaration=True)
+
+    # Save parameter log
+    df = pd.DataFrame(param_log)
+    df.to_csv(f"{output_dir}/parameter_log.csv", index=False)
+
+    # Save parameter ranges
+    param_ranges = {
+        name: (min(values), max(values))
+        for name, values in zip(param_names, zip(*param_values))
+    }
+    save_parameter_ranges(param_ranges, output_dir)
+
+    print(f"Generated {len(param_values)} XML files and parameter log in {output_dir}/")
+
 
 def main():
     output_dir = "inputs/STEM_CELL/TEST"
@@ -568,3 +545,38 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+def update_xml_parameters(root: ET.Element, params: dict) -> None:
+    """Update XML parameters with provided values.
+    
+    Args:
+        root: XML root element
+        params: Dictionary of parameter values to update
+    """
+    # Find cancerous population element
+    cancerous_pop = root.find(".//population[@id='cancerous']")
+    if cancerous_pop is None:
+        raise ValueError("Could not find population with id='cancerous' in XML")
+
+    # Update parameters
+    for param in cancerous_pop.findall("population.parameter"):
+        param_id = param.get("id")
+        
+        # Handle all parameters
+        for base_param, (precision, is_bounded, subfolder) in PARAM_CONFIGS.items():
+            param_path = _get_param_path(base_param, subfolder)
+            
+            if param_id == param_path:
+                mu_key = f"{base_param}_MU"
+                sigma_key = f"{base_param}_SIGMA"
+                
+                # Handle direct parameters (those without MU/SIGMA)
+                if base_param in params:
+                    value = _format_param_value(params[base_param], precision, is_bounded)
+                    param.set("value", value)
+                
+                # Handle normal distribution parameters
+                elif mu_key in params and sigma_key in params:
+                    mu = _format_param_value(params[mu_key], precision, is_bounded)
+                    sigma = _format_param_value(params[sigma_key], precision, False)  # sigma is never bounded by 1
+                    param.set("value", f"NORMAL(MU={mu},SIGMA={sigma})")

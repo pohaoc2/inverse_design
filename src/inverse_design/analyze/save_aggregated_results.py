@@ -179,7 +179,6 @@ class SimulationMetrics:
         return df, temporal_results
 
     def extract_and_save_parameters(self, input_folder):
-        print(input_folder)
         input_files = list(Path(input_folder).glob("input_*"))
         input_files = [f.name for f in input_files]
         all_param_df = collect_parameter_data(input_files, input_folder, PARAMETER_LIST)

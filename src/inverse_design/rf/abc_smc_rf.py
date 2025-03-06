@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import pandas as pd
 from inverse_design.examples.run_simulations import run_simulations
+from inverse_design.common.enum import Target
 #from inverse_design.examples.simulation_metrics import SimulationMetrics
 
 class ABCSMCRF:
@@ -147,7 +148,7 @@ class ABCSMCRF:
 
     def fit(
         self, 
-        observed_statistics: np.ndarray, 
+        observed_statistics: List[Target], 
         input_dir: str, 
         output_dir: str, 
         jar_path: str,
@@ -171,7 +172,6 @@ class ABCSMCRF:
         """
         self.observed_statistics = observed_statistics
         self.n_statistics = len(observed_statistics)
-        
         # Run iterations
         for t in range(self.n_iterations):
             self.current_iteration = t
@@ -193,86 +193,110 @@ class ABCSMCRF:
             
         return self
 
+    def _analyze_simulation_results(self, output_dir: str, dir_postfix: str, timestamps: List[str]) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Analyze simulation results and extract statistics and parameters.
+        
+        Parameters:
+        -----------
+        output_dir : str
+            Base output directory
+        dir_postfix : str
+            Directory suffix for current iteration
+        timestamps : List[str]
+            List of timestamps to analyze
+            
+        Returns:
+        --------
+        Tuple[pd.DataFrame, pd.DataFrame]
+            DataFrames of statistics and valid parameters
+        """
+        from inverse_design.analyze.save_aggregated_results import SimulationMetrics
+        
+        # Analyze simulation results
+        metrics_calculator = SimulationMetrics(output_dir + dir_postfix)
+        metrics_calculator.analyze_all_simulations(timestamps)
+        metrics_calculator.extract_and_save_parameters(output_dir + dir_postfix + "/inputs")
+
+        # Extract statistics from analysis results
+        sim_folders = sorted(
+            [f for f in Path(output_dir + dir_postfix).glob("inputs/input_*")],
+            key=lambda x: int(re.search(r"input_(\d+)", x.name).group(1)),
+        )
+        statistics = pd.read_csv(f"{output_dir}/{dir_postfix}/final_metrics.csv")
+        valid_parameters = pd.read_csv(f"{output_dir}/{dir_postfix}/all_param_df.csv")
+        statistics.drop(columns=["input_folder", "states"], inplace=True)
+        valid_parameters.drop(columns=["input_folder"], inplace=True)
+        
+        return statistics, valid_parameters
+
     def _first_iteration(self, input_dir: str, output_dir: str, jar_path: str, timestamps: List[str]) -> None:
         """Execute the first iteration of ABC-SMC-RF (sampling from prior)."""
         # Generate input files using prior sampler
         from inverse_design.utils.create_input_files import generate_perturbed_parameters
-        from inverse_design.analyze.save_aggregated_results import SimulationMetrics
+        
         # Generate input XML files
+        dir_postfix = f"iter_{self.current_iteration}"
         generate_perturbed_parameters(
             sobol_power=self.sobol_power,
             param_ranges=self.param_ranges,
-            output_dir=input_dir,
+            output_dir=input_dir + dir_postfix,
             template_path="test_abc_smc_rf.xml"
         )
         # Run simulations in parallel
-        self._run_parallel_simulations(input_dir, output_dir, jar_path)
-        # Analyze simulation results
-        metrics_calculator = SimulationMetrics(output_dir)
-        metrics_calculator.analyze_all_simulations(timestamps)
-        metrics_calculator.extract_and_save_parameters(output_dir + "/inputs")
-
-        # Extract statistics from analysis results
-        statistics = []
-        valid_parameters = []
-        sim_folders = sorted(
-            [f for f in Path(output_dir).glob("inputs/input_*")],
-            key=lambda x: int(re.search(r"input_(\d+)", x.name).group(1)),
-        )
-        print(f"sim_folders: {sim_folders}")
-        statistics = pd.read_csv(f"{output_dir}final_metrics.csv")
-        valid_parameters = pd.read_csv(f"{output_dir}all_param_df.csv")
+        self._run_parallel_simulations(input_dir + dir_postfix, output_dir + dir_postfix, jar_path)
         
-        statistics.drop(columns=["input_folder"], inplace=True)
-        statistics.drop(columns=["states"], inplace=True)
-        valid_parameters.drop(columns=["input_folder"], inplace=True)
-
-        # Store results
+        statistics, valid_parameters = self._analyze_simulation_results(output_dir, dir_postfix, timestamps)
+        target_stats = np.array([statistics[target.metric.value] for target in self.observed_statistics])
+        target_stats = target_stats.reshape(-1, self.n_statistics)
         self.parameter_samples.append(np.array(valid_parameters))
-        self.statistics.append(np.array(statistics))
+        self.statistics.append(target_stats)
 
     def _subsequent_iteration(self, input_dir: str, output_dir: str, jar_path: str, timestamps: List[str]) -> None:
         """
         Execute a subsequent iteration of ABC-SMC-RF (sampling from previous posterior).
         """
+        from inverse_design.utils.create_input_files import generate_input_files
         prev_parameters = self.parameter_samples[-1]
         prev_weights = self.weights[-1]
         
         # Generate candidate parameters
-        n_candidates = (2 ** self.sobol_power) * 2  # Generate extra candidates to account for rejections
+        n_candidates = 2 ** self.sobol_power
         parameters = np.zeros((n_candidates, prev_parameters.shape[1]))
         
         i = 0
         while i < n_candidates:
             # Sample from previous posterior
+            print(f"weights: {len(prev_weights)}")
             idx = self.rng.choice(len(prev_parameters), p=prev_weights)
             theta_star = prev_parameters[idx]
-            
             # Perturb the parameters
-            theta_candidate = self.perturbation_kernel(theta_star)
-            
+            theta_candidate = self.perturbation_kernel(theta_star, self.current_iteration, max_iterations=self.n_iterations, param_ranges=self.param_ranges)
             # Check if the perturbed parameters have non-zero prior density
-            prior_density = self.prior_pdf(theta_candidate)
+            prior_density = self.prior_pdf(theta_candidate, param_ranges=self.param_ranges)
             if prior_density > 0:
                 parameters[i] = theta_candidate
                 i += 1
-        
-        # Run simulations in parallel with progress bar
-        parameters, statistics = self._run_parallel_simulations(
-            parameters, 
-            desc=f"Iteration {self.current_iteration + 1}"
+        dir_postfix = f"iter_{self.current_iteration}"
+        generate_input_files(
+            param_names=self.param_ranges.keys(),
+            param_values=parameters,
+            output_dir=input_dir + dir_postfix,
+            template_path="test_abc_smc_rf.xml"
         )
-        
+        self._run_parallel_simulations(input_dir + dir_postfix, output_dir + dir_postfix, jar_path)
+
+        # Analyze results and get statistics and parameters
+        statistics, valid_parameters = self._analyze_simulation_results(output_dir, dir_postfix, timestamps)
+        target_stats = np.array([statistics[target.metric.value] for target in self.observed_statistics])
+        target_stats = target_stats.reshape(-1, self.n_statistics)
+        if len(valid_parameters) < n_candidates:
+            logging.warning(f"Only {len(valid_parameters)} valid simulations out of {n_candidates} attempts")
+
         # Take only the first n_particles
-        if len(parameters) >= self.n_particles:
-            parameters = parameters[:self.n_particles]
-            statistics = statistics[:self.n_particles]
-        else:
-            logging.warning(f"Only {len(parameters)} valid simulations out of {n_candidates} attempts")
-        
         # Store results
         self.parameter_samples.append(parameters)
-        self.statistics.append(statistics)
+        self.statistics.append(target_stats)
         
     def _build_rf_model(self, t: int) -> None:
         """
@@ -429,10 +453,3 @@ class ABCSMCRF:
         else:  # DRF
             model = self.rf_models[t][0]
             return model.variable_importance()
-
-    def _extract_statistics(self, metrics_row: pd.Series) -> np.ndarray:
-        """Extract relevant statistics from metrics dataframe row."""
-        # TODO: Define which metrics to use as statistics
-        # This is an example - modify based on your needs
-        stat_columns = ['symmetry', 'cycle_length', 'act']  # Add your desired metrics
-        return metrics_row[stat_columns].values

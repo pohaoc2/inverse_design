@@ -2,7 +2,7 @@ import numpy as np
 from typing import Optional, List, Dict, Union, Tuple, Literal
 from scipy.spatial.distance import pdist, squareform
 from .rf_base import BaseRF
-
+from inverse_design.common.enum import Target
 class DRF(BaseRF):
     """
     Implementation of ABC Distributional Random Forest for multivariate parameter inference.
@@ -404,13 +404,13 @@ class DRF(BaseRF):
             else:
                 node_id = node['right_child']
     
-    def predict_weights(self, observed_statistics: np.ndarray) -> np.ndarray:
+    def predict_weights(self, observed_statistics: List[Target]) -> np.ndarray:
         """
         Compute weights for particles following Algorithm 4 from the paper.
         
         Parameters:
         -----------
-        observed_statistics : np.ndarray of shape (n_statistics,)
+        observed_statistics : List[Target]
             Observed summary statistics.
             
         Returns:
