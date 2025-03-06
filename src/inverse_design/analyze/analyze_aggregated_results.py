@@ -234,7 +234,7 @@ def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, de
             mode_value = lines[-1].get_xdata()[np.argmax(lines[-1].get_ydata())]
             posterior_kdes.append(posterior_kde)
             x_bounds.append(posterior_kde.get_lines()[0].get_xdata()[[0, -1]])
-            ax2.axvline(x=mode_value, color=color, linestyle='--', alpha=0.5, label=f"{label} (mode: {mode_value:.3f})")
+            #ax2.axvline(x=mode_value, color=color, linestyle='--', alpha=0.5, label=f"{label} (mode: {mode_value:.3f})")
 
         # Calculate overall x-axis bounds
         x_min = min(target_metrics[metric], min(bound[0] for bound in x_bounds))
@@ -439,17 +439,22 @@ def plot_metric_pairplot(
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_POSTERIOR_N512/MS_POSTERIOR_10P_N512_5P"
-    input_folder = parameter_base_folder + "/inputs"
-    csv_file = f"{parameter_base_folder}/final_metrics.csv"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_POSTERIOR_N512/"
+    input_folder = parameter_base_folder + "/MS_POSTERIOR_10P/n256/inputs"
+    csv_file = f"{parameter_base_folder}/MS_POSTERIOR_10P/n256/final_metrics.csv"
 
     metrics_name = "n_cells"
     metrics_df = pd.read_csv(csv_file)
     if 1:
-        posterior_metrics_files = [f"{parameter_base_folder}/accepted_metrics_{i}p.csv" for i in range(20, 4, -5)]
+        #posterior_metrics_files = [f"{parameter_base_folder}/accepted_metrics_{i}p.csv" for i in range(20, 4, -5)]
+        posterior_1 = csv_file
+        posterior_2 = f"{parameter_base_folder}/MS_POSTERIOR_10P_N256_5P/n256/final_metrics.csv"
+        posterior_3 = f"{parameter_base_folder}/MS_POSTERIOR_10P_N256_5P_N256_3P/n512/final_metrics.csv"
+        posterior_4 = f"{parameter_base_folder}/MS_POSTERIOR_10P_N256_5P_N256_3P_N512_1P/n32/final_metrics.csv"
+        posterior_metrics_files = [posterior_1, posterior_2, posterior_3, posterior_4]
         posterior_metrics_dfs = [pd.read_csv(posterior_metrics_file) for posterior_metrics_file in posterior_metrics_files]
         prior_metrics_file = (
-            "ARCADE_OUTPUT/STEM_CELL/MS_PRIOR_N512/final_metrics.csv"
+            "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_PRIOR_N512/final_metrics.csv"
         )
         target_metrics = {
             "symmetry": 0.8,

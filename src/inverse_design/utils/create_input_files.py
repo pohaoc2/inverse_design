@@ -6,6 +6,8 @@ import scipy.stats.qmc
 from typing import Dict
 import os
 import json
+from inverse_design.analyze.parameter_config import PARAM_RANGES
+
 
 def _format_param_value(value: float, precision: int, is_bounded_by_one: bool) -> str:
     """Format parameter value with bounds checking and precision."""
@@ -547,44 +549,10 @@ def generate_2param_perturbation(
 
 def main():
     output_dir = "inputs/STEM_CELL/TEST"
-    param_ranges = {
-        "CELL_VOLUME_MU": (-200, 500),
-        "CELL_VOLUME_SIGMA": (50, 250),
-        "APOPTOSIS_AGE_MU": (120960, 120960),
-        "APOPTOSIS_AGE_SIGMA": (6000, 6000),
-        "NECROTIC_FRACTION": (1.0, 1.0),
-        "ACCURACY": (0.0, 1.0),
-        "AFFINITY": (0.0, 1.0),
-        "COMPRESSION_TOLERANCE": (3, 10),
-        "SYNTHESIS_DURATION_MU": (580, 680),
-        "SYNTHESIS_DURATION_SIGMA": (20, 70),
-        "BASAL_ENERGY_MU": (0.0008, 0.0012),
-        "BASAL_ENERGY_SIGMA": (0.00006, 0.0001),
-        "PROLIFERATION_ENERGY_MU": (0.0008, 0.0012),
-        "PROLIFERATION_ENERGY_SIGMA": (0.00006, 0.0001),
-        "MIGRATION_ENERGY_MU": (0.00016, 0.00024),
-        "MIGRATION_ENERGY_SIGMA": (0.000012, 0.00002),
-        "METABOLIC_PREFERENCE_MU": (0.24, 0.36),
-        "METABOLIC_PREFERENCE_SIGMA": (0.019, 0.029),
-        "CONVERSION_FRACTION_MU": (0.2, 0.3),
-        "CONVERSION_FRACTION_SIGMA": (0.016, 0.024),
-        "RATIO_GLUCOSE_PYRUVATE_MU": (0.4, 0.6),
-        "RATIO_GLUCOSE_PYRUVATE_SIGMA": (0.032, 0.048),
-        "LACTATE_RATE_MU": (0.08, 0.12),
-        "LACTATE_RATE_SIGMA": (0.006, 0.01),
-        "AUTOPHAGY_RATE_MU": (0.00008, 0.00012),
-        "AUTOPHAGY_RATE_SIGMA": (0.000006, 0.00001),
-        "GLUCOSE_UPTAKE_RATE_MU": (0.9, 1.34),
-        "GLUCOSE_UPTAKE_RATE_SIGMA": (0.072, 0.107),
-        "ATP_PRODUCTION_RATE_MU": (7.14, 10.71),
-        "ATP_PRODUCTION_RATE_SIGMA": (0.57, 0.86),
-        "MIGRATORY_THRESHOLD_MU": (8, 12),
-        "MIGRATORY_THRESHOLD_SIGMA": (0.64, 0.96),
-    }
     if 1:
         generate_perturbed_parameters(
             sobol_power=8,
-            param_ranges=param_ranges,
+            param_ranges=PARAM_RANGES,
             output_dir=output_dir,
         )
     metric = "symmetry"

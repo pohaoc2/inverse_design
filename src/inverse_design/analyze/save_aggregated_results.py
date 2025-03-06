@@ -178,11 +178,18 @@ class SimulationMetrics:
         
         return df, temporal_results
 
+    def extract_and_save_parameters(self, input_folder):
+        print(input_folder)
+        input_files = list(Path(input_folder).glob("input_*"))
+        input_files = [f.name for f in input_files]
+        all_param_df = collect_parameter_data(input_files, input_folder, PARAMETER_LIST)
+        all_param_df.to_csv(f"{str(self.base_output_dir)}/all_param_df.csv", index=False)
+        self.logger.info(f"Saved all parameters for {len(input_files)} simulations to {str(self.base_output_dir)}/all_param_df.csv")
 
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_POSTERIOR_N512/MS_POSTERIOR_10P_N256_5P_N256_3P/n512/"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_POSTERIOR_N512/MS_POSTERIOR_10P_N256_5P_N256_3P_N512_1P/n32/"
     input_folder = parameter_base_folder + "/inputs"
     metrics_calculator = SimulationMetrics(parameter_base_folder)
 
@@ -206,11 +213,7 @@ def main():
     #timestamps = [timestamp for idx, timestamp in enumerate(timestamps) if idx % 4 == 0]
     #timestamps += ["010080"]
     metrics_calculator.analyze_all_simulations(timestamps=timestamps)
-
-    input_files = list(Path(input_folder).glob("input_*"))
-    input_files = [f.name for f in input_files]
-    all_param_df = collect_parameter_data(input_files, input_folder, PARAMETER_LIST)
-    all_param_df.to_csv(f"{parameter_base_folder}/all_param_df.csv", index=False)
+    metrics_calculator.extract_and_save_parameters(input_folder)
 
 
 if __name__ == "__main__":
