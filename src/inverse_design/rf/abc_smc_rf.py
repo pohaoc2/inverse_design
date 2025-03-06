@@ -186,7 +186,6 @@ class ABCSMCRF:
                 
             # Build random forest with current samples
             self._build_rf_model(t)
-            
             # Compute weights for current samples
             self._compute_weights(t)
             
@@ -224,12 +223,13 @@ class ABCSMCRF:
         statistics = pd.read_csv(f"{output_dir}final_metrics.csv")
         valid_parameters = pd.read_csv(f"{output_dir}all_param_df.csv")
         
+        statistics.drop(columns=["input_folder"], inplace=True)
+        statistics.drop(columns=["states"], inplace=True)
+        valid_parameters.drop(columns=["input_folder"], inplace=True)
+
         # Store results
         self.parameter_samples.append(np.array(valid_parameters))
         self.statistics.append(np.array(statistics))
-        print(f"self.parameter_samples: {self.parameter_samples}")
-        print(f"self.statistics: {self.statistics}")
-        asd()
 
     def _subsequent_iteration(self, input_dir: str, output_dir: str, jar_path: str, timestamps: List[str]) -> None:
         """
@@ -239,8 +239,8 @@ class ABCSMCRF:
         prev_weights = self.weights[-1]
         
         # Generate candidate parameters
-        n_candidates = self.n_particles * 2  # Generate extra candidates to account for rejections
-        parameters = np.zeros((n_candidates, self.n_parameters))
+        n_candidates = (2 ** self.sobol_power) * 2  # Generate extra candidates to account for rejections
+        parameters = np.zeros((n_candidates, prev_parameters.shape[1]))
         
         i = 0
         while i < n_candidates:
@@ -299,7 +299,7 @@ class ABCSMCRF:
                     n_trees=self.n_trees,
                     min_samples_leaf=self.min_samples_leaf,
                     n_try=self.n_try,
-                    random_state=self.rng.randint(0, 2**31)
+                    random_state=self.rng.randint(42)
                 )
                 model.fit(parameters[:, p], statistics)
                 models.append(model)
@@ -311,7 +311,7 @@ class ABCSMCRF:
                 n_trees=self.n_trees,
                 min_samples_leaf=self.min_samples_leaf,
                 n_try=self.n_try,
-                random_state=self.rng.randint(0, 2**31),
+                random_state=self.rng.randint(42),
                 criterion=self.criterion
             )
             model.fit(parameters, statistics)

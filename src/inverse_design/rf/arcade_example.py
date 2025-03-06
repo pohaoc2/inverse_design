@@ -9,106 +9,9 @@ from inverse_design.common.enum import Target, Metric
 import subprocess
 from pathlib import Path
 from inverse_design.analyze.parameter_config import PARAM_RANGES
-# Configure logging
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-# Set random seed for reproducibility
 np.random.seed(42)
-
-
-def simulate_data(input_file: Path, output_base_dir: Path, jar_path: str) -> bool:
-    """Run a single ARCADE simulation
-
-    Args:
-        input_file: Path to input XML file
-        output_base_dir: Base directory for outputs
-        jar_path: Path to arcade_v3.jar
-
-    Returns:
-        bool: True if simulation completed successfully
-    """
-    output_dir = f"{output_base_dir}/inputs/{input_file.stem}"
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    try:
-        result = subprocess.run(
-            ["java", "-jar", str(jar_path), "patch", str(input_file), str(output_dir)],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return True
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Error running simulation for {input_file.name}")
-        logging.error(f"Error message: {e.stderr}")
-        return False
-
-
-
-def compute_statistics(data):
-    """
-    Compute summary statistics from the simulated time series data.
-    
-    Parameters:
-    -----------
-    data : array
-        Time series data with shape (time_points, 2)
-    
-    Returns:
-    --------
-    stats : array
-        Summary statistics
-    """
-    # Extract prey and predator populations
-    prey = data[:, 0]
-    predator = data[:, 1]
-    
-    # Basic statistics
-    prey_mean = np.mean(prey)
-    prey_std = np.std(prey)
-    prey_min = np.min(prey)
-    prey_max = np.max(prey)
-    
-    predator_mean = np.mean(predator)
-    predator_std = np.std(predator)
-    predator_min = np.min(predator)
-    predator_max = np.max(predator)
-    
-    # Correlation between prey and predator
-    correlation = np.corrcoef(prey, predator)[0, 1]
-    
-    # Calculate oscillation properties
-    # Number of peaks in prey population
-    prey_peaks = len([i for i in range(1, len(prey)-1) if prey[i-1] < prey[i] and prey[i] > prey[i+1]])
-    predator_peaks = len([i for i in range(1, len(predator)-1) if predator[i-1] < predator[i] and predator[i] > predator[i+1]])
-    
-    # Time lag between prey and predator peaks
-    # (This is a simplified measure of phase difference)
-    cross_correlation = np.correlate(prey - np.mean(prey), predator - np.mean(predator), mode='full')
-    time_lag = np.argmax(cross_correlation) - len(prey) + 1
-    
-    # Combine all statistics
-    stats = np.array([
-        prey_mean, prey_std, prey_min, prey_max,
-        predator_mean, predator_std, predator_min, predator_max,
-        correlation, prey_peaks, predator_peaks, time_lag
-    ])
-    
-    return stats
-
-# Define the simulator function for ABC-SMC-DRF
-def abc_simulator(params):
-    """Wrapper around simulation for ABC-SMC-DRF"""
-    data = simulate_data(params)
-    return compute_statistics(data)
-
-# Define prior functions
-def prior_sampler(n_samples):
-    """Sample from the prior distribution"""
-    alpha = np.random.uniform(0.5, 2.0, n_samples)
-    gamma = np.random.uniform(0.5, 2.0, n_samples)
-    return np.column_stack([alpha, gamma])
 
 def prior_pdf(params):
     """Evaluate the prior density at the given parameters"""
@@ -118,17 +21,17 @@ def prior_pdf(params):
     else:
         return 0.0
 
-def perturbation_kernel(params):
+def perturbation_kernel(params, kernel="normal"):
     """Perturb parameters for the next iteration"""
-    alpha, gamma = params
-    # Add Gaussian noise with adaptive scale
-    alpha_new = alpha + np.random.normal(0, 0.1)
-    gamma_new = gamma + np.random.normal(0, 0.1)
-    return np.array([alpha_new, gamma_new])
+    if kernel == "normal":
+        return params + np.random.normal(0, 0.1, size=params.shape)
+    elif kernel == "uniform":
+        return params + np.random.uniform(-0.1, 0.1, size=params.shape)
+    else:
+        raise ValueError(f"Invalid kernel: {kernel}")
 
 def run_example():
     """Run the ABC-SMC-DRF example on the ARCADE model"""
-    prior_samples = prior_sampler(1000)
     targets = [
         Target(metric=Metric.get("symmetry"), value=0.8, weight=1.0),
         Target(metric=Metric.get("cycle_length"), value=30, weight=1.0),
@@ -139,7 +42,7 @@ def run_example():
     start_time = time.time()
     
     smc_rf = ABCSMCRF(
-        n_iterations=5,           # Number of SMC iterations
+        n_iterations=2,           # Number of SMC iterations
         sobol_power=1,            # Number of particles per iteration
         rf_type='DRF',            # Use Distributional Random Forest for multivariate inference
         n_trees=100,              # Number of trees in the random forest
@@ -153,6 +56,7 @@ def run_example():
     timestamps = [
         "000000",
         "000720",
+        "001440",
     ]
     input_dir = "inputs/abc_smc_rf/"
     output_dir = "ARCADE_OUTPUT/ABC_SMC_RF/"
