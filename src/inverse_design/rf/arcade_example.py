@@ -76,8 +76,8 @@ def run_example():
 
 
     smc_rf = ABCSMCRF(
-        n_iterations=2,           # Number of SMC iterations
-        sobol_power=4,            # Number of particles per iteration
+        n_iterations=5,           # Number of SMC iterations
+        sobol_power=9,            # Number of particles per iteration
         rf_type='DRF',            # Use Distributional Random Forest for multivariate inference
         n_trees=100,              # Number of trees in the random forest
         min_samples_leaf=5,       # Minimum samples per leaf
@@ -88,13 +88,20 @@ def run_example():
         prior_pdf=prior_pdf
     )
     timestamps = [
-        "000000",
-        "000500",
-        #"001000",
-        #"001500",
-        #"002000",
-        #"002500",
-       # "003000",
+        "000720",
+        "001440",
+        "002160",
+        "002880",
+        "003600",
+        "004320",
+        "005040",
+        "005760",
+        "006480",
+        "007200",
+        "007920",
+        "008640",
+        "009360",
+        "010080",
     ]
     input_dir = "inputs/abc_smc_rf/"
     output_dir = "ARCADE_OUTPUT/ABC_SMC_RF/"

@@ -255,7 +255,7 @@ class ABCSMCRF:
             sobol_power=self.sobol_power,
             param_ranges=self.param_ranges,
             output_dir=input_dir + dir_postfix,
-            template_path="test_abc_smc_rf.xml"
+            template_path="sample_input_v3.xml"
         )
         # Run simulations in parallel
         self._run_parallel_simulations(input_dir + dir_postfix, output_dir + dir_postfix, jar_path)
@@ -295,7 +295,7 @@ class ABCSMCRF:
             param_names=self.param_ranges.keys(),
             param_values=parameters,
             output_dir=input_dir + dir_postfix,
-            template_path="test_abc_smc_rf.xml"
+            template_path="sample_input_v3.xml"
         )
         self._run_parallel_simulations(input_dir + dir_postfix, output_dir + dir_postfix, jar_path)
 
