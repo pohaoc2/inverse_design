@@ -1,9 +1,10 @@
+import time
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
-import time
-from abc_smc_rf import ABCSMCRF
-import logging
+from inverse_design.rf.abc_smc_rf_lotka_volterra import ABCSMCRF
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
