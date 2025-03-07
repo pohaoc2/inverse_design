@@ -14,6 +14,7 @@ import pandas as pd
 from inverse_design.examples.run_simulations import run_simulations
 from inverse_design.common.enum import Target
 #from inverse_design.examples.simulation_metrics import SimulationMetrics
+import joblib
 
 class ABCSMCRF:
     """
@@ -134,21 +135,31 @@ class ABCSMCRF:
     def _run_parallel_simulations(self, input_dir: str, output_dir: str, jar_path: str) -> List[str]:
         """Run ARCADE simulations in parallel."""
         from inverse_design.examples.run_simulations import run_simulations
-        
-        # Create output directory if it doesn't exist
-        os.makedirs(output_dir, exist_ok=True)
-        # Run simulations
+        start_index = 1
+        # Check if the input directory exists, if exists, skip the generation
+        if os.path.exists(output_dir):
+            num_outputs = len([f for f in Path(output_dir + f"/inputs").glob("input_*")])
+            if num_outputs >= 2 ** self.sobol_power:
+                print(f"ARCADE simulations for {output_dir} already exist, and have {num_outputs} outputs (target = {2 ** self.sobol_power}), skipping generation")
+                return
+            else:
+                print(f"ARCADE simulations for {output_dir} exist but have {num_outputs} outputs, expected {2 ** self.sobol_power}")
+                start_index = num_outputs + 1
+        else:
+            os.makedirs(output_dir, exist_ok=True)
+            # Run simulations
         run_simulations(
             input_dir=input_dir+"/inputs",
             output_dir=output_dir,
             jar_path=jar_path,
             max_workers=int(mp.cpu_count()/2),
-            start_index=1
+            start_index=start_index
         )
 
     def fit(
         self, 
-        observed_statistics: List[Target], 
+        target_names: List[str],
+        target_values: List[float],
         input_dir: str, 
         output_dir: str, 
         jar_path: str,
@@ -159,8 +170,10 @@ class ABCSMCRF:
         
         Parameters:
         -----------
-        observed_statistics : List[Target]
-            List of Target objects
+        target_names : List[str]
+            List of target names
+        target_values : List[float]
+            List of target values
         input_dir : str
             Directory containing input XML files
         output_dir : str
@@ -170,8 +183,9 @@ class ABCSMCRF:
         timestamps : List[str]
             List of timestamps to analyze (e.g., ["000000", "000720", ...])
         """
-        self.observed_statistics = observed_statistics
-        self.n_statistics = len(observed_statistics)
+        self.target_names = target_names
+        self.target_values = target_values
+        self.n_statistics = len(target_names)
         # Run iterations
         for t in range(self.n_iterations):
             self.current_iteration = t
@@ -212,17 +226,17 @@ class ABCSMCRF:
             DataFrames of statistics and valid parameters
         """
         from inverse_design.analyze.save_aggregated_results import SimulationMetrics
-        
-        # Analyze simulation results
-        metrics_calculator = SimulationMetrics(output_dir + dir_postfix)
-        metrics_calculator.analyze_all_simulations(timestamps)
-        metrics_calculator.extract_and_save_parameters(output_dir + dir_postfix + "/inputs")
-
-        # Extract statistics from analysis results
         sim_folders = sorted(
             [f for f in Path(output_dir + dir_postfix).glob("inputs/input_*")],
             key=lambda x: int(re.search(r"input_(\d+)", x.name).group(1)),
         )
+        sim_folders = sim_folders[:2 ** self.sobol_power]
+        print(sim_folders[0])
+        # Analyze simulation results
+        metrics_calculator = SimulationMetrics(output_dir + dir_postfix)
+        metrics_calculator.analyze_all_simulations(timestamps, sim_folders)
+        metrics_calculator.extract_and_save_parameters(sim_folders)
+
         statistics = pd.read_csv(f"{output_dir}/{dir_postfix}/final_metrics.csv")
         valid_parameters = pd.read_csv(f"{output_dir}/{dir_postfix}/all_param_df.csv")
         statistics.drop(columns=["input_folder", "states"], inplace=True)
@@ -247,7 +261,7 @@ class ABCSMCRF:
         self._run_parallel_simulations(input_dir + dir_postfix, output_dir + dir_postfix, jar_path)
         
         statistics, valid_parameters = self._analyze_simulation_results(output_dir, dir_postfix, timestamps)
-        target_stats = np.array([statistics[target.metric.value] for target in self.observed_statistics])
+        target_stats = np.array([statistics[target_name] for target_name in self.target_names])
         target_stats = target_stats.reshape(-1, self.n_statistics)
         self.parameter_samples.append(np.array(valid_parameters))
         self.statistics.append(target_stats)
@@ -267,7 +281,6 @@ class ABCSMCRF:
         i = 0
         while i < n_candidates:
             # Sample from previous posterior
-            print(f"weights: {len(prev_weights)}")
             idx = self.rng.choice(len(prev_parameters), p=prev_weights)
             theta_star = prev_parameters[idx]
             # Perturb the parameters
@@ -288,7 +301,7 @@ class ABCSMCRF:
 
         # Analyze results and get statistics and parameters
         statistics, valid_parameters = self._analyze_simulation_results(output_dir, dir_postfix, timestamps)
-        target_stats = np.array([statistics[target.metric.value] for target in self.observed_statistics])
+        target_stats = np.array([statistics[target_name] for target_name in self.target_names])
         target_stats = target_stats.reshape(-1, self.n_statistics)
         if len(valid_parameters) < n_candidates:
             logging.warning(f"Only {len(valid_parameters)} valid simulations out of {n_candidates} attempts")
@@ -366,7 +379,7 @@ class ABCSMCRF:
                 
         else:  # DRF
             model = self.rf_models[t][0]
-            weights = model.predict_weights(self.observed_statistics)
+            weights = model.predict_weights(self.target_values)
             self.weights.append(weights)
             
     def posterior_sample(self, n_samples: int = 1000) -> np.ndarray:
@@ -453,3 +466,4 @@ class ABCSMCRF:
         else:  # DRF
             model = self.rf_models[t][0]
             return model.variable_importance()
+    

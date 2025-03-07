@@ -123,7 +123,7 @@ class SimulationMetrics:
         return aggregated_metrics
 
     def analyze_all_simulations(
-        self, timestamps: List[str]
+        self, timestamps: List[str], sim_folders: List[Path]
     ) -> Tuple[pd.DataFrame, Dict[str, Dict]]:
         """Analyze all simulation folders and compile results.
         
@@ -138,14 +138,8 @@ class SimulationMetrics:
         """
         # Ensure timestamps are sorted
         timestamps = sorted(timestamps, key=lambda x: int(x))
-        
         final_results = []
         temporal_results = {}
-
-        sim_folders = sorted(
-            [f for f in self.input_folder.glob("input_*")],
-            key=lambda x: int(re.search(r"input_(\d+)", x.name).group(1)),
-        )
         
         for folder in sim_folders:
             try:
@@ -178,12 +172,10 @@ class SimulationMetrics:
         
         return df, temporal_results
 
-    def extract_and_save_parameters(self, input_folder):
-        input_files = list(Path(input_folder).glob("input_*"))
-        input_files = [f.name for f in input_files]
-        all_param_df = collect_parameter_data(input_files, input_folder, PARAMETER_LIST)
+    def extract_and_save_parameters(self, sim_folders):
+        all_param_df = collect_parameter_data(sim_folders, PARAMETER_LIST)
         all_param_df.to_csv(f"{str(self.base_output_dir)}/all_param_df.csv", index=False)
-        self.logger.info(f"Saved all parameters for {len(input_files)} simulations to {str(self.base_output_dir)}/all_param_df.csv")
+        self.logger.info(f"Saved all parameters for {len(sim_folders)} simulations to {str(self.base_output_dir)}/all_param_df.csv")
 
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -211,8 +203,12 @@ def main():
     ]
     #timestamps = [timestamp for idx, timestamp in enumerate(timestamps) if idx % 4 == 0]
     #timestamps += ["010080"]
-    metrics_calculator.analyze_all_simulations(timestamps=timestamps)
-    metrics_calculator.extract_and_save_parameters(input_folder)
+    sim_folders = sorted(
+        [f for f in input_folder.glob("input_*")],
+        key=lambda x: int(re.search(r"input_(\d+)", x.name).group(1)),
+    )
+    metrics_calculator.analyze_all_simulations(timestamps=timestamps, sim_folders=sim_folders)
+    metrics_calculator.extract_and_save_parameters(sim_folders)
 
 
 if __name__ == "__main__":

@@ -110,8 +110,17 @@ def generate_perturbed_parameters(
         output_dir: Directory to save generated XML files
         seed: Random seed for reproducibility
     """
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    # Check if the input directory exists, if exists, skip the generation
+
+    if os.path.exists(output_dir):
+        num_files = len([f for f in os.listdir(output_dir+"/inputs") if f.startswith("input_")])
+        if num_files >= 2**sobol_power:
+            print(f"Input directory {output_dir} already exists, and number of files ({num_files}) is greater than or equal to the number of target number of files ({2**sobol_power}), skipping generation")
+            return
+        else:
+            print(f"Input directory {output_dir} already exists, but number of files ({num_files}) is less than the number of target number of files ({2**sobol_power}), generating new files")
+    else:
+        os.makedirs(f"{output_dir}/inputs")
     # Save parameter ranges to CSV
     save_parameter_ranges(param_ranges, output_dir)
 
@@ -170,6 +179,7 @@ def generate_parameters_from_kde(
     output_dir: str = "kde_sampled_inputs",
     template_path: str = "sample_input_v3.xml",
     const_params_values: Dict[str, float] = None,
+    seed: int = 42,
 ):
     """Generate parameter sets by sampling from kernel density estimates (KDE)
 
@@ -180,9 +190,16 @@ def generate_parameters_from_kde(
         template_path: Path to template XML file
         const_params_values: Dictionary of parameters to keep constant {param_name: value}
     """
-    # Create output directory
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    # Check if the input directory exists, if exists, skip the generation
+    if os.path.exists(output_dir):
+        num_files = len([f for f in os.listdir(output_dir+"/inputs") if f.startswith("input_")])
+        if num_files >= n_samples:
+            print(f"Input directory {output_dir} already exists, and number of files ({num_files}) is greater than or equal to the number of target number of files ({n_samples}), skipping generation")
+            return
+        else:
+            print(f"Input directory {output_dir} already exists, but number of files ({num_files}) is less than the number of target number of files ({n_samples}), generating new files")
+    else:
+        os.makedirs(f"{output_dir}/inputs")
 
     # Read template XML
     tree = ET.parse(template_path)
@@ -196,7 +213,9 @@ def generate_parameters_from_kde(
     param_names = parameter_pdfs.keys()
 
     # Generate samples for each parameter
-    sampled_params = {param: kde.resample(n_samples, seed=42)[0] for param, kde in kde_dict.items()}
+    sampled_params = {param: kde.resample(n_samples, seed=seed)[0] for param, kde in kde_dict.items()}
+
+
 
     # Generate XML files for each parameter set
     for i in range(n_samples):
@@ -481,10 +500,16 @@ def generate_input_files(
         output_dir: Directory to save generated XML files
         template_path: Path to template XML file
     """
-    # Create output directory
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    if not os.path.exists(f"{output_dir}/inputs"):
+    # Check if the input directory exists, if exists, skip the generation
+
+    if os.path.exists(output_dir):
+        num_files = len([f for f in os.listdir(output_dir+"/inputs") if f.startswith("input_")])
+        if num_files >= len(param_values):
+            print(f"Input directory {output_dir} already exists, and number of files ({num_files}) is greater than or equal to the number of target number of files ({len(param_values)}), skipping generation")
+            return
+        else:
+            print(f"Input directory {output_dir} already exists, but number of files ({num_files}) is less than the number of target number of files ({len(param_values)}), generating new files")
+    else:
         os.makedirs(f"{output_dir}/inputs")
 
     # Read template XML

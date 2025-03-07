@@ -93,13 +93,12 @@ def analyze_metric_percentiles(csv_file_path, metrics_name: str, percentile: flo
 
     return high_metric_folders, low_metric_folders, all_data
 
-def collect_parameter_data(input_files, parameter_base_folder, parameter_list, labels=None):
+def collect_parameter_data(input_files, parameter_list, labels=None):
     """
     Collect parameter data from JSON files for a list of input folders.
 
     Args:
         input_files: List of input folder names
-        parameter_base_folder: Base folder containing parameter files
         parameter_list: List of parameters to extract
         labels: Optional list of labels corresponding to input_files
 
@@ -108,10 +107,10 @@ def collect_parameter_data(input_files, parameter_base_folder, parameter_list, l
     """
     params_list = []
     for i, input_folder in enumerate(input_files):
-        input_folder_path = Path(parameter_base_folder) / input_folder
+        input_folder_path = Path(input_folder)
         params = get_parameters_from_json(input_folder_path, parameter_list)
         # Add folder name to params
-        params["input_folder"] = input_folder
+        params["input_folder"] = str(input_folder.name)
         if labels is not None:
             params["percentile_label"] = labels[i]
         params_list.append(params)

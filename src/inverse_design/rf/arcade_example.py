@@ -41,8 +41,8 @@ def prior_pdf(params, param_ranges=PARAM_RANGES):
     
     return 1.0
 
-def perturbation_kernel(params, iteration=1, max_iterations=5, param_ranges=PARAM_RANGES):
-
+def perturbation_kernel(params, iteration=1, max_iterations=5, param_ranges=PARAM_RANGES, seed=42):
+    np.random.seed(seed)
     # Check if the number of parameters matches
     if len(params) != len(param_ranges):
         raise ValueError(f"Expected {len(param_ranges)} parameters, got {len(params)}")
@@ -66,6 +66,8 @@ def run_example():
         Target(metric=Metric.get("cycle_length"), value=30, weight=1.0),
         Target(metric=Metric.get("act"), value=0.6, weight=1.0),
     ]
+    target_names = [target.metric.value for target in targets]
+    target_values = [target.value for target in targets]
     # Initialize and run ABC-SMC-DRF
     print("\nRunning ABC-SMC-DRF...")
     start_time = time.time()
@@ -75,7 +77,7 @@ def run_example():
 
     smc_rf = ABCSMCRF(
         n_iterations=2,           # Number of SMC iterations
-        sobol_power=1,            # Number of particles per iteration
+        sobol_power=4,            # Number of particles per iteration
         rf_type='DRF',            # Use Distributional Random Forest for multivariate inference
         n_trees=100,              # Number of trees in the random forest
         min_samples_leaf=5,       # Minimum samples per leaf
@@ -87,17 +89,18 @@ def run_example():
     )
     timestamps = [
         "000000",
-        "000100",
-        "000200",
-        "000300",
-        "000400",
         "000500",
+        #"001000",
+        #"001500",
+        #"002000",
+        #"002500",
+       # "003000",
     ]
     input_dir = "inputs/abc_smc_rf/"
     output_dir = "ARCADE_OUTPUT/ABC_SMC_RF/"
     jar_path = "models/arcade-test-cycle-fix-affinity.jar"
+    smc_rf.fit(target_names, target_values, input_dir, output_dir, jar_path, timestamps)
 
-    smc_rf.fit(targets, input_dir, output_dir, jar_path, timestamps)
     print(f"ABC-SMC-DRF completed in {time.time() - start_time:.2f} seconds")    
     # Generate posterior samples
     posterior_samples = smc_rf.posterior_sample(1000)
@@ -144,7 +147,7 @@ def plot_iterations(smc_rf, true_params):
 def plot_variable_importance(smc_rf, statistic_names):
     """Plot variable importance from the final iteration"""
     importance = smc_rf.get_variable_importance()
-    
+    print(importance)
     # Ensure we have the right number of names
     if len(importance) != len(statistic_names):
         raise ValueError(f"Number of statistics ({len(importance)}) doesn't match number of names ({len(statistic_names)})")
