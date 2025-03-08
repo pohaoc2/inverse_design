@@ -49,7 +49,7 @@ def run_simulations(
     output_dir: str = "simulation_results",
     jar_path: str = "arcade_v3.jar",
     max_workers: int = 4,
-    start_index: int = 1,
+    running_index: list[int] = [None],
 ) -> None:
     """Run ARCADE simulations for all input files in parallel
 
@@ -58,7 +58,7 @@ def run_simulations(
         output_dir: Directory for simulation outputs
         jar_path: Path to arcade_v3.jar
         max_workers: Maximum number of parallel simulations
-        start_index: Starting index for input files (default: 1, runs all files)
+        running_index: List of indices of the simulations to run
     """
     logging.basicConfig(
         level=logging.INFO,
@@ -81,14 +81,15 @@ def run_simulations(
         input_dir.glob("input_*"), 
         key=get_input_number
     )
-    
-    # Filter files based on numerical comparison
-    input_files = [f for f in input_files if get_input_number(f) >= start_index]
-
+    if running_index == [None]:
+        running_index = list(range(len(input_files)))
+    else:
+        running_index = [int(i) for i in running_index]
+        input_files = [f for f in input_files if get_input_number(f) in running_index]
     if not input_files:
-        raise FileNotFoundError(f"No XML files found with index >= {start_index}")
+        raise FileNotFoundError(f"No XML files found with index in {input_dir.name}")
 
-    logging.info(f"Found {len(input_files)} input files starting from index {start_index}")
+    logging.info(f"Found {len(input_files)} input files with index in {input_dir.name}")
     logging.info(f"Running simulations with {max_workers} parallel workers")
 
     output_dir.mkdir(exist_ok=True, parents=True)

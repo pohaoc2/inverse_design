@@ -122,25 +122,24 @@ class ABCSMCRF(ABCSMCRFBase):
     def _run_parallel_simulations(self, input_dir: str, output_dir: str, jar_path: str) -> List[str]:
         """Run ARCADE simulations in parallel."""
         from inverse_design.examples.run_simulations import run_simulations
-        start_index = 1
-        # Check if the input directory exists, if exists, skip the generation
+        all_output_names = [f"input_{i}" for i in range(2 ** self.sobol_power)]
         if os.path.exists(output_dir):
-            num_outputs = len([f for f in Path(output_dir + f"/inputs").glob("input_*")])
-            if num_outputs >= 2 ** self.sobol_power:
-                print(f"ARCADE simulations for {output_dir} already exist, and have {num_outputs} outputs (target = {2 ** self.sobol_power}), skipping generation")
+            current_output_names = [f.name for f in Path(output_dir + f"/inputs").glob("input_*")]
+            missing_output_indices = [int(f.split("_")[-1].split(".")[0]) for f in all_output_names if f not in current_output_names]
+            if len(missing_output_indices) == 0:
+                print(f"ARCADE simulations for {output_dir} already exist, and have {len(current_output_names)} outputs (target = {2 ** self.sobol_power}), skipping generation")
                 return
             else:
-                print(f"ARCADE simulations for {output_dir} exist but have {num_outputs} outputs, expected {2 ** self.sobol_power}")
-                start_index = num_outputs + 1
+                print(f"ARCADE simulations for {output_dir} exist but have {len(current_output_names)} outputs, expected {2 ** self.sobol_power}")
         else:
             os.makedirs(output_dir, exist_ok=True)
-            # Run simulations
+        # Run simulations
         run_simulations(
             input_dir=input_dir+"/inputs",
             output_dir=output_dir,
             jar_path=jar_path,
             max_workers=int(mp.cpu_count()/2),
-            start_index=start_index
+            running_index=missing_output_indices
         )
 
     def fit(

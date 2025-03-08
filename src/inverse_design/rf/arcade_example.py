@@ -107,8 +107,6 @@ def plot_parameter_iterations(smc_rf, param_names, sobol_power=8, plot_kde=False
     from scipy.stats import qmc
     sampler = qmc.Sobol(d=len(param_names), seed=42)
     n_samples = 2**sobol_power
-
-    
     
     for idx, param_name in enumerate(param_names):
         param_idx = list(smc_rf.param_ranges.keys()).index(param_name)
@@ -239,9 +237,10 @@ def run_example():
     start_time = time.time()
     param_ranges = PARAM_RANGES.copy()
     param_ranges = {k: v for k, v in param_ranges.items() if v[0] != v[1]}
-    sobol_power = 8
+    sobol_power = 9
+    n_samples = 2**sobol_power
     smc_rf = ABCSMCRF(
-        n_iterations=2,           
+        n_iterations=1,           
         sobol_power=sobol_power,            
         rf_type='DRF',
         n_trees=100,
@@ -269,8 +268,8 @@ def run_example():
         "009360",
         "010080",
     ]
-    input_dir = "inputs/abc_smc_rf/"
-    output_dir = "ARCADE_OUTPUT/ABC_SMC_RF/"
+    input_dir = f"inputs/abc_smc_rf_n{n_samples}/"
+    output_dir = f"ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}/"
     jar_path = "models/arcade-test-cycle-fix-affinity.jar"
     smc_rf.fit(target_names, target_values, input_dir, output_dir, jar_path, timestamps)
     smc_rf.plot_tree(

@@ -76,7 +76,6 @@ class SimulationMetrics:
         n_cells_t1_list = metrics_by_timestamp[timestamps[0]]["n_cells"]
         n_cells_t2_list = metrics_by_timestamp[timestamps[-1]]["n_cells"]
         time_difference = int(timestamps[-1]) - int(timestamps[0])
-        
         colony_diameters_over_time = {i: [] for i in range(len(n_cells_t1_list))}
         for timestamp, metrics_for_timestamp in metrics_by_timestamp.items():
             for seed_idx, seed_metrics in enumerate(metrics_for_timestamp["colony_diameter"]):
@@ -141,8 +140,8 @@ class SimulationMetrics:
         final_results = []
         temporal_results = {}
         
-        for folder in sim_folders:
-            try:
+        for folder in sim_folders[90:]:
+            #try:
                 folder_number = int(re.search(r"input_(\d+)", folder.name).group(1))
                 if folder_number % 50 == 0:
                     print(f"Analyzing {folder.name} ({folder_number}/{len(sim_folders)})")
@@ -151,8 +150,8 @@ class SimulationMetrics:
                 final_metrics_flat["input_folder"] = folder.name
                 final_results.append(final_metrics_flat)
                 temporal_results[folder.name] = metrics["temporal_metrics"]
-            except Exception as e:
-                self.logger.error(f"Error processing {folder}: {str(e)}")
+            #except Exception as e:
+            #    self.logger.error(f"Error processing {folder}: {str(e)}")
         # Create DataFrame for final metrics
         df = pd.DataFrame(final_results)
         
@@ -180,7 +179,7 @@ class SimulationMetrics:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_POSTERIOR_N512/MS_POSTERIOR_10P_N256_5P_N256_3P_N512_1P/n32/"
+    parameter_base_folder = "ARCADE_OUTPUT/ABC_SMC_RF_N512/iter_0"
     input_folder = parameter_base_folder + "/inputs"
     metrics_calculator = SimulationMetrics(parameter_base_folder)
 
@@ -204,7 +203,7 @@ def main():
     #timestamps = [timestamp for idx, timestamp in enumerate(timestamps) if idx % 4 == 0]
     #timestamps += ["010080"]
     sim_folders = sorted(
-        [f for f in input_folder.glob("input_*")],
+        [f for f in Path(input_folder).glob("input_*")],
         key=lambda x: int(re.search(r"input_(\d+)", x.name).group(1)),
     )
     metrics_calculator.analyze_all_simulations(timestamps=timestamps, sim_folders=sim_folders)
