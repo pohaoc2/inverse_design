@@ -296,6 +296,7 @@ class ABCSMCRF:
             if prior_density > 0:
                 parameters[i] = theta_candidate
                 i += 1
+            asd()
         dir_postfix = f"iter_{self.current_iteration}"
         generate_input_files(
             param_names=self.param_ranges.keys(),

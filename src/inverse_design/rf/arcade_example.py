@@ -56,12 +56,23 @@ def perturbation_kernel(params, iteration=1, max_iterations=5, param_ranges=PARA
     
     # Decrease perturbation scale as iterations progress
     scale_factor = max(0.01, 0.1 * (1 - iteration/max_iterations))
+    print("--------------------------------")
+    print("Before perturbation:")
+    for idx, params in enumerate(perturbed_params[:5]):
+        print(f"{list(param_ranges.keys())[idx]}: {params}")
     
+
     for i, (min_val, max_val) in enumerate(param_ranges.values()):
         param_range = max_val - min_val
         scale = param_range * scale_factor
         perturbed_params[i] += np.random.normal(0, scale)
-        
+    
+    print("--------------------------------")
+    print("After perturbation:")
+    for idx, params in enumerate(perturbed_params[:5]):
+        print(f"{list(param_ranges.keys())[idx]}: {params}")
+    
+
     return perturbed_params
 
 def plot_parameter_iterations(smc_rf, param_names):
@@ -179,8 +190,8 @@ def run_example():
     param_ranges = {k: v for k, v in param_ranges.items() if v[0] != v[1]}
     smc_rf = ABCSMCRF(
         n_iterations=2,           
-        sobol_power=8,            
-        rf_type='DRF',            
+        sobol_power=3,            
+        rf_type='DRF',
         n_trees=100,
         min_samples_leaf=5,
         param_ranges=param_ranges,
@@ -191,23 +202,14 @@ def run_example():
         prior_pdf=prior_pdf
     )
     timestamps = [
-        "000720",
-        "001440",
-        "002160",
-        "002880",
-        "003600",
-        "004320",
-        "005040",
-        "005760",
-        "006480",
-        "007200",
-        "007920",
-        "008640",
-        "009360",
-        "010080",
+        "000100",
+        "000200",
+        "000300",
+        "000400",
+        "000500",
     ]
-    input_dir = "inputs/abc_smc_rf/"
-    output_dir = "ARCADE_OUTPUT/ABC_SMC_RF/"
+    input_dir = "inputs/abc_smc_rf_test/"
+    output_dir = "ARCADE_OUTPUT/ABC_SMC_RF_TEST/"
     jar_path = "models/arcade-test-cycle-fix-affinity.jar"
     smc_rf.fit(target_names, target_values, input_dir, output_dir, jar_path, timestamps)
 
