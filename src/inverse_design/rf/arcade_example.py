@@ -177,9 +177,8 @@ def run_example():
     start_time = time.time()
     param_ranges = PARAM_RANGES.copy()
     param_ranges = {k: v for k, v in param_ranges.items() if v[0] != v[1]}
-
     smc_rf = ABCSMCRF(
-        n_iterations=3,           
+        n_iterations=2,           
         sobol_power=8,            
         rf_type='DRF',            
         n_trees=100,
@@ -187,6 +186,7 @@ def run_example():
         param_ranges=param_ranges,
         random_state=42, 
         criterion='CART',
+        subsample_ratio=0.5,
         perturbation_kernel=perturbation_kernel,
         prior_pdf=prior_pdf
     )
@@ -212,7 +212,12 @@ def run_example():
     smc_rf.fit(target_names, target_values, input_dir, output_dir, jar_path, timestamps)
 
     print(f"ABC-SMC-DRF completed in {time.time() - start_time:.2f} seconds")
-
+    smc_rf.plot_tree(
+        iteration=-1,  # last iteration
+        feature_names=['symmetry', 'cycle_length', 'act'],  # your statistics names
+        max_depth=10  # adjust for more or less detail
+    )
+    asd()
     posterior_samples = smc_rf.posterior_sample(1000)
     print("\nParameter estimation results:")
     for i, param_name in enumerate(smc_rf.param_ranges.keys()):
@@ -220,9 +225,9 @@ def run_example():
     
     # Plot results
     param_names = ["AFFINITY", "COMPRESSION_TOLERANCE", "CELL_VOLUME_MU"]
-    plot_parameter_iterations(smc_rf, param_names)
-    plot_statistics_iterations(smc_rf, target_names, target_values)
-    plot_variable_importance(smc_rf, target_names)
+    #plot_parameter_iterations(smc_rf, param_names)
+    #plot_statistics_iterations(smc_rf, target_names, target_values)
+    #plot_variable_importance(smc_rf, target_names)
 
 if __name__ == "__main__":
     run_example()

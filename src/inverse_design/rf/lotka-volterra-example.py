@@ -183,30 +183,27 @@ def run_example():
     true_params = [TRUE_ALPHA, TRUE_GAMMA]
     observed_data = simulate_data(true_params, add_noise=True)
     observed_stats = compute_statistics(observed_data)
-    
-    print("True parameters: alpha =", TRUE_ALPHA, ", gamma =", TRUE_GAMMA)
-    print("Generated observed data with", len(TIME_POINTS), "time points")
-    
-    # Plot the observed data
-    plt.figure(figsize=(10, 6))
-    plt.plot(TIME_POINTS, observed_data[:, 0], 'b-', label='Prey (observed)')
-    plt.plot(TIME_POINTS, observed_data[:, 1], 'r-', label='Predator (observed)')
-    plt.xlabel('Time')
-    plt.ylabel('Population')
-    plt.title('Observed Lotka-Volterra Dynamics')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-    
-    # Sample from prior for comparison
-    prior_samples = prior_sampler(1000)
+    if 0:
+        print("True parameters: alpha =", TRUE_ALPHA, ", gamma =", TRUE_GAMMA)
+        print("Generated observed data with", len(TIME_POINTS), "time points")
+        
+        # Plot the observed data
+        plt.figure(figsize=(10, 6))
+        plt.plot(TIME_POINTS, observed_data[:, 0], 'b-', label='Prey (observed)')
+        plt.plot(TIME_POINTS, observed_data[:, 1], 'r-', label='Predator (observed)')
+        plt.xlabel('Time')
+        plt.ylabel('Population')
+        plt.title('Observed Lotka-Volterra Dynamics')
+        plt.legend()
+        plt.grid(True)
+        plt.show()
     
     # Initialize and run ABC-SMC-DRF
     print("\nRunning ABC-SMC-DRF...")
     start_time = time.time()
     
     smc_rf = ABCSMCRF(
-        n_iterations=5,           # Number of SMC iterations
+        n_iterations=2,           # Number of SMC iterations
         n_particles=500,          # Number of particles per iteration
         rf_type='DRF',            # Use Distributional Random Forest for multivariate inference
         n_trees=100,              # Number of trees in the random forest
@@ -220,10 +217,16 @@ def run_example():
     
     smc_rf.fit(observed_stats, abc_simulator)
 
-    print(f"ABC-SMC-DRF completed in {time.time() - start_time:.2f} seconds")    
+    print(f"ABC-SMC-DRF completed in {time.time() - start_time:.2f} seconds")
+    feature_names = ['prey_mean', 'prey_std', 'prey_min', 'prey_max', 'predator_mean', 'predator_std', 'predator_min', 'predator_max', 'correlation', 'prey_peaks', 'predator_peaks', 'time_lag']
+    smc_rf.plot_tree(
+        iteration=-1,  # last iteration
+        feature_names=feature_names,  # your statistics names
+        max_depth=10  # adjust for more or less detail
+    )
     # Generate posterior samples
     posterior_samples = smc_rf.posterior_sample(1000)
-    
+    prior_samples = prior_sampler(1000)
     # Analyze results
     print("\nParameter estimation results:")
     print(f"True alpha: {TRUE_ALPHA:.4f}, Estimated: {np.mean(posterior_samples[:, 0]):.4f} ± {np.std(posterior_samples[:, 0]):.4f}")
@@ -278,16 +281,10 @@ def run_example():
     plt.legend()
     
     plt.tight_layout()
-    plt.show()
-    
-    # Plot the evolution of parameter estimates across iterations
-    plot_iterations(smc_rf, true_params=[TRUE_ALPHA, TRUE_GAMMA])
-    
-    # Plot variable importance
+    #plt.show()
+    #plot_iterations(smc_rf, true_params=[TRUE_ALPHA, TRUE_GAMMA])
     plot_variable_importance(smc_rf)
-    
-    # Simulate from the posterior for model checking
-    posterior_check(smc_rf, observed_data)
+    #posterior_check(smc_rf, observed_data)
 
 def plot_iterations(smc_rf, true_params):
     """Plot parameter distributions across iterations"""

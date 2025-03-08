@@ -113,11 +113,10 @@ class DRF(BaseRF):
         tree : Dict
             A decision tree represented as a dictionary.
         """
-        tree = {'nodes': []}
+        tree = {'nodes': [], 'next_id': 1}
         
         # Queue for nodes to process
         queue = [(0, np.arange(len(parameters)))]
-        
         while queue:
             node_id, node_samples = queue.pop(0)
             
@@ -174,6 +173,7 @@ class DRF(BaseRF):
             left_samples = node_samples[statistics[node_samples, best_stat_idx] <= best_threshold]
             right_samples = node_samples[statistics[node_samples, best_stat_idx] > best_threshold]
             
+            assert len(left_samples) + len(right_samples) == len(node_samples), f"Split samples ({len(left_samples)} + {len(right_samples)}) do not sum to original samples ({len(node_samples)})"
             # Check if split is valid
             if len(left_samples) < self.min_samples_leaf or len(right_samples) < self.min_samples_leaf:
                 node['leaf'] = True
@@ -184,8 +184,9 @@ class DRF(BaseRF):
             node['leaf'] = False
             node['split_stat_idx'] = best_stat_idx
             node['threshold'] = best_threshold
-            node['left_child'] = len(tree['nodes']) + 1
-            node['right_child'] = len(tree['nodes']) + 2
+            node['left_child'] = tree['next_id']
+            node['right_child'] = tree['next_id'] + 1
+            tree['next_id'] += 2  # Increment counter for next nodes
             
             tree['nodes'].append(node)
             
@@ -228,11 +229,6 @@ class DRF(BaseRF):
         best_score = -float('inf')
         best_stat_idx = -1
         best_threshold = 0.0
-        
-        # Compute the total variance (used in the CART formula)
-        total_variance = 0
-        for param_dim in range(parameters.shape[1]):
-            total_variance += np.var(parameters[:, param_dim]) * n_samples
         
         for stat_idx in statistic_indices:
             # Sort samples based on the current statistic
