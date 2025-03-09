@@ -140,8 +140,8 @@ class SimulationMetrics:
         final_results = []
         temporal_results = {}
         
-        for folder in sim_folders[90:]:
-            #try:
+        for folder in sim_folders:
+            try:
                 folder_number = int(re.search(r"input_(\d+)", folder.name).group(1))
                 if folder_number % 50 == 0:
                     print(f"Analyzing {folder.name} ({folder_number}/{len(sim_folders)})")
@@ -150,8 +150,8 @@ class SimulationMetrics:
                 final_metrics_flat["input_folder"] = folder.name
                 final_results.append(final_metrics_flat)
                 temporal_results[folder.name] = metrics["temporal_metrics"]
-            #except Exception as e:
-            #    self.logger.error(f"Error processing {folder}: {str(e)}")
+            except Exception as e:
+                self.logger.error(f"Error processing {folder}: {str(e)}")
         # Create DataFrame for final metrics
         df = pd.DataFrame(final_results)
         

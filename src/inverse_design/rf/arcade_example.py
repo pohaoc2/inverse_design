@@ -11,6 +11,7 @@ from inverse_design.common.enum import Target, Metric
 from inverse_design.rf.abc_smc_rf_arcade import ABCSMCRF
 from inverse_design.analyze.parameter_config import PARAM_RANGES
 from scipy.stats import qmc
+import json
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 np.random.seed(42)
@@ -19,6 +20,11 @@ TARGET_RANGES = {
     "symmetry": (0.0, 1.0),
     "cycle_length": (10.0, 70.0),
     "act": (0.0, 1.0),
+    "doub_time": (10.0, 70.0),
+    "symmetry_std": (0.0, 0.01),
+    "cycle_length_std": (0.0, 0.5),
+    "act_std": (0.0, 0.01),
+    "doub_time_std": (0.0, 0.5),
 }
 
 def prior_pdf(params, param_ranges=PARAM_RANGES):
@@ -223,24 +229,41 @@ def plot_statistic_iterations(smc_rf, target_names, target_values, plot_kde=True
     else:
         plt.show()
 
+def save_targets_to_json(target_names, target_values, output_file="targets.json"):
+    """
+    Save target names and their corresponding values to a JSON file.
+    
+    Parameters:
+    -----------
+    target_names : list
+        List of target statistic names
+    target_values : list
+        List of target values
+    output_file : str, optional
+        Path to the output JSON file (default: "targets.json")
+    """
+    targets_dict = dict(zip(target_names, target_values))
+    with open(output_file, 'w') as f:
+        json.dump(targets_dict, f, indent=4)
+
 def run_example():
     """Run the ABC-SMC-DRF example on the ARCADE model"""
-    targets = [
-        Target(metric=Metric.get("symmetry"), value=0.8, weight=1.0),
-        Target(metric=Metric.get("cycle_length"), value=30, weight=1.0),
-        Target(metric=Metric.get("act"), value=0.6, weight=1.0),
-    ]
-    target_names = [target.metric.value for target in targets]
-    target_values = [target.value for target in targets]
+    target_names = ["symmetry", "cycle_length", "act", "doub_time"]
+    target_names = target_names + [name+"_std" for name in target_names]
+    target_values = [0.8, 30, 0.6, 35]
+    target_values = target_values + [value*0.05 for value in target_values]    
+    targets = []
+    for name, value in zip(target_names, target_values):
+        targets.append(Target(metric=Metric.get(name), value=value, weight=1.0))
     n_statistics = len(target_names)
     print("\nRunning ABC-SMC-DRF...")
     start_time = time.time()
     param_ranges = PARAM_RANGES.copy()
     param_ranges = {k: v for k, v in param_ranges.items() if v[0] != v[1]}
-    sobol_power = 9
+    sobol_power = 8
     n_samples = 2**sobol_power
     smc_rf = ABCSMCRF(
-        n_iterations=1,           
+        n_iterations=2,           
         sobol_power=sobol_power,            
         rf_type='DRF',
         n_trees=100,
@@ -268,9 +291,12 @@ def run_example():
         "009360",
         "010080",
     ]
-    input_dir = f"inputs/abc_smc_rf_n{n_samples}/"
-    output_dir = f"ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}/"
+    input_dir = f"inputs/abc_smc_rf_n{n_samples}/sym_cyc_act_doub_std/"
+    output_dir = f"ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}/sym_cyc_act_doub_std/"
     jar_path = "models/arcade-test-cycle-fix-affinity.jar"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    save_targets_to_json(target_names, target_values, f"{output_dir}targets.json")
     smc_rf.fit(target_names, target_values, input_dir, output_dir, jar_path, timestamps)
     smc_rf.plot_tree(
         iteration=-1,  # last iteration
