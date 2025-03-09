@@ -70,7 +70,7 @@ class ABCSMCRF(ABCSMCRFBase):
             If None, a uniform prior in [0, 1] for each parameter is assumed.
         """
         super().__init__(n_iterations, rf_type, n_trees, min_samples_leaf, n_try, random_state, criterion)
-        self.sobol_power = 2#sobol_power
+        self.sobol_power = sobol_power
         self.param_ranges = param_ranges
         self.subsample_ratio = subsample_ratio
         self.perturbation_kernel = perturbation_kernel if perturbation_kernel is not None else self._default_perturbation_kernel
@@ -141,7 +141,7 @@ class ABCSMCRF(ABCSMCRFBase):
             input_dir=input_dir+"/inputs",
             output_dir=output_dir,
             jar_path=jar_path,
-            max_workers=int(mp.cpu_count()),
+            max_workers=int(mp.cpu_count()/2),
             running_index=missing_output_indices
         )
 

@@ -248,10 +248,10 @@ def save_targets_to_json(target_names, target_values, output_file="targets.json"
 
 def run_example():
     """Run the ABC-SMC-DRF example on the ARCADE model"""
-    target_names = ["symmetry", "cycle_length", "act", "doub_time"]
-    target_names = target_names + [name+"_std" for name in target_names]
-    target_values = [0.8, 30, 0.6, 35]
-    target_values = target_values + [value*0.05 for value in target_values]    
+    target_names = ["symmetry", "cycle_length", "act"]#, "doub_time"]
+    target_values = [0.7, 30, 0.75]#, 35]
+    #target_names = target_names + [name+"_std" for name in target_names]
+    #target_values = target_values + [value*0.05 for value in target_values]    
     targets = []
     for name, value in zip(target_names, target_values):
         targets.append(Target(metric=Metric.get(name), value=value, weight=1.0))
@@ -260,10 +260,10 @@ def run_example():
     start_time = time.time()
     param_ranges = PARAM_RANGES.copy()
     param_ranges = {k: v for k, v in param_ranges.items() if v[0] != v[1]}
-    sobol_power = 8
+    sobol_power = 9
     n_samples = 2**sobol_power
     smc_rf = ABCSMCRF(
-        n_iterations=2,           
+        n_iterations=3,           
         sobol_power=sobol_power,            
         rf_type='DRF',
         n_trees=100,
@@ -291,19 +291,22 @@ def run_example():
         "009360",
         "010080",
     ]
-    input_dir = f"inputs/abc_smc_rf_n{n_samples}/sym_cyc_act_doub_std/"
-    output_dir = f"ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}/sym_cyc_act_doub_std/"
+    input_dir = f"inputs/abc_smc_rf_n{n_samples}/"
+    output_dir = f"ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}/"
     jar_path = "models/arcade-test-cycle-fix-affinity.jar"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     save_targets_to_json(target_names, target_values, f"{output_dir}targets.json")
     smc_rf.fit(target_names, target_values, input_dir, output_dir, jar_path, timestamps)
+    plot_dir = f"ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}/PLOTS/"
+    if not os.path.exists(plot_dir):
+        os.makedirs(plot_dir)
     smc_rf.plot_tree(
         iteration=-1,  # last iteration
         feature_names=target_names,  # your statistics names
         max_depth=10,  # adjust for more or less detail
         target_values=target_values,
-        save_path="rf/plots/arcade_tree"
+        save_path=f"{plot_dir}/arcade_tree"
     )
     print(f"ABC-SMC-DRF completed in {time.time() - start_time:.2f} seconds")
 
@@ -314,9 +317,9 @@ def run_example():
     
     # Plot results
     param_names = ["AFFINITY", "COMPRESSION_TOLERANCE", "CELL_VOLUME_MU"]
-    plot_parameter_iterations(smc_rf, param_names, save_path="rf/plots/arcade_params_iterations")
-    plot_statistic_iterations(smc_rf, target_names, target_values, save_path="rf/plots/arcade_stats_iterations")
-    plot_variable_importance(smc_rf, target_names, n_statistics, save_path="rf/plots/arcade_variable_importance.png")
+    plot_parameter_iterations(smc_rf, param_names, save_path=f"{plot_dir}/arcade_params_iterations")
+    plot_statistic_iterations(smc_rf, target_names, target_values, save_path=f"{plot_dir}/arcade_stats_iterations")
+    plot_variable_importance(smc_rf, target_names, n_statistics, save_path=f"{plot_dir}/arcade_variable_importance.png")
 
 if __name__ == "__main__":
     run_example()
