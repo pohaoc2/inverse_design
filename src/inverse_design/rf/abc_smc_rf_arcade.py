@@ -135,7 +135,6 @@ class ABCSMCRF(ABCSMCRFBase):
             os.makedirs(output_dir, exist_ok=True)
             missing_output_indices = list(range(1, 2 ** self.sobol_power + 1))
         # Run simulations
-        print(input_dir+"/inputs")
         
         run_simulations(
             input_dir=input_dir+"/inputs",
@@ -277,7 +276,12 @@ class ABCSMCRF(ABCSMCRFBase):
             idx = self.rng.choice(len(prev_parameters), p=prev_weights)
             theta_star = prev_parameters[idx]
             # Perturb the parameters
-            theta_candidate = self.perturbation_kernel(theta_star, self.current_iteration, max_iterations=self.n_iterations, param_ranges=self.param_ranges)
+            theta_candidate = self.perturbation_kernel(theta_star,
+                                                        self.current_iteration,
+                                                        max_iterations=self.n_iterations,
+                                                        param_ranges=self.param_ranges,
+                                                        #seed=i
+            )
             # Check if the perturbed parameters have non-zero prior density
             prior_density = self.prior_pdf(theta_candidate, param_ranges=self.param_ranges)
             if prior_density > 0:

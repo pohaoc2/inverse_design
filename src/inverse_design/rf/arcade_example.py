@@ -54,7 +54,7 @@ def prior_pdf(params, param_ranges=PARAM_RANGES):
     return 1.0 / (max_val - min_val)
 
 def perturbation_kernel(params, iteration=1, max_iterations=5, param_ranges=PARAM_RANGES, seed=42):
-    np.random.seed(seed)
+    #np.random.seed(seed)
     # Check if the number of parameters matches
     if len(params) != len(param_ranges):
         raise ValueError(f"Expected {len(param_ranges)} parameters, got {len(params)}")
@@ -263,7 +263,7 @@ def run_example():
     sobol_power = 9
     n_samples = 2**sobol_power
     smc_rf = ABCSMCRF(
-        n_iterations=3,           
+        n_iterations=5,           
         sobol_power=sobol_power,            
         rf_type='DRF',
         n_trees=100,
