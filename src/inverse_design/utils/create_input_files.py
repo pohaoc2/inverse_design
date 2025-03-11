@@ -549,14 +549,118 @@ def generate_input_files(
     print(f"Generated {len(param_values)} XML files and parameter log in {output_dir}/")
 
 
+def generate_source_site_perturbations(
+    x_spacings: list[str],
+    y_spacings: list[str],
+    glucose_concentrations: list[float] = [0.005],
+    oxygen_concentrations: list[float] = [100],
+    template_path: str = "sample_input_v3.xml",
+    output_dir: str = "inputs/STEM_CELL/DENSITY_SOURCE",
+) -> None:
+    """Generate input XML files with different source site spacings and concentrations.
+    
+    Args:
+        x_spacings: List of X_SPACING values (e.g., ["0:0", "10:20"])
+        y_spacings: List of Y_SPACING values (e.g., ["0:0", "10:20"])
+        glucose_concentrations: List of glucose concentrations in fmol/um^3 (default: [0.005])
+        oxygen_concentrations: List of oxygen concentrations in mmHg (default: [100])
+        template_path: Path to template XML file
+        output_dir: Directory to save generated XML files
+    """
+    # Create output directories if they don't exist
+    if not os.path.exists(f"{output_dir}/inputs"):
+        os.makedirs(f"{output_dir}/inputs")
+
+    # Read template XML
+    tree = ET.parse(template_path)
+    root = tree.getroot()
+
+    # Prepare parameter logging
+    param_log = []
+    file_counter = 1
+
+    # Generate combinations of all parameters
+    for x_spacing in x_spacings:
+        for y_spacing in y_spacings:
+            for glucose_conc in glucose_concentrations:
+                for oxygen_conc in oxygen_concentrations:
+                    # Find source sites component
+                    sites_component = root.find(".//component[@id='SITES']")
+                    if sites_component is None:
+                        raise ValueError("Could not find component with id='SITES' in XML")
+
+                    # Update X_SPACING
+                    x_param = sites_component.find("component.parameter[@id='X_SPACING']")
+                    x_param.set("value", x_spacing)
+
+                    # Update Y_SPACING
+                    y_param = sites_component.find("component.parameter[@id='Y_SPACING']")
+                    y_param.set("value", y_spacing)
+
+                    # Update GLUCOSE concentration
+                    glucose_layer = root.find(".//layer[@id='GLUCOSE']")
+                    for param in glucose_layer.findall("layer.parameter"):
+                        if param.get("operation") == "generator" or param.get("id") == "INITIAL_CONCENTRATION":
+                            param.set("value", f"{glucose_conc}")
+
+                    # Update OXYGEN concentration
+                    oxygen_layer = root.find(".//layer[@id='OXYGEN']")
+                    for param in oxygen_layer.findall("layer.parameter"):
+                        if param.get("operation") == "generator" or param.get("id") == "INITIAL_CONCENTRATION":
+                            param.set("value", f"{oxygen_conc}")
+
+                    # Save modified XML
+                    output_file = f"{output_dir}/inputs/input_{file_counter}.xml"
+                    tree.write(output_file, encoding="utf-8", xml_declaration=True)
+
+                    # Log parameters
+                    param_log.append({
+                        "file_name": f"input_{file_counter}.xml",
+                        "X_SPACING": x_spacing,
+                        "Y_SPACING": y_spacing,
+                        "GLUCOSE_CONCENTRATION": glucose_conc,
+                        "OXYGEN_CONCENTRATION": oxygen_conc
+                    })
+
+                    file_counter += 1
+
+    # Save parameter log
+    df = pd.DataFrame(param_log)
+    df.to_csv(f"{output_dir}/parameter_log.csv", index=False)
+
+    print(f"Generated {len(param_log)} XML files and parameter log in {output_dir}/")
+
+
 def main():
-    output_dir = "inputs/STEM_CELL/TEST"
-    if 1:
+    output_dir = "inputs/STEM_CELL/density_source"
+    template_path = "test_source.xml"
+    radius = 10
+    margin = 2
+    if 0:
         generate_perturbed_parameters(
             sobol_power=8,
             param_ranges=PARAM_RANGES,
             output_dir=output_dir,
         )
+    
+    if 1:
+        x_spacings = [f"*" for i in range(0, 2*(radius+margin)+1, margin)]
+        y_spacings = [f"*" for i in range(0, 2*(radius+margin)+1, margin)]
+        x_spacings = ["*"]
+        y_spacings = ["*"]
+        glucose_concentrations = np.arange(0.001, 0.016, 0.001)
+        oxygen_concentrations = np.arange(30, 180, 10)
+        print(glucose_concentrations)
+        print(oxygen_concentrations)
+        generate_source_site_perturbations(
+            x_spacings=x_spacings,
+            y_spacings=y_spacings,
+            glucose_concentrations=glucose_concentrations,
+            oxygen_concentrations=oxygen_concentrations,
+            template_path=template_path,
+            output_dir=output_dir,
+        )
+
     metric = "symmetry"
     output_dir = f"inputs/sensitivity_analysis/{metric}"
     if 0:
@@ -605,3 +709,4 @@ def update_xml_parameters(root: ET.Element, params: dict) -> None:
                     mu = _format_param_value(params[mu_key], precision, is_bounded)
                     sigma = _format_param_value(params[sigma_key], precision, False)  # sigma is never bounded by 1
                     param.set("value", f"NORMAL(MU={mu},SIGMA={sigma})")
+
