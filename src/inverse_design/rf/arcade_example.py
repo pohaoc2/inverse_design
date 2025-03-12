@@ -200,13 +200,25 @@ def plot_statistic_iterations(smc_rf, target_names, target_values, plot_kde=True
             
             # Add target line
             ax.axvline(target_val, color='g', linestyle='--', label='Target')
-            
+            ax.annotate(f'{target_val:.2f}', xy=(target_val, 0), 
+                        xytext=(10, 10), textcoords='offset points', color='g',
+                        bbox=dict(facecolor='white', edgecolor='black', alpha=0.7))
             # Calculate and plot KDE
             if plot_kde and len(stat_values) > 1:
                 try:
                     kde = gaussian_kde(stat_values, weights=weights)
                     x_range = np.linspace(min_val, max_val, 200)
-                    ax.plot(x_range, kde(x_range), 'r-', lw=2, label='KDE')
+                    kde_values = kde(x_range)
+                    ax.plot(x_range, kde_values, 'r-', lw=2, label='KDE')
+                    
+                    # Calculate and plot the mode of KDE
+                    mode_idx = np.argmax(kde_values)
+                    mode_x = x_range[mode_idx]
+                    mode_y = kde_values[mode_idx]
+                    ax.plot(mode_x, mode_y, 'r^', markersize=10, label='KDE Mode')
+                    ax.annotate(f'{mode_x:.2f}', xy=(mode_x, mode_y), 
+                                xytext=(10, 10), textcoords='offset points',
+                                bbox=dict(facecolor='white', edgecolor='none', alpha=0.7))
                 except np.linalg.LinAlgError:
                     print(f"Error computing KDE for {stat_name} at iteration {t+1}")
             

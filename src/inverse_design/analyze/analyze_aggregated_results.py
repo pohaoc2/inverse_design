@@ -234,7 +234,7 @@ def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, de
             mode_value = lines[-1].get_xdata()[np.argmax(lines[-1].get_ydata())]
             posterior_kdes.append(posterior_kde)
             x_bounds.append(posterior_kde.get_lines()[0].get_xdata()[[0, -1]])
-            #ax2.axvline(x=mode_value, color=color, linestyle='--', alpha=0.5, label=f"{label} (mode: {mode_value:.3f})")
+            ax2.axvline(x=mode_value, color=color, linestyle='--', alpha=0.5, label=f"{label} (mode: {mode_value:.3f})")
 
         # Calculate overall x-axis bounds
         x_min = min(target_metrics[metric], min(bound[0] for bound in x_bounds))

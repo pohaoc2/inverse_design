@@ -7,6 +7,7 @@ from typing import Dict
 import os
 import json
 from inverse_design.analyze.parameter_config import PARAM_RANGES
+from scipy.stats import qmc
 
 
 def _format_param_value(value: float, precision: int, is_bounded_by_one: bool) -> str:
@@ -552,18 +553,18 @@ def generate_input_files(
 def generate_source_site_perturbations(
     x_spacings: list[str],
     y_spacings: list[str],
-    glucose_concentrations: list[float] = [0.005],
-    oxygen_concentrations: list[float] = [100],
+    glucose_concentrations: list[float],
+    oxygen_concentrations: list[float],
     template_path: str = "sample_input_v3.xml",
     output_dir: str = "inputs/STEM_CELL/DENSITY_SOURCE",
 ) -> None:
     """Generate input XML files with different source site spacings and concentrations.
     
     Args:
-        x_spacings: List of X_SPACING values (e.g., ["0:0", "10:20"])
-        y_spacings: List of Y_SPACING values (e.g., ["0:0", "10:20"])
-        glucose_concentrations: List of glucose concentrations in fmol/um^3 (default: [0.005])
-        oxygen_concentrations: List of oxygen concentrations in mmHg (default: [100])
+        x_spacings: List of X_SPACING values (e.g., ["*:2", "*:3"])
+        y_spacings: List of Y_SPACING values (e.g., ["*:2", "*:3"])
+        glucose_concentrations: List of glucose concentrations in fmol/um^3
+        oxygen_concentrations: List of oxygen concentrations in mmHg
         template_path: Path to template XML file
         output_dir: Directory to save generated XML files
     """
@@ -577,103 +578,57 @@ def generate_source_site_perturbations(
 
     # Prepare parameter logging
     param_log = []
-    file_counter = 1
 
-    # Generate combinations of all parameters
-    for x_spacing in x_spacings:
-        for y_spacing in y_spacings:
-            for glucose_conc in glucose_concentrations:
-                for oxygen_conc in oxygen_concentrations:
-                    # Find source sites component
-                    sites_component = root.find(".//component[@id='SITES']")
-                    if sites_component is None:
-                        raise ValueError("Could not find component with id='SITES' in XML")
+    # Verify all input lists have the same length
+    n_samples = len(x_spacings)
+    if not all(len(lst) == n_samples for lst in [y_spacings, glucose_concentrations, oxygen_concentrations]):
+        raise ValueError("All input parameter lists must have the same length")
 
-                    # Update X_SPACING
-                    x_param = sites_component.find("component.parameter[@id='X_SPACING']")
-                    x_param.set("value", x_spacing)
+    # Generate files for each parameter set
+    for i in range(n_samples):
+        # Find source sites component
+        sites_component = root.find(".//component[@id='SITES']")
+        if sites_component is None:
+            raise ValueError("Could not find component with id='SITES' in XML")
 
-                    # Update Y_SPACING
-                    y_param = sites_component.find("component.parameter[@id='Y_SPACING']")
-                    y_param.set("value", y_spacing)
+        # Update X_SPACING
+        x_param = sites_component.find("component.parameter[@id='X_SPACING']")
+        x_param.set("value", x_spacings[i])
 
-                    # Update GLUCOSE concentration
-                    glucose_layer = root.find(".//layer[@id='GLUCOSE']")
-                    for param in glucose_layer.findall("layer.parameter"):
-                        if param.get("operation") == "generator" or param.get("id") == "INITIAL_CONCENTRATION":
-                            param.set("value", f"{glucose_conc}")
+        # Update Y_SPACING
+        y_param = sites_component.find("component.parameter[@id='Y_SPACING']")
+        y_param.set("value", y_spacings[i])
 
-                    # Update OXYGEN concentration
-                    oxygen_layer = root.find(".//layer[@id='OXYGEN']")
-                    for param in oxygen_layer.findall("layer.parameter"):
-                        if param.get("operation") == "generator" or param.get("id") == "INITIAL_CONCENTRATION":
-                            param.set("value", f"{oxygen_conc}")
+        # Update GLUCOSE concentration
+        glucose_layer = root.find(".//layer[@id='GLUCOSE']")
+        for param in glucose_layer.findall("layer.parameter"):
+            if param.get("operation") == "generator" or param.get("id") == "INITIAL_CONCENTRATION":
+                param.set("value", f"{glucose_concentrations[i]}")
 
-                    # Save modified XML
-                    output_file = f"{output_dir}/inputs/input_{file_counter}.xml"
-                    tree.write(output_file, encoding="utf-8", xml_declaration=True)
+        # Update OXYGEN concentration
+        oxygen_layer = root.find(".//layer[@id='OXYGEN']")
+        for param in oxygen_layer.findall("layer.parameter"):
+            if param.get("operation") == "generator" or param.get("id") == "INITIAL_CONCENTRATION":
+                param.set("value", f"{oxygen_concentrations[i]}")
 
-                    # Log parameters
-                    param_log.append({
-                        "file_name": f"input_{file_counter}.xml",
-                        "X_SPACING": x_spacing,
-                        "Y_SPACING": y_spacing,
-                        "GLUCOSE_CONCENTRATION": glucose_conc,
-                        "OXYGEN_CONCENTRATION": oxygen_conc
-                    })
+        # Save modified XML
+        output_file = f"{output_dir}/inputs/input_{i+1}.xml"
+        tree.write(output_file, encoding="utf-8", xml_declaration=True)
 
-                    file_counter += 1
+        # Log parameters
+        param_log.append({
+            "file_name": f"input_{i+1}.xml",
+            "X_SPACING": x_spacings[i],
+            "Y_SPACING": y_spacings[i],
+            "GLUCOSE_CONCENTRATION": glucose_concentrations[i],
+            "OXYGEN_CONCENTRATION": oxygen_concentrations[i]
+        })
 
     # Save parameter log
     df = pd.DataFrame(param_log)
     df.to_csv(f"{output_dir}/parameter_log.csv", index=False)
 
     print(f"Generated {len(param_log)} XML files and parameter log in {output_dir}/")
-
-
-def main():
-    output_dir = "inputs/STEM_CELL/density_source"
-    template_path = "test_source.xml"
-    radius = 10
-    margin = 2
-    if 0:
-        generate_perturbed_parameters(
-            sobol_power=8,
-            param_ranges=PARAM_RANGES,
-            output_dir=output_dir,
-        )
-    
-    if 1:
-        x_spacings = [f"*" for i in range(0, 2*(radius+margin)+1, margin)]
-        y_spacings = [f"*" for i in range(0, 2*(radius+margin)+1, margin)]
-        x_spacings = ["*"]
-        y_spacings = ["*"]
-        glucose_concentrations = np.arange(0.001, 0.016, 0.001)
-        oxygen_concentrations = np.arange(30, 180, 10)
-        print(glucose_concentrations)
-        print(oxygen_concentrations)
-        generate_source_site_perturbations(
-            x_spacings=x_spacings,
-            y_spacings=y_spacings,
-            glucose_concentrations=glucose_concentrations,
-            oxygen_concentrations=oxygen_concentrations,
-            template_path=template_path,
-            output_dir=output_dir,
-        )
-
-    metric = "symmetry"
-    output_dir = f"inputs/sensitivity_analysis/{metric}"
-    if 0:
-        generate_2param_perturbation(
-            sensitivity_json="ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY/sensitivity_analysis.json",
-            metric=metric,
-            perturbation_range=range(-100, 101, 10),
-            output_dir=output_dir,
-        )
-
-
-if __name__ == "__main__":
-    main()
 
 def update_xml_parameters(root: ET.Element, params: dict) -> None:
     """Update XML parameters with provided values.
@@ -709,4 +664,106 @@ def update_xml_parameters(root: ET.Element, params: dict) -> None:
                     mu = _format_param_value(params[mu_key], precision, is_bounded)
                     sigma = _format_param_value(params[sigma_key], precision, False)  # sigma is never bounded by 1
                     param.set("value", f"NORMAL(MU={mu},SIGMA={sigma})")
+
+def generate_source_site_samples(param_ranges: dict, sobol_power=10, y_spacing_interval=False, y_spacing_values=None):
+    """
+    Generate Sobol samples for x_spacings, y_spacings, glucose, and oxygen concentrations.
+    
+    Parameters:
+    -----------
+    sobol_power : int
+        Power of 2 for number of samples (n_samples = 2^sobol_power)
+    y_spacing_interval : bool
+        If True, sample y_spacing from specific values
+        If False, use continuous Sobol sampling
+    y_spacing_values : list or None
+        List of specific values to sample from when y_spacing_interval is True
+        Default values are [2, 5, 8, 12, 15] if None
+        
+    Returns:
+    --------
+    dict : Dictionary containing the sampled parameters
+    """
+    n_samples = 2**sobol_power
+    if y_spacing_interval and y_spacing_values is None:
+        y_spacing_values = np.array([2, 5, 8, 12, 15])
+    
+    # Initialize Sobol sampler
+    sampler = qmc.Sobol(d=len(param_ranges), seed=42)
+    
+    # Generate samples
+    samples = sampler.random(n=n_samples)
+    
+    # Scale samples to parameter ranges
+    scaled_samples = {}
+    for i, (param_name, (min_val, max_val)) in enumerate(param_ranges.items()):
+        if param_name == 'y_spacing' and y_spacing_interval:
+            # Handle y_spacing separately when using interval sampling
+            y_indices = (samples[:, i] * len(y_spacing_values)).astype(int)
+            scaled_values = y_spacing_values[y_indices]
+        elif param_name in ['x_spacing', 'y_spacing']:
+            sample_2d = samples[:, i:i+1]
+            scaled_values = np.round(qmc.scale(sample_2d, l_bounds=min_val, u_bounds=max_val)).flatten().astype(int)
+            # Store both x and y values temporarily if this is x_spacing
+            if param_name == 'x_spacing':
+                x_values = scaled_values
+            elif param_name == 'y_spacing':
+                y_values = scaled_values
+                x_final = np.minimum(x_values, y_values)
+                y_final = np.maximum(x_values, y_values)
+                scaled_samples['x_spacing'] = [f"*:{i}" for i in x_final]
+                scaled_samples['y_spacing'] = [f"*:{i}" for i in y_final]
+                continue
+        else:
+            # Reshape to 2D array for qmc.scale
+            sample_2d = samples[:, i:i+1]
+            scaled_values = qmc.scale(sample_2d, l_bounds=min_val, u_bounds=max_val).flatten()
+        scaled_samples[param_name] = scaled_values
+    
+    return scaled_samples
+
+def main():
+    output_dir = "inputs/STEM_CELL/density_source"
+    template_path = "test_source.xml"
+    radius = 10
+    margin = 2
+    if 0:
+        generate_perturbed_parameters(
+            sobol_power=8,
+            param_ranges=PARAM_RANGES,
+            output_dir=output_dir,
+        )
+    
+    if 1:
+        param_ranges = {
+            'x_spacing': (2, 15),
+            'y_spacing': (2, 15),
+            'glucose': (0.001, 0.01),
+            'oxygen': (50, 150)
+        }
+        samples = generate_source_site_samples(param_ranges=param_ranges, sobol_power=10, y_spacing_interval=False, y_spacing_values=None)
+
+        generate_source_site_perturbations(
+            x_spacings=samples["x_spacing"],
+            y_spacings=samples["y_spacing"],
+            glucose_concentrations=samples["glucose"],
+            oxygen_concentrations=samples["oxygen"],
+            template_path=template_path,
+            output_dir=output_dir,
+        )
+
+    metric = "symmetry"
+    output_dir = f"inputs/sensitivity_analysis/{metric}"
+    if 0:
+        generate_2param_perturbation(
+            sensitivity_json="ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY/sensitivity_analysis.json",
+            metric=metric,
+            perturbation_range=range(-100, 101, 10),
+            output_dir=output_dir,
+        )
+
+
+if __name__ == "__main__":
+    main()
+
 
