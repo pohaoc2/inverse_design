@@ -785,7 +785,8 @@ def main():
     template_path = "test_source.xml"
     radius = 10
     margin = 2
-    side_length = 1
+    hex_size = 30
+    side_length = hex_size / np.sqrt(3)
     if 0:
         generate_perturbed_parameters(
             sobol_power=8,
@@ -795,8 +796,8 @@ def main():
 
     if 1:
         param_ranges = {
-            "x_spacing": (2, 15),
-            "y_spacing": (2, 15),
+            "x_spacing": (1, 15),
+            "y_spacing": (1, 15),
             "glucose": (0.001, 0.01),
             "oxygen": (50, 150),
         }
