@@ -123,9 +123,9 @@ if __name__ == "__main__":
     metric = "act"
     n_samples = 32
     run_simulations(
-        input_dir=f"inputs/STEM_CELL/density_source/source_concentration/inputs",
-        output_dir=f"ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/SOURCE_CONCENTRATION/",
+        input_dir=f"inputs/STEM_CELL/density_source/inputs",
+        output_dir=f"ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/",
         jar_path="models/arcade-test-cycle-fix-affinity.jar",
-        max_workers=4,
-        running_index=[i for i in range(1, 226)],
+        max_workers=6,
+        running_index=[i for i in range(479, 1025)],
     )
