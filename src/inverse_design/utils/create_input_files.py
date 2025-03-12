@@ -785,6 +785,7 @@ def main():
     template_path = "test_source.xml"
     radius = 10
     margin = 2
+    side_length = 1
     if 0:
         generate_perturbed_parameters(
             sobol_power=8,
@@ -804,6 +805,8 @@ def main():
             sobol_power=10,
             y_spacing_interval=False,
             y_spacing_values=None,
+            radius_bound=radius+margin,
+            side_length=side_length,
         )
         generate_source_site_perturbations(
             x_spacings=samples["x_spacing"],
