@@ -850,18 +850,6 @@ def main():
             radius_bound=radius+margin,
             side_length=side_length,
         )
-        # print max and min distance to center and their x and y spacing
-        max_distance_index = np.argmax(samples["distance_to_center"])
-        min_distance_index = np.argmin(samples["distance_to_center"])
-        print(f"Max distance to center: {max(samples['distance_to_center'])}")
-        print(f"X spacing: {samples['x_spacing'][max_distance_index]}")
-        print(f"Y spacing: {samples['y_spacing'][max_distance_index]}")
-        print("--------------------------------")
-        print(f"Min distance to center: {min(samples['distance_to_center'])}")
-        print(f"X spacing: {samples['x_spacing'][min_distance_index]}")
-        print(f"Y spacing: {samples['y_spacing'][min_distance_index]}")
-
-        
 
         generate_source_site_perturbations(
             x_spacings=samples["x_spacing"],

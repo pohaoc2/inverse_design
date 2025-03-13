@@ -5,7 +5,7 @@ import logging
 from tqdm import tqdm
 import sys
 import os
-
+import multiprocessing as mp
 
 def run_single_simulation(input_file: Path, output_base_dir: Path, jar_path: str) -> bool:
     """Run a single ARCADE simulation
@@ -123,9 +123,9 @@ if __name__ == "__main__":
     metric = "act"
     n_samples = 32
     run_simulations(
-        input_dir=f"inputs/STEM_CELL/density_source/inputs",
-        output_dir=f"ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/",
+        input_dir=f"inputs/STEM_CELL/density_source/points/inputs",
+        output_dir=f"ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/points",
         jar_path="models/arcade-test-cycle-fix-affinity.jar",
-        max_workers=6,
+        max_workers=int(mp.cpu_count()/2),
         running_index=[i for i in range(1, 1025)],
     )
