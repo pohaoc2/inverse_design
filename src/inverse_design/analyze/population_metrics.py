@@ -5,16 +5,15 @@ import re
 import logging
 import warnings
 import numpy as np
-from .file_utils import FileParser
-import matplotlib.pyplot as plt
-from matplotlib.colors import TABLEAU_COLORS
 from scipy import stats
+from .file_utils import FileParser
+
 
 
 class PopulationMetrics:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-
+        self.file_parser = FileParser()
     @staticmethod
     def calculate_doub_time(n1: float, n2: float, time_difference: float) -> float:
         """Calculate cell population doubling time based on initial and final cell counts
@@ -146,34 +145,27 @@ class PopulationMetrics:
 
         return shannon_index
 
-    @staticmethod
-    def calculate_density(cells: List[Dict[str, Any]]) -> float:
-        """Calculate colony density (cells per unit area) for 2D colonies.
-
-        Args:
-            cells: List of cell dictionaries
-            C: Scaling factor (default = 30)
-
-        Returns:
-            Cell density (cells per unit area)
-        """
-        return 0.0
-        if not cells:
-            return 0.0
-
-        # Calculate approximate colony area using diameter
-        diameter = PopulationMetrics.calculate_colony_diameter(cells)
-        area = np.pi * (diameter/2)**2
-
-        return len(cells) / area if area > 0 else 0.0
 
     @staticmethod
-    def calculate_act(cells: List[Dict[str, Any]]) -> float:
+    def calculate_act_ratio(cells: List[Dict[str, Any]]) -> float:
         """Calculate the number of active cells over total number of cells"""
         if not cells:
             return 0.0
 
         return len([cell for cell in cells if cell["state"] in ["PROLIFERATIVE", "MIGRATORY"]]) / len(cells)
+
+
+    @staticmethod
+    def calculate_activity(cells: List[Dict[str, Any]]) -> float:
+        """Calculate the number of active cells over total number of cells"""
+        if not cells:
+            return 0.0
+        n_active = len([cell for cell in cells if cell["state"] in ["PROLIFERATIVE", "MIGRATORY"]])
+        n_inactive = len([cell for cell in cells if cell["state"] in ["NECROTIC", "APOPTOTIC"]])
+        if n_active + n_inactive == 0:
+            return np.nan
+        return 2 * n_active / (n_inactive + n_active) - 1
+
 
     @staticmethod
     def calculate_n_cells(cells: List[Dict[str, Any]]) -> float:
@@ -183,9 +175,6 @@ class PopulationMetrics:
 
         return len(cells)
 
-    def parse_location_file(self, filename: str) -> Dict[str, str]:
-        """Parse location filename to extract experiment info"""
-        return FileParser.parse_simulation_file(filename, "LOCATIONS")
 
     def load_locations_data(
         self, folder_path: Path, timestamp: str
@@ -197,7 +186,7 @@ class PopulationMetrics:
             location_files = folder_path.glob(file_pattern)
 
             for location_file in location_files:
-                file_info = self.parse_location_file(location_file.name)
+                file_info = self.file_parser.parse_simulation_file(location_file.name, "LOCATIONS")
                 if file_info:
                     with open(location_file, "r") as f:
                         location_data = json.load(f)
@@ -210,13 +199,13 @@ class PopulationMetrics:
 
     @staticmethod
     def calculate_colony_growth(
-        colony_diameters: Dict[str, Dict[str, List[float]]],
+        colony_diameters: Dict[int, list[float]],
         timestamps: List[float],
     ) -> Dict[str, Dict[str, float]]:
         """Fit colony diameter growth to linear function (y = mx + c)
 
         Args:
-            colony_diameters: Dictionary of diameters structured as {(exp_group, exp_name): {seed: [diameters]}}
+            colony_diameters: Dictionary of diameters structured as {seed: [diameters]}
             timestamps: List of timepoints in days
 
         Returns:

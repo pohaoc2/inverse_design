@@ -11,7 +11,7 @@ from .file_utils import FileParser
 class CellMetrics:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-
+        self.file_parser = FileParser()
     @staticmethod
     def calculate_vol(cells: List[Dict[str, Any]]) -> float:
         """Calculate average cell volume"""
@@ -21,8 +21,6 @@ class CellMetrics:
         volumes = [cell["volume"] for cell in cells]
         return sum(volumes) / len(volumes)
 
-
-    
 
     @staticmethod
     def calculate_doubling_time(n1: float, n2: float, time_difference: float) -> float:
@@ -112,9 +110,6 @@ class CellMetrics:
         # Convert from minutes to hours
         return (sum(cell_averages) / len(cell_averages)) / 60
 
-    def parse_cell_file(self, filename: str) -> Dict[str, str]:
-        """Parse cell filename to extract experiment info"""
-        return FileParser.parse_simulation_file(filename, "CELLS")
 
     def load_cells_data(
         self, folder_path: Path, timestamp: str
@@ -137,7 +132,7 @@ class CellMetrics:
             )
 
             for cell_file in cell_files:
-                file_info = self.parse_cell_file(cell_file.name)
+                file_info = self.file_parser.parse_simulation_file(cell_file.name, "CELLS")
                 if file_info:
                     with open(cell_file, "r") as f:
                         cell_data = json.load(f)

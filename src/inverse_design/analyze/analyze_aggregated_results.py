@@ -439,9 +439,9 @@ def plot_metric_pairplot(
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_POSTERIOR_N512/"
-    input_folder = parameter_base_folder + "/MS_POSTERIOR_10P/n256/inputs"
-    csv_file = f"{parameter_base_folder}/MS_POSTERIOR_10P/n256/final_metrics.csv"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/"
+    input_folder = parameter_base_folder + "/inputs"
+    csv_file = f"{parameter_base_folder}/final_metrics.csv"
 
     metrics_name = "n_cells"
     metrics_df = pd.read_csv(csv_file)
@@ -451,10 +451,10 @@ if __name__ == "__main__":
         posterior_2 = f"{parameter_base_folder}/MS_POSTERIOR_10P_N256_5P/n256/final_metrics.csv"
         posterior_3 = f"{parameter_base_folder}/MS_POSTERIOR_10P_N256_5P_N256_3P/n512/final_metrics.csv"
         posterior_4 = f"{parameter_base_folder}/MS_POSTERIOR_10P_N256_5P_N256_3P_N512_1P/n32/final_metrics.csv"
-        posterior_metrics_files = [posterior_1, posterior_2, posterior_3, posterior_4]
+        posterior_metrics_files = [posterior_1]#, posterior_2, posterior_3, posterior_4]
         posterior_metrics_dfs = [pd.read_csv(posterior_metrics_file) for posterior_metrics_file in posterior_metrics_files]
         prior_metrics_file = (
-            "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_PRIOR_N512/final_metrics.csv"
+            "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/final_metrics.csv"
         )
         target_metrics = {
             "symmetry": 0.8,
@@ -481,7 +481,7 @@ if __name__ == "__main__":
 
     labels = ["top"] * len(top_n_input_file) + ["bottom"] * len(bottom_n_input_file)
     analyzed_param_df = collect_parameter_data(
-        input_files, input_folder, PARAMETER_LIST, labels
+        input_files, PARAMETER_LIST
     )
     analyzed_param_df = analyzed_param_df.sort_values(
         "input_folder",
@@ -494,7 +494,7 @@ if __name__ == "__main__":
         lambda x: "high" if x in top_n_input_file else "low" if x in bottom_n_input_file else "None"
     )
 
-    if 0:
+    if 1:
         save_file = f"{parameter_base_folder}/metric_pairplot_{metrics_name}.png"
         remove_metrics = ['input_folder', 'percentile_label', 'age', 'age_std', 'states', 'colony_growth_r', 'colony_growth', "doub_time",]
         metrics_list = [col for col in metrics_df.columns if col not in remove_metrics and not col.endswith('_std')]
@@ -506,12 +506,12 @@ if __name__ == "__main__":
             save_file
         )
 
-    if 0:
+    if 1:
         save_file = f"{parameter_base_folder}/parameter_distributions_{metrics_name}.png"
         plot_top_bottom_parameter_distributions(
             analyzed_param_df, PARAMETER_LIST, parameter_base_folder, percentile, save_file
         )
-    if 0:
+    if 1:
         save_file = f"{parameter_base_folder}/pca_parameters_{metrics_name}.png"
         plot_pca_parameters(
             analyzed_param_df,

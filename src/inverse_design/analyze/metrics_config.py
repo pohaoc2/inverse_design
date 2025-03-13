@@ -68,14 +68,22 @@ POPULATION_METRICS = {
         "spatial": True,
         "unit": "um"
     },
-    "act": {
-        "name": "Cell Activity",
-        "keys": ["act"],
+    "act_ratio": {
+        "name": "Cell Activity Ratio",
+        "keys": ["act_ratio"],
         "stats": ["median", "std"],
         "description": "number of active cells over total number of cells",
         "spatial": False,
         "unit": "none"
     },
+    "activity": {
+        "name": "Cell Activity",
+        "keys": ["activity"],
+        "stats": ["median", "std"],
+        "description": "number of active (PROLIFERATIVE, MIGRATORY) over inactive (NECROTIC, APOPTOTIC)",
+        "spatial": False,
+        "unit": "none"
+    }
 }
 
 SUMMARY_METRICS = {
@@ -122,9 +130,13 @@ DEFAULT_METRICS = {
         "mean": 300.0,
         "std": 24.661
     },
-    "act": {
+    "act_ratio": {
         "mean": 0.486,
         "std": 0.038
+    },
+    "activity": {
+        "mean": 1.000,
+        "std": 0.000
     },
     "doub_time": {
         "mean": 40.743,

@@ -4,9 +4,15 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
 from inverse_design.analyze.analyze_utils import analyze_metric_percentiles
-from typing import List
+from typing import List, Dict
 from inverse_design.analyze.cell_metrics import CellMetrics
+from inverse_design.analyze.population_metrics import PopulationMetrics
 from inverse_design.analyze.analyze_utils import remove_outliers
+from inverse_design.analyze.metrics_config import (
+    CELLULAR_METRICS,
+    POPULATION_METRICS,
+    SUMMARY_METRICS,
+)
 
 
 class SeedAnalyzer:
@@ -19,6 +25,7 @@ class SeedAnalyzer:
         self.base_output_dir = Path(base_output_dir)
         self.input_folder = Path(base_output_dir + "/inputs")
         self.cell_metrics = CellMetrics()
+        self.population_metrics = PopulationMetrics()
 
     def filter_valid_metrics(self, metrics_list):
         """Filter out seeds with NaN or inf values from a list of metrics"""
@@ -29,133 +36,146 @@ class SeedAnalyzer:
                 valid_indices.append(i)
         return valid_indices, [[metric[i] for i in valid_indices] for metric in metrics_list]
 
-    def calculate_seed_metrics(self, cells_t1, cells_t2, time_difference, metrics_dict):
-        """Calculate and append metrics for a single seed.
+    def _calculate_seed_metrics_helper(
+        self, cells: Dict, locations: Dict, metrics_dict: Dict[str, List]
+    ) -> Dict[str, List]:
+        """Calculate metrics for a single seed and append to metrics dictionary.
 
         Args:
-            cells_t1: Cell data at time t1
-            cells_t2: Cell data at time t2
-            time_difference: Time difference between t1 and t2
+            cells: Cell data for a single seed
+            locations: Location data for a single seed
             metrics_dict: Dictionary to store metrics
-
-        Returns:
-            Updated metrics dictionary
         """
-        metrics_dict["growth_rates"].append(
-            self.cell_metrics.calculate_growth_rate(cells_t1, cells_t2, time_difference)
-        )
-        metrics_dict["avg_volumes_t1"].append(self.cell_metrics.calculate_average_volume(cells_t1))
-        metrics_dict["avg_volumes_t2"].append(self.cell_metrics.calculate_average_volume(cells_t2))
-        metrics_dict["n_cells_t1"].append(len(cells_t1))
-        metrics_dict["n_cells_t2"].append(len(cells_t2))
-        metrics_dict["act_t1"].append(self.cell_metrics.calculate_activity(cells_t1))
-        metrics_dict["act_t2"].append(self.cell_metrics.calculate_activity(cells_t2))
-        metrics_dict["seed_count"] += 1
-        metrics_dict["doub_time"].append(
-            self.cell_metrics.calculate_doubling_time(len(cells_t1), len(cells_t2), time_difference)
-        )
-        metrics_dict["states_t1"].append(self.cell_metrics.calculate_cell_states(cells_t1))
-        metrics_dict["states_t2"].append(self.cell_metrics.calculate_cell_states(cells_t2))
+        # Calculate cellular metrics
+        for metric, config in CELLULAR_METRICS.items():
+            value = getattr(self.cell_metrics, f"calculate_{metric}")(cells)
+            metrics_dict[metric].append(value)
+
+        # Calculate population metrics
+        for metric, config in POPULATION_METRICS.items():
+            if config["spatial"]:
+                value = getattr(self.population_metrics, f"calculate_{metric}")(cells, locations)
+            else:
+                value = getattr(self.population_metrics, f"calculate_{metric}")(cells)
+            metrics_dict[metric].append(value)
         return metrics_dict
 
-    def process_parameter_seeds(self, cells_data_t1, cells_data_t2, time_difference):
+    def calculate_seed_metrics(self, folder_path, time_point) -> Dict[str, List]:
+        """Calculate metrics for a single seed and append to metrics dictionary.
+
+        Args:
+            cells: Cell data for a single seed
+            locations: Location data for a single seed
+            metrics_dict: Dictionary to store metrics
+        """
+        cells_data = self.cell_metrics.load_cells_data(folder_path, time_point)
+        locations_data = self.population_metrics.load_locations_data(folder_path, time_point)
+        metrics_dict = {
+            metric: [] for metric in CELLULAR_METRICS.keys() | POPULATION_METRICS.keys()
+        }
+        for (_, cells), (_, locations) in zip(cells_data, locations_data):
+            metrics_dict = self._calculate_seed_metrics_helper(cells, locations, metrics_dict)
+        return metrics_dict
+
+    def process_parameter_seeds(self, folder_path, timestamps: List[str]):
         """
         Process metrics across different seeds for a single parameter set.
 
         Args:
-            cells_data_t1: List of (info, cells) tuples at time t1
-            cells_data_t2: List of (info, cells) tuples at time t2
-            time_difference: Time difference between t1 and t2
+            folder_path: Path to the simulation folder
+            timestamps: List of timestamps to analyze
 
         Returns:
             Dictionary containing metrics for each experiment group and name
         """
-        metrics_by_exp = {}
+        metrics_timestamps = {}
+        for time_point in timestamps:
+            metrics_timestamps[time_point] = self.calculate_seed_metrics(folder_path, time_point)
 
-        for (info_t1, cells_t1), (info_t2, cells_t2) in zip(cells_data_t1, cells_data_t2):
-            if (
-                info_t1["exp_group"] != info_t2["exp_group"]
-                or info_t1["exp_name"] != info_t2["exp_name"]
-            ):
-                continue
+        n_cells_t1_seed_list = metrics_timestamps[timestamps[0]]["n_cells"]
+        n_cells_t2_seed_list = metrics_timestamps[timestamps[-1]]["n_cells"]
+        time_difference = int(timestamps[-1]) - int(timestamps[0])
 
-            exp_key = (info_t1["exp_group"], info_t1["exp_name"])
-            if exp_key not in metrics_by_exp:
-                metrics_by_exp[exp_key] = {
-                    "growth_rates": [],
-                    "avg_volumes_t1": [],
-                    "avg_volumes_t2": [],
-                    "n_cells_t1": [],
-                    "n_cells_t2": [],
-                    "act_t1": [],
-                    "act_t2": [],
-                    "seed_count": 0,
-                    "doub_time": [],
-                    "states_t1": [],
-                    "states_t2": [],
-                }
+        colony_diameters_over_time = self.collect_colony_diameters_over_time(metrics_timestamps)
+        timestamps_days = [int(timestamp) / 60 / 24 for timestamp in timestamps]
+        colony_growth_rates_results = self.population_metrics.calculate_colony_growth(
+            colony_diameters_over_time, timestamps_days
+        )
 
-            metrics_by_exp[exp_key] = self.calculate_seed_metrics(
-                cells_t1, cells_t2, time_difference, metrics_by_exp[exp_key]
-            )
+        doub_times_seed = []
+        for n1, n2 in zip(n_cells_t1_seed_list, n_cells_t2_seed_list):
+            doub_time = self.population_metrics.calculate_doub_time(n1, n2, time_difference)
+            doub_times_seed.append(doub_time)
 
-        # Filter invalid metrics
-        for exp_key in metrics_by_exp:
-            # Get all metrics except seed_count and states
-            metrics_to_check = []
-            metrics_keys = []
-            for key, value in metrics_by_exp[exp_key].items():
-                if key not in ["seed_count", "states_t1", "states_t2"] and isinstance(value, list):
-                    metrics_to_check.append(value)
-                    metrics_keys.append(key)
+        for time_point, metrics in metrics_timestamps.items():
+            # Filter invalid metrics
+            for key, value in metrics.items():
+                # Get all metrics except seed_count and states
+                metrics_to_check = []
+                metrics_keys = []
+                for key, value in metrics.items():
+                    if key != "states" and isinstance(value, list):
+                        metrics_to_check.append(value)
+                        metrics_keys.append(key)
 
             valid_indices, filtered_metrics = self.filter_valid_metrics(metrics_to_check)
 
             # Update all metrics with filtered values
             for idx, key in enumerate(metrics_keys):
-                metrics_by_exp[exp_key][key] = filtered_metrics[idx]
+                metrics_timestamps[time_point][key] = filtered_metrics[idx]
 
-            metrics_by_exp[exp_key]["seed_count"] = len(valid_indices)
+            metrics_timestamps[time_point]["seed_count"] = len(valid_indices)
+        final_metrics = metrics_timestamps[timestamps[-1]]
 
-        return metrics_by_exp
+        final_metrics["doub_time"] = doub_times_seed
+        final_metrics["colony_growth"] = colony_growth_rates_results["slope"]
+        final_metrics["colony_growth_r"] = colony_growth_rates_results["r_value"]
 
-    def analyze_seeds_for_folders(self, input_folders, t1: str, t2: str, timestamps: List[str]):
+        return final_metrics
+
+    def collect_colony_diameters_over_time(
+        self, metrics_by_timestamp_seed: Dict[str, Dict[str, List]]
+    ) -> Dict[int, List]:
+        """Collect colony diameters for each seed across all timestamps.
+
+        Args:
+            metrics_by_timestamp_seed: Dictionary mapping timestamps to metrics dictionaries
+
+        Returns:
+            Dictionary mapping seed indices to lists of colony diameters over time
+        """
+        n_seeds = len(list(metrics_by_timestamp_seed.values())[0]["colony_diameter"])
+        colony_diameters_over_time = {i: [] for i in range(n_seeds)}
+        for _, metrics_seed in metrics_by_timestamp_seed.items():
+            for seed_idx, seed_metrics in enumerate(metrics_seed["colony_diameter"]):
+                colony_diameters_over_time[seed_idx].append(seed_metrics)
+
+        return colony_diameters_over_time
+
+    def analyze_seeds_for_folders(self, input_folders, timestamps: List[str]):
         """Analyze metrics across seeds for given input folders.
 
         Args:
             input_folders: List of input folder names to analyze
-            t1: First timepoint
-            t2: Second timepoint
-            timestamps: List of all timestamps
+            timestamps: List of timestamps to analyze
 
         Returns:
             Dictionary containing metrics for each folder's seeds
         """
-        all_seed_metrics = {}
+        folder_metrics_seed = {}
 
         for folder_name in input_folders:
             folder_path = self.input_folder / folder_name
 
-            # Load cell data
-            cells_data_t1 = self.cell_metrics.load_cells_data(folder_path, t1)
-            cells_data_t2 = self.cell_metrics.load_cells_data(folder_path, t2)
-            time_difference = int(t2) - int(t1)
-
-            # Process seeds for this parameter set
-            metrics_by_exp = self.process_parameter_seeds(
-                cells_data_t1, cells_data_t2, time_difference
-            )
-            exp_name = list(metrics_by_exp.keys())[0]
-            all_seed_metrics[folder_name] = metrics_by_exp[exp_name]
-        return all_seed_metrics
+            final_metrics = self.process_parameter_seeds(folder_path, timestamps)
+            folder_metrics_seed[folder_name] = final_metrics
+        return folder_metrics_seed
 
     def plot_seed_comparisons(
         self,
         csv_file: str,
         metric_name: str,
         percentile: float = 10,
-        t1: str = "000000",
-        t2: str = "010080",
         timestamps: List[str] = None,
         metrics_to_plot: List[str] = None,
         save_file: str = None,
@@ -167,8 +187,6 @@ class SeedAnalyzer:
             csv_file: Path to aggregated metrics CSV file
             metric_name: Name of metric to analyze
             percentile: Percentile for top/bottom selection
-            t1: First timepoint
-            t2: Second timepoint
             timestamps: List of timestamps for analysis
             metrics_to_plot: List of metrics to plot
             save_file: Path to save the plot (if None, display plot)
@@ -179,20 +197,19 @@ class SeedAnalyzer:
             csv_file, metric_name, percentile, verbose=False
         )
         # Get seed metrics for each group
-        top_seed_metrics = self.analyze_seeds_for_folders(top_n_input_file, t1, t2, timestamps)
-        bottom_seed_metrics = self.analyze_seeds_for_folders(
-            bottom_n_input_file, t1, t2, timestamps
-        )
-
-        if timestamps is None:
-            timestamps = [t1, t2]
+        top_folder_metrics_seed = self.analyze_seeds_for_folders(top_n_input_file, timestamps)
+        bottom_folder_metrics_seed = self.analyze_seeds_for_folders(bottom_n_input_file, timestamps)
 
         # Create plot data from seed metrics
         plot_data = []
-        for group, seed_metrics in [("top", top_seed_metrics), ("bottom", bottom_seed_metrics)]:
-            for folder, folder_metrics in seed_metrics.items():
+        for group, folder_metrics_seed in [
+            ("top", top_folder_metrics_seed),
+            ("bottom", bottom_folder_metrics_seed),
+        ]:
+            for folder, metrics_seed in folder_metrics_seed.items():
                 for metric in metrics_to_plot:
-                    values = folder_metrics[metric]
+                    values = metrics_seed[metric]
+                    print(f"values: {values}")
                     for value in values:
                         plot_data.append(
                             {"metric": metric, "value": value, "group": group, "folder": folder}
@@ -203,10 +220,7 @@ class SeedAnalyzer:
             cleaned_plot_data = []
             for metric in metrics_to_plot:
                 metric_data = original_plot_df[original_plot_df["metric"] == metric].copy()
-                cleaned_data, _, _ = remove_outliers(
-                    metric_data, 
-                    verbose=True
-                )
+                cleaned_data, _, _ = remove_outliers(metric_data, verbose=True)
                 cleaned_plot_data.append(cleaned_data)
             print(f"number of outliers removed: {len(original_plot_df) - len(cleaned_plot_data)}")
             plot_df = pd.concat(cleaned_plot_data, axis=0)
@@ -269,19 +283,19 @@ class SeedAnalyzer:
 
 if __name__ == "__main__":
     # Example usage
-    base_dir = "ARCADE_OUTPUT/STEM_CELL_META_SIGNAL_HETEROGENEITY"
-    csv_file = f"{base_dir}/simulation_metrics.csv"
+    base_dir = "ARCADE_OUTPUT/DEFAULT"
+    csv_file = f"{base_dir}/final_metrics.csv"
     percentile = 10
-    metrics_to_plot = ["doub_time", "act_t2", "n_cells_t2"]
+    metrics_to_plot = ["doub_time", "act_ratio", "n_cells"]
     analyzer = SeedAnalyzer(base_dir)
-    metric_name = "doub_time_std"
+    metric_name = "doub_time"
+    timestamps = ["000000", "010080"]
     analyzer.plot_seed_comparisons(
         csv_file=csv_file,
         metric_name=metric_name,
         percentile=percentile,
+        timestamps=timestamps,
         metrics_to_plot=metrics_to_plot,
-        t1="000000",
-        t2="010080",
         save_file=f"{base_dir}/seed_comparisons_{metric_name}.png",
-        remove_outliers_flag=True
+        remove_outliers_flag=True,
     )
