@@ -19,11 +19,11 @@ PARAM_RANGES = PARAM_RANGES.copy()
 TARGET_RANGES = {
     "symmetry": (0.0, 1.0),
     "cycle_length": (10.0, 70.0),
-    "act": (0.0, 1.0),
+    "act_ratio": (0.0, 1.0),
     "doub_time": (10.0, 70.0),
     "symmetry_std": (0.0, 0.01),
     "cycle_length_std": (0.0, 0.5),
-    "act_std": (0.0, 0.01),
+    "act_ratio_std": (0.0, 0.01),
     "doub_time_std": (0.0, 0.5),
 }
 
@@ -85,7 +85,15 @@ def perturbation_kernel(params, iteration=1, max_iterations=5, param_ranges=PARA
                     final_y_spacing = original_y_spacing + perturb_value
                     perturbed_params[i] = f"{final_y_spacing}:{final_y_spacing+1}"
                 else:
-                    perturbed_params[i] = "*:" + str(int(perturbed_params[i].split(":")[-1]) + np.random.randint(-4, 5))
+                    if param_name == "X_SPACING":
+                        x_spacing_value = float(perturbed_params[i].split(":")[-1]) + np.random.randint(-4, 5)
+                    else:
+                        y_spacing_value = float(perturbed_params[i].split(":")[-1]) + np.random.randint(-4, 5)
+                        # swap x and y spacing if y spacing is smaller than x spacing
+                        x_final = min(x_spacing_value, y_spacing_value)
+                        y_final = max(x_spacing_value, y_spacing_value)
+                        perturbed_params[i-1] = "*:" + str(int(x_final))
+                        perturbed_params[i] = "*:" + str(int(y_final))
             elif param_name in ["GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]:
                 param_range = max_val - min_val
                 scale = param_range * scale_factor
@@ -308,7 +316,7 @@ def run_example():
         {
             "perturbed_config": "source",
             "template_path": "test_source.xml",
-            "point_based": False,
+            "point_based": True,
             "y_interval": 4,
             "radius_bound": radius+margin,
             "side_length": side_length
@@ -317,6 +325,8 @@ def run_example():
     n_samples = 2**sobol_power
     config_params = input_configs[1]
     param_ranges = PARAM_RANGES.copy() if config_params["perturbed_config"] == "cellular" else SOURCE_PARAM_RANGES.copy()
+    if config_params["point_based"]:
+        param_ranges.pop("X_SPACING")
     param_ranges = {k: v for k, v in param_ranges.items() if v[0] != v[1]}
     smc_rf = ABCSMCRF(
         n_iterations=2,           
@@ -349,8 +359,9 @@ def run_example():
         "010080",
     ]
     timestamps = timestamps[:2]
-    input_dir = f"inputs/abc_smc_rf_n{n_samples}_{config_params['perturbed_config']}/"
-    output_dir = f"ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}_{config_params['perturbed_config']}/"
+    source_type = "point" if config_params["point_based"] else "grid"
+    input_dir = f"inputs/abc_smc_rf_n{n_samples}_{config_params['perturbed_config']}_{source_type}/"
+    output_dir = f"ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}_{config_params['perturbed_config']}_{source_type}/"
     jar_path = "models/arcade-test-cycle-fix-affinity.jar"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -370,15 +381,21 @@ def run_example():
 
     posterior_samples = smc_rf.posterior_sample(1000)
     print("\nParameter estimation results:")
-    if config_params["perturbed_config"] == "cellular":
-        for i, param_name in enumerate(smc_rf.param_ranges.keys()):
+    
+    for i, param_name in enumerate(smc_rf.param_ranges.keys()):
+        if config_params["perturbed_config"] == "cellular":
             print(f"{param_name}: {np.mean(posterior_samples[:, i]):.4f} ± {np.std(posterior_samples[:, i]):.4f}")
-    else:
-        for i, param_name in enumerate(smc_rf.param_ranges.keys()):
-            if param_name in ["X_SPACING", "Y_SPACING"]:
+        else:
+            if param_name == "X_SPACING":
+                continue
+            elif param_name == "Y_SPACING":
                 if config_params["point_based"]:
-                    point_center = (config_params["side_length"]/2, config_params["side_length"]/2)
-                    source_sites = [tuple(map(int, posterior_samples[j][i].split(":"))) for j in range(n_samples)]
+                    x_center = int((6 * config_params["radius_bound"] - 3) // 2)
+                    y_center = int((6 * config_params["radius_bound"] - 3) // 2)
+                    point_center = (x_center, y_center, 0)
+                    source_sites = []
+                    for j in range(n_samples):
+                        source_sites.append(np.array([x_center, posterior_samples[j][i].split(":")[1], 0]).astype(int))
                     distance_to_center = [calculate_distance_between_points(
                         point_center,
                         source_site,
@@ -388,7 +405,8 @@ def run_example():
                     print(f"DISTANCE_TO_CENTER: {np.mean(distance_to_center):.4f} ± {np.std(distance_to_center):.4f}")
                 else:
                     capillary_densities = [calculate_capillary_density(
-                        int(posterior_samples[j][i].split(":")[1]),
+                        radius + margin,
+                        int(posterior_samples[j][i-1].split(":")[1]),
                         int(posterior_samples[j][i].split(":")[1]),
                         config_params["side_length"],
                     ) for j in range(n_samples)]
@@ -399,7 +417,14 @@ def run_example():
                 
     
     # Plot results
-    param_names = ["AFFINITY", "COMPRESSION_TOLERANCE", "CELL_VOLUME_MU"]
+    if config_params["perturbed_config"] == "cellular":
+        param_names = ["AFFINITY", "COMPRESSION_TOLERANCE", "CELL_VOLUME_MU"]
+    else:
+        if config_params["point_based"]:
+            param_names = ["Y_SPACING", "GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]
+        else:
+            param_names = ["X_SPACING", "Y_SPACING", "GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]
+
     plot_parameter_iterations(smc_rf, param_names, save_path=f"{plot_dir}/arcade_params_iterations")
     plot_statistic_iterations(smc_rf, target_names, target_values, save_path=f"{plot_dir}/arcade_stats_iterations")
     plot_variable_importance(smc_rf, target_names, n_statistics, save_path=f"{plot_dir}/arcade_variable_importance.png")

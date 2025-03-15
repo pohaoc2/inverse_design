@@ -292,9 +292,27 @@ class ABCSMCRF(ABCSMCRFBase):
             if prior_density > 0:
                 parameters[i] = theta_candidate
                 i += 1
+
         dir_postfix = f"iter_{self.current_iteration}"
+        param_names = list(self.param_ranges.keys())
+        if self.config_params["point_based"]:
+            # Create new parameters array with one extra column for x_center
+            added_params = np.zeros((n_candidates, parameters.shape[1] + 1), dtype=object)
+            for i, param in enumerate(parameters):
+                x_center = int((6 * self.config_params["radius_bound"] - 3) / 2)
+                # Insert x_center at index 0
+                added_params[i] = np.insert(param, 0, f"{x_center-1}:{x_center+1}")
+            # Update parameters with the new array that includes x_center
+            parameters = added_params
+            
+            new_param_ranges = {"X_SPACING": (1, 15)}
+            for key, value in self.param_ranges.items():
+                if key != "X_SPACING":
+                    new_param_ranges[key] = value
+            param_names = new_param_ranges.keys()
+
         generate_input_files(
-            param_names=self.param_ranges.keys(),
+            param_names=param_names,
             param_values=parameters,
             output_dir=input_dir + dir_postfix,
             config_params=self.config_params,
@@ -306,9 +324,7 @@ class ABCSMCRF(ABCSMCRFBase):
         target_stats = np.array([statistics[target_name] for target_name in self.target_names]).T
         if len(valid_parameters) < n_candidates:
             logging.warning(f"Only {len(valid_parameters)} valid simulations out of {n_candidates} attempts")
-        # Take only the first n_particles
-        # Store results
-        self.parameter_samples.append(parameters)
+        self.parameter_samples.append(np.array(valid_parameters))
         self.statistics.append(target_stats)
 
             

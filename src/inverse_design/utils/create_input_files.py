@@ -647,6 +647,15 @@ def generate_source_site_perturbations(
     param_log = []
     n_samples = len(params["X_SPACING"])
 
+    def get_param_value(param_name, index):
+        """Get parameter value at index or return 0 if parameter doesn't exist"""
+        if param_name not in params:
+            return 0
+        param_list = params[param_name]
+        if index >= len(param_list):
+            return 0
+        return param_list[index]
+
     for i in range(n_samples):
         # Find and update source sites component
         sites_component = root.find(".//component[@id='SITES']")
@@ -654,15 +663,15 @@ def generate_source_site_perturbations(
             raise ValueError("Could not find component with id='SITES' in XML")
 
         # Update parameters
-        sites_component.find("component.parameter[@id='X_SPACING']").set("value", params["X_SPACING"][i])
-        sites_component.find("component.parameter[@id='Y_SPACING']").set("value", params["Y_SPACING"][i])
+        sites_component.find("component.parameter[@id='X_SPACING']").set("value", str(get_param_value("X_SPACING", i)))
+        sites_component.find("component.parameter[@id='Y_SPACING']").set("value", str(get_param_value("Y_SPACING", i)))
 
         # Update concentrations
         for layer_id, param_name in [("GLUCOSE", "GLUCOSE_CONCENTRATION"), ("OXYGEN", "OXYGEN_CONCENTRATION")]:
             layer = root.find(f".//layer[@id='{layer_id}']")
             for param in layer.findall("layer.parameter"):
                 if param.get("operation") == "generator" or param.get("id") == "INITIAL_CONCENTRATION":
-                    param.set("value", f"{params[param_name][i]}")
+                    param.set("value", str(get_param_value(param_name, i)))
 
         # Save modified XML
         output_file = f"{output_dir}/inputs/input_{i+1}.xml"
@@ -671,12 +680,12 @@ def generate_source_site_perturbations(
         # Log parameters
         param_log.append({
             "file_name": f"input_{i+1}.xml",
-            "X_SPACING": params["X_SPACING"][i],
-            "Y_SPACING": params["Y_SPACING"][i],
-            "GLUCOSE_CONCENTRATION": params["GLUCOSE_CONCENTRATION"][i],
-            "OXYGEN_CONCENTRATION": params["OXYGEN_CONCENTRATION"][i],
-            "CAPILLARY_DENSITY": params["CAPILLARY_DENSITY"][i],
-            "DISTANCE_TO_CENTER": params["DISTANCE_TO_CENTER"][i],
+            "X_SPACING": get_param_value("X_SPACING", i),
+            "Y_SPACING": get_param_value("Y_SPACING", i),
+            "GLUCOSE_CONCENTRATION": get_param_value("GLUCOSE_CONCENTRATION", i),
+            "OXYGEN_CONCENTRATION": get_param_value("OXYGEN_CONCENTRATION", i),
+            "CAPILLARY_DENSITY": get_param_value("CAPILLARY_DENSITY", i),
+            "DISTANCE_TO_CENTER": get_param_value("DISTANCE_TO_CENTER", i),
         })
 
     return param_log
