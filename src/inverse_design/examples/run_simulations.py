@@ -127,5 +127,5 @@ if __name__ == "__main__":
         output_dir=f"ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/points",
         jar_path="models/arcade-test-cycle-fix-affinity.jar",
         max_workers=int(mp.cpu_count()/2),
-        running_index=[i for i in range(1, 1025)],
+        running_index=[i for i in range(337, 365)],
     )

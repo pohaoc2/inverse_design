@@ -6,7 +6,7 @@ import scipy.stats.qmc
 from typing import Dict
 import os
 import json
-from inverse_design.analyze.parameter_config import PARAM_RANGES
+from inverse_design.analyze.parameter_config import PARAM_RANGES, SOURCE_PARAM_RANGES
 from inverse_design.analyze.source_metrics import calculate_capillary_density, calculate_distance_between_points
 from scipy.stats import qmc
 
@@ -104,7 +104,7 @@ def _create_parameter_log_entry(params: dict, file_number: int) -> dict:
 def generate_perturbed_parameters(
     sobol_power: int,
     param_ranges: dict,
-    template_path: str = "sample_input_v3.xml",
+    config_params: Dict[str, str],
     output_dir: str = "perturbed_inputs",
     seed: int = 42,
 ):
@@ -113,76 +113,117 @@ def generate_perturbed_parameters(
     Args:
         sobol_power: Power of 2 for number of samples (n_samples = 2^sobol_power)
         param_ranges: Dictionary of parameter ranges {param_name: (min, max)}
-        template_path: Path to template XML file
+        config_params: Dictionary of input configurations {config_type: {param_name: value}}
         output_dir: Directory to save generated XML files
         seed: Random seed for reproducibility
     """
-    # Check if the input directory exists, if exists, skip the generation
+    config_type = config_params["perturbed_config"]
+    if config_type not in ["cellular", "source"]:
+        raise ValueError('config_type must be either "cellular" or "source"')
+    template_path = config_params["template_path"]
+    point_based = config_params["point_based"]
+    y_interval = config_params["y_interval"]
+    radius_bound = config_params["radius_bound"]
+    side_length = config_params["side_length"]
 
+    # Check if the input directory exists
     if os.path.exists(output_dir):
         num_files = len([f for f in os.listdir(output_dir + "/inputs") if f.startswith("input_")])
         if num_files >= 2**sobol_power:
-            print(
-                f"Input directory {output_dir} already exists, and number of files ({num_files}) is greater than or equal to the number of target number of files ({2**sobol_power}), skipping generation"
-            )
+            print(f"Input directory exists with sufficient files ({num_files} ≥ {2**sobol_power}), skipping generation")
             return
         else:
-            print(
-                f"Input directory {output_dir} already exists, but number of files ({num_files}) is less than the number of target number of files ({2**sobol_power}), generating new files"
-            )
+            print(f"Input directory exists but needs more files ({num_files} < {2**sobol_power}), generating new files")
     else:
         os.makedirs(f"{output_dir}/inputs")
+
     # Save parameter ranges to CSV
     save_parameter_ranges(param_ranges, output_dir)
 
-    # Define parameter ranges
-    param_ranges_list = list(param_ranges.values())
+    if config_type == "cellular":
+        # Generate cellular parameter samples
+        sampler = qmc.Sobol(d=len(param_ranges), scramble=True, seed=seed)
+        samples = sampler.random_base2(m=sobol_power)
 
-    # Initialize Sobol sequence generator with random seed
-    sobol_engine = scipy.stats.qmc.Sobol(d=len(param_ranges_list), scramble=True, seed=seed)
+        # Scale samples and convert to parameter dictionary format
+        params = {name: [] for name in param_ranges.keys()}
+        for sample in samples:
+            for j, ((name, (min_val, max_val))) in enumerate(param_ranges.items()):
+                scaled_value = min_val + (max_val - min_val) * sample[j]
+                params[name].append(scaled_value)
 
-    # Generate samples in [0, 1] space
-    samples = sobol_engine.random_base2(m=sobol_power)
-    n_samples = len(samples)
+        # Generate XML files using the samples
+        param_log = generate_cellular_perturbations(
+            params=params,
+            template_path=template_path,
+            output_dir=output_dir,
+        )
 
-    print(f"Generating {n_samples} samples...")
+    else: # source configuration
+        samples = generate_source_site_samples(
+            param_ranges=param_ranges,
+            sobol_power=sobol_power,
+            point_based=point_based,
+            y_interval=y_interval,
+            radius_bound=radius_bound,
+            side_length=side_length,
+        )
+        param_log = generate_source_site_perturbations(
+            params=samples,
+            template_path=template_path,
+            output_dir=output_dir,
+        )
 
-    # Create output directory
-    Path(output_dir).mkdir(exist_ok=True)
+    _save_param_log(param_log, output_dir)
+
+def _save_param_log(param_log: list, output_dir: str):
+    df = pd.DataFrame(param_log)
+    df.to_csv(f"{output_dir}/parameter_log.csv", index=False)
+    print(f"Saved parameter log to {output_dir}/parameter_log.csv")
+
+def generate_cellular_perturbations(
+    params: dict,
+    template_path: str,
+    output_dir: str,
+) -> None:
+    """Generate input XML files for cellular parameter perturbations.
+
+    Args:
+        params: Dictionary of parameter values {param_name: [values]}
+        template_path: Path to template XML file
+        output_dir: Directory to save generated XML files
+    """
+    # Create output directories if they don't exist
+    if not os.path.exists(f"{output_dir}/inputs"):
+        os.makedirs(f"{output_dir}/inputs")
 
     # Read template XML
     tree = ET.parse(template_path)
     root = tree.getroot()
 
-    # Prepare DataFrame for parameter logging
+    # Prepare parameter logging
     param_log = []
+    n_samples = len(next(iter(params.values())))
 
-    # Generate XML files for each parameter set
-    for i, sample in enumerate(samples):
-        # Scale sample to parameter ranges
-        param_values = []
-        for value, (min_val, max_val) in zip(sample, param_ranges_list):
-            scaled_value = min_val + (max_val - min_val) * value
-            param_values.append(scaled_value)
-        # Create a dictionary for the log entry
-        log_entry = _create_parameter_log_entry(dict(zip(param_ranges.keys(), param_values)), i + 1)
+    # Generate files for each parameter set
+    for i in range(n_samples):
+        # Create parameter dictionary for this sample
+        sample_params = {
+            name: values[i] 
+            for name, values in params.items()
+        }
+
+        # Create log entry
+        log_entry = _create_parameter_log_entry(sample_params, i + 1)
         param_log.append(log_entry)
-        # Create a dictionary for easier parameter access
-        params = {name: param_values[i] for i, name in enumerate(param_ranges.keys())}
-        update_xml_parameters(root, params)
+
+        # Update XML parameters
+        update_xml_parameters(root, sample_params)
 
         # Save modified XML
-        if not os.path.exists(f"{output_dir}/inputs"):
-            os.makedirs(f"{output_dir}/inputs")
         output_file = f"{output_dir}/inputs/input_{i+1}.xml"
         tree.write(output_file, encoding="utf-8", xml_declaration=True)
-
-    # Save parameters to Excel
-    df = pd.DataFrame(param_log)
-    df.to_csv(f"{output_dir}/parameter_log.csv", index=False)
-
-    print(f"Generated {n_samples} XML files and parameter log in {output_dir}/")
-
+    return param_log
 
 def generate_parameters_from_kde(
     parameter_pdfs: Dict,
@@ -511,8 +552,8 @@ def generate_2param_perturbation(
 def generate_input_files(
     param_names: list[str],
     param_values: list[list[float]],
-    output_dir: str,
-    template_path: str = "sample_input_v3.xml",
+    config_params: Dict[str, str],
+    output_dir: str = "inputs",
 ) -> None:
     """Generate input XML files from parameter values.
 
@@ -520,152 +561,240 @@ def generate_input_files(
         param_names: List of parameter names
         param_values: List of parameter value lists, where each inner list contains values
                      corresponding to param_names
-        output_dir: Directory to save generated XML files
+        config_params: Dictionary of input configurations {config_type: {param_name: value}}
         template_path: Path to template XML file
+        output_dir: Directory to save generated XML files
     """
-    # Check if the input directory exists, if exists, skip the generation
+    config_type = config_params["perturbed_config"]
+    if config_type not in ["cellular", "source"]:
+        raise ValueError('config_type must be either "cellular" or "source"')
+    template_path = config_params["template_path"]
 
+    # Check if the input directory exists
     if os.path.exists(output_dir):
         num_files = len([f for f in os.listdir(output_dir + "/inputs") if f.startswith("input_")])
         if num_files >= len(param_values):
-            print(
-                f"Input directory {output_dir} already exists, and number of files ({num_files}) is greater than or equal to the number of target number of files ({len(param_values)}), skipping generation"
-            )
+            print(f"Input directory exists with sufficient files ({num_files} ≥ {len(param_values)}), skipping generation")
             return
         else:
-            print(
-                f"Input directory {output_dir} already exists, but number of files ({num_files}) is less than the number of target number of files ({len(param_values)}), generating new files"
-            )
+            print(f"Input directory exists but needs more files ({num_files} < {len(param_values)}), generating new files")
     else:
         os.makedirs(f"{output_dir}/inputs")
 
-    # Read template XML
-    tree = ET.parse(template_path)
-    root = tree.getroot()
-
-    # Prepare parameter logging
-    param_log = []
-
-    # Generate XML files for each parameter set
-    for i, values in enumerate(param_values):
-        # Create parameter dictionary
-        params = dict(zip(param_names, values))
-
-        # Create log entry
-        log_entry = _create_parameter_log_entry(params, i + 1)
-        param_log.append(log_entry)
-
-        # Update XML parameters
-        update_xml_parameters(root, params)
-
-        # Save modified XML
-        output_file = f"{output_dir}/inputs/input_{i+1}.xml"
-        tree.write(output_file, encoding="utf-8", xml_declaration=True)
-
-    # Save parameter log
-    df = pd.DataFrame(param_log)
-    df.to_csv(f"{output_dir}/parameter_log.csv", index=False)
-
     # Save parameter ranges
     param_ranges = {
-        name: (min(values), max(values)) for name, values in zip(param_names, zip(*param_values))
+        name: (min(values), max(values)) 
+        for name, values in zip(param_names, zip(*param_values))
     }
     save_parameter_ranges(param_ranges, output_dir)
 
-    print(f"Generated {len(param_values)} XML files and parameter log in {output_dir}/")
+    if config_type == "cellular":
+        # Convert to dictionary format for cellular parameters
+        params_dict = {
+            name: [values[i] for values in param_values]
+            for i, name in enumerate(param_names)
+        }
+        param_log = generate_cellular_perturbations(
+            params=params_dict,
+            template_path=template_path,
+            output_dir=output_dir,
+        )
 
+    else:  # source configuration
+        # Convert to dictionary format for source parameters
+        params = {
+            "X_SPACING": [],
+            "Y_SPACING": [],
+            "GLUCOSE_CONCENTRATION": [],
+            "OXYGEN_CONCENTRATION": [],
+        }
+        
+        for values in param_values:
+            params_dict = dict(zip(param_names, values))
+            params["X_SPACING"].append(params_dict.get("X_SPACING", ""))
+            params["Y_SPACING"].append(params_dict.get("Y_SPACING", ""))
+            params["GLUCOSE_CONCENTRATION"].append(params_dict.get("GLUCOSE_CONCENTRATION", 0))
+            params["OXYGEN_CONCENTRATION"].append(params_dict.get("OXYGEN_CONCENTRATION", 0))
+
+        param_log = generate_source_site_perturbations(
+            params=params,
+            template_path=template_path,
+            output_dir=output_dir,
+        )
+    _save_param_log(param_log, output_dir)
 
 def generate_source_site_perturbations(
-    x_spacings: list[str],
-    y_spacings: list[str],
-    glucose_concentrations: list[float],
-    oxygen_concentrations: list[float],
-    capillary_density: list[float],
-    distance_to_center: list[float],
-    template_path: str = "sample_input_v3.xml",
-    output_dir: str = "inputs/STEM_CELL/DENSITY_SOURCE",
+    params: dict,
+    template_path: str,
+    output_dir: str,
 ) -> None:
-    """Generate input XML files with different source site spacings and concentrations.
+    """Generate input XML files for source site perturbations.
 
     Args:
-        x_spacings: List of X_SPACING values (e.g., ["*:2", "*:3"])
-        y_spacings: List of Y_SPACING values (e.g., ["*:2", "*:3"])
-        glucose_concentrations: List of glucose concentrations in fmol/um^3
-        oxygen_concentrations: List of oxygen concentrations in mmHg
-        capillary_density: List of capillary densities
-        distance_to_center: List of distance to center
+        params: Dictionary containing:
+            - x_spacing: List of X_SPACING values
+            - y_spacing: List of Y_SPACING values
+            - glucose: List of glucose concentrations
+            - oxygen: List of oxygen concentrations
+            - capillary_density: List of capillary densities
+            - distance_to_center: List of distances
         template_path: Path to template XML file
         output_dir: Directory to save generated XML files
     """
-    # Create output directories if they don't exist
-    if not os.path.exists(f"{output_dir}/inputs"):
-        os.makedirs(f"{output_dir}/inputs")
-
-    # Read template XML
+    # Generate XML files
     tree = ET.parse(template_path)
     root = tree.getroot()
-
-    # Prepare parameter logging
     param_log = []
+    n_samples = len(params["X_SPACING"])
 
-    # Verify all input lists have the same length
-    n_samples = len(x_spacings)
-    if not all(
-        len(lst) == n_samples
-        for lst in [y_spacings, glucose_concentrations, oxygen_concentrations, capillary_density, distance_to_center]
-    ):
-        raise ValueError("All input parameter lists must have the same length")
-
-    # Generate files for each parameter set
     for i in range(n_samples):
-        # Find source sites component
+        # Find and update source sites component
         sites_component = root.find(".//component[@id='SITES']")
         if sites_component is None:
             raise ValueError("Could not find component with id='SITES' in XML")
 
-        # Update X_SPACING
-        x_param = sites_component.find("component.parameter[@id='X_SPACING']")
-        x_param.set("value", x_spacings[i])
+        # Update parameters
+        sites_component.find("component.parameter[@id='X_SPACING']").set("value", params["X_SPACING"][i])
+        sites_component.find("component.parameter[@id='Y_SPACING']").set("value", params["Y_SPACING"][i])
 
-        # Update Y_SPACING
-        y_param = sites_component.find("component.parameter[@id='Y_SPACING']")
-        y_param.set("value", y_spacings[i])
-
-        # Update GLUCOSE concentration
-        glucose_layer = root.find(".//layer[@id='GLUCOSE']")
-        for param in glucose_layer.findall("layer.parameter"):
-            if param.get("operation") == "generator" or param.get("id") == "INITIAL_CONCENTRATION":
-                param.set("value", f"{glucose_concentrations[i]}")
-
-        # Update OXYGEN concentration
-        oxygen_layer = root.find(".//layer[@id='OXYGEN']")
-        for param in oxygen_layer.findall("layer.parameter"):
-            if param.get("operation") == "generator" or param.get("id") == "INITIAL_CONCENTRATION":
-                param.set("value", f"{oxygen_concentrations[i]}")
+        # Update concentrations
+        for layer_id, param_name in [("GLUCOSE", "GLUCOSE_CONCENTRATION"), ("OXYGEN", "OXYGEN_CONCENTRATION")]:
+            layer = root.find(f".//layer[@id='{layer_id}']")
+            for param in layer.findall("layer.parameter"):
+                if param.get("operation") == "generator" or param.get("id") == "INITIAL_CONCENTRATION":
+                    param.set("value", f"{params[param_name][i]}")
 
         # Save modified XML
         output_file = f"{output_dir}/inputs/input_{i+1}.xml"
         tree.write(output_file, encoding="utf-8", xml_declaration=True)
 
         # Log parameters
-        param_log.append(
-            {
-                "file_name": f"input_{i+1}.xml",
-                "X_SPACING": x_spacings[i],
-                "Y_SPACING": y_spacings[i],
-                "GLUCOSE_CONCENTRATION": glucose_concentrations[i],
-                "OXYGEN_CONCENTRATION": oxygen_concentrations[i],
-                "CAPILLARY_DENSITY": capillary_density[i],
-                "DISTANCE_TO_CENTER": distance_to_center[i],
-            }
-        )
+        param_log.append({
+            "file_name": f"input_{i+1}.xml",
+            "X_SPACING": params["X_SPACING"][i],
+            "Y_SPACING": params["Y_SPACING"][i],
+            "GLUCOSE_CONCENTRATION": params["GLUCOSE_CONCENTRATION"][i],
+            "OXYGEN_CONCENTRATION": params["OXYGEN_CONCENTRATION"][i],
+            "CAPILLARY_DENSITY": params["CAPILLARY_DENSITY"][i],
+            "DISTANCE_TO_CENTER": params["DISTANCE_TO_CENTER"][i],
+        })
 
-    # Save parameter log
-    df = pd.DataFrame(param_log)
-    df.to_csv(f"{output_dir}/parameter_log.csv", index=False)
+    return param_log
 
-    print(f"Generated {len(param_log)} XML files and parameter log in {output_dir}/")
+def generate_source_site_samples(
+    param_ranges: dict,
+    sobol_power=10,
+    point_based=True,
+    y_interval=4,
+    radius_bound=10,
+    side_length=1,
+):
+    """
+    Generate Sobol samples for x_spacings, y_spacings, glucose, and oxygen concentrations.
 
+    Parameters:
+    -----------
+    sobol_power : int
+        Power of 2 for number of samples (n_samples = 2^sobol_power)
+    y_spacing_interval : bool
+        If True, sample y_spacing from specific values
+        If False, use continuous Sobol sampling
+    y_spacing_values : list or None
+        List of specific values to sample from when y_spacing_interval is True
+        Default values are [2, 5, 8, 12, 15] if None
+
+    Returns:
+    --------
+    dict : Dictionary containing the sampled parameters
+    """
+    n_samples = 2**sobol_power
+    sampler = qmc.Sobol(d=len(param_ranges), seed=42)
+    samples = sampler.random(n=n_samples)
+
+    length = int(6 * radius_bound - 3)
+    width = int(4 * radius_bound - 2)
+    scaled_samples = {}
+    x_values = None
+    for i, (param_name, (min_val, max_val)) in enumerate(param_ranges.items()):
+        if point_based:
+            if param_name == "X_SPACING":
+                x_center = int(length/2)
+                scaled_samples["X_SPACING"] = [f"{x_center-1}:{x_center+1}" for _ in samples]
+            elif param_name == "Y_SPACING":
+                sample_2d = samples[:, i : i + 1]
+                sample_2d = samples[:, i : i + 1]
+                if 1 + (max_val - 1) * y_interval > width:
+                    max_val = (width - 1) / y_interval + 1
+                scaled_values = (
+                    np.round(qmc.scale(sample_2d, l_bounds=min_val, u_bounds=max_val))
+                    .flatten()
+                    .astype(int)
+                )
+                scaled_values = 1 + (scaled_values - 1) * y_interval
+                scaled_samples["Y_SPACING"] = [f"{value}:{value+1}" for value in scaled_values]
+
+        else: #grid based source
+            if param_name in ["X_SPACING", "Y_SPACING"]:
+                sample_2d = samples[:, i : i + 1]
+                scaled_values = (
+                    np.round(qmc.scale(sample_2d, l_bounds=min_val, u_bounds=max_val))
+                    .flatten()
+                    .astype(int)
+                )
+                
+                if param_name == "X_SPACING":
+                    x_values = scaled_values
+                else:
+                    if x_values is None:
+                        raise ValueError("x_spacing must come before y_spacing in param_ranges")
+                    # Ensure x_spacing ≤ y_spacing
+                    x_final = np.minimum(x_values, scaled_values)
+                    y_final = np.maximum(x_values, scaled_values)
+                    scaled_samples["X_SPACING"] = [f"*:{i}" for i in x_final]
+                    scaled_samples["Y_SPACING"] = [f"*:{i}" for i in y_final]
+        if param_name not in ["X_SPACING", "Y_SPACING"]:
+            sample_2d = samples[:, i : i + 1]
+            scaled_values = qmc.scale(sample_2d, l_bounds=min_val, u_bounds=max_val).flatten()
+            scaled_samples[param_name] = scaled_values
+    if point_based:
+        capillary_density = [
+            calculate_capillary_density(
+                radius_bound,
+                length,
+                width,
+                side_length,
+            )
+            for i in range(n_samples)
+        ]
+        point_center = np.array([length//2, width//2, 0]).astype(int)
+        distance_to_center = []
+        for i in range(n_samples):
+            source_site = np.array([length//2, scaled_samples["Y_SPACING"][i].split(":")[1], 0]).astype(int)
+            distance_to_center.append(
+                calculate_distance_between_points(
+                    point_center,
+                    source_site,
+                    side_length,
+                    radius_bound,
+                )
+            )
+        
+    else:
+        capillary_density = [
+            calculate_capillary_density(
+                radius_bound,
+                int(scaled_samples["X_SPACING"][i].split(":")[1]),
+                int(scaled_samples["Y_SPACING"][i].split(":")[1]),
+                side_length,
+            )
+            for i in range(n_samples)
+        ]
+        distance_to_center = [np.nan] * n_samples
+    scaled_samples["CAPILLARY_DENSITY"] = capillary_density
+    scaled_samples["DISTANCE_TO_CENTER"] = distance_to_center
+
+
+    return scaled_samples
 
 def update_xml_parameters(root: ET.Element, params: dict) -> None:
     """Update XML parameters with provided values.
@@ -705,161 +834,48 @@ def update_xml_parameters(root: ET.Element, params: dict) -> None:
                     param.set("value", f"NORMAL(MU={mu},SIGMA={sigma})")
 
 
-def generate_source_site_samples(
-    param_ranges: dict,
-    sobol_power=10,
-    point_based=True,
-    y_interval=4,
-    radius_bound=10,
-    side_length=1,
-):
-    """
-    Generate Sobol samples for x_spacings, y_spacings, glucose, and oxygen concentrations.
-
-    Parameters:
-    -----------
-    sobol_power : int
-        Power of 2 for number of samples (n_samples = 2^sobol_power)
-    y_spacing_interval : bool
-        If True, sample y_spacing from specific values
-        If False, use continuous Sobol sampling
-    y_spacing_values : list or None
-        List of specific values to sample from when y_spacing_interval is True
-        Default values are [2, 5, 8, 12, 15] if None
-
-    Returns:
-    --------
-    dict : Dictionary containing the sampled parameters
-    """
-    n_samples = 2**sobol_power
-    sampler = qmc.Sobol(d=len(param_ranges), seed=42)
-    samples = sampler.random(n=n_samples)
-
-    length = int(6 * radius_bound - 3)
-    width = int(4 * radius_bound - 2)
-    scaled_samples = {}
-    x_values = None
-    for i, (param_name, (min_val, max_val)) in enumerate(param_ranges.items()):
-        if point_based:
-            if param_name == "x_spacing":
-                x_center = int(length/2)
-                scaled_samples["x_spacing"] = [f"{x_center-1}:{x_center+1}" for _ in samples]
-            elif param_name == "y_spacing":
-                sample_2d = samples[:, i : i + 1]
-                sample_2d = samples[:, i : i + 1]
-                if 1 + (max_val - 1) * y_interval > width:
-                    max_val = (width - 1) / y_interval + 1
-                scaled_values = (
-                    np.round(qmc.scale(sample_2d, l_bounds=min_val, u_bounds=max_val))
-                    .flatten()
-                    .astype(int)
-                )
-                scaled_values = 1 + (scaled_values - 1) * y_interval
-                scaled_samples["y_spacing"] = [f"{value}:{value+1}" for value in scaled_values]
-
-        else: #grid based source
-            if param_name in ["x_spacing", "y_spacing"]:
-                sample_2d = samples[:, i : i + 1]
-            scaled_values = (
-                np.round(qmc.scale(sample_2d, l_bounds=min_val, u_bounds=max_val))
-                .flatten()
-                .astype(int)
-            )
-            
-            if param_name == "x_spacing":
-                x_values = scaled_values
-            else:
-                if x_values is None:
-                    raise ValueError("x_spacing must come before y_spacing in param_ranges")
-                # Ensure x_spacing ≤ y_spacing
-                x_final = np.minimum(x_values, scaled_values)
-                y_final = np.maximum(x_values, scaled_values)
-                scaled_samples["x_spacing"] = [f"*:{i}" for i in x_final]
-                scaled_samples["y_spacing"] = [f"*:{i}" for i in y_final]
-        if param_name not in ["x_spacing", "y_spacing"]:
-            sample_2d = samples[:, i : i + 1]
-            scaled_values = qmc.scale(sample_2d, l_bounds=min_val, u_bounds=max_val).flatten()
-            scaled_samples[param_name] = scaled_values
-    if point_based:
-        capillary_density = [
-            calculate_capillary_density(
-                radius_bound,
-                length,
-                width,
-                side_length,
-            )
-            for i in range(n_samples)
-        ]
-        point_center = np.array([length//2, width//2, 0]).astype(int)
-        distance_to_center = []
-        for i in range(n_samples):
-            source_site = np.array([length//2, scaled_samples["y_spacing"][i].split(":")[1], 0]).astype(int)
-            distance_to_center.append(
-                calculate_distance_between_points(
-                    point_center,
-                    source_site,
-                    side_length,
-                    radius_bound,
-                )
-            )
-        
-    else:
-        capillary_density = [
-            calculate_capillary_density(
-                radius_bound,
-                int(scaled_samples["x_spacing"][i].split(":")[1]),
-                int(scaled_samples["y_spacing"][i].split(":")[1]),
-                side_length,
-            )
-            for i in range(n_samples)
-        ]
-        distance_to_center = [np.nan] * n_samples
-    scaled_samples["capillary_density"] = capillary_density
-    scaled_samples["distance_to_center"] = distance_to_center
-
-
-    return scaled_samples
-
 
 def main():
-    output_dir = "inputs/STEM_CELL/density_source/points"
-    template_path = "test_source.xml"
+    
+    
     radius = 10
     margin = 2
     hex_size = 30
     side_length = hex_size / np.sqrt(3)
-    if 0:
+    configs = [
+            {
+                "perturbed_config": "cellular",
+                "template_path": "test_v3.xml",
+                "point_based": None,
+                "y_interval": None,
+                "radius_bound": None,
+                "side_length": None
+            },
+            {
+                "perturbed_config": "source",
+                "template_path": "test_source.xml",
+                "point_based": False,
+                "y_interval": 4,
+                "radius_bound": radius+margin,
+                "side_length": side_length
+            }
+        ]
+    if 1:
+        output_dir = "inputs/STEM_CELL/density_source/cellular_test"
         generate_perturbed_parameters(
             sobol_power=8,
             param_ranges=PARAM_RANGES,
             output_dir=output_dir,
+            config_params=configs[0],
         )
 
     if 1:
-        param_ranges = {
-            "x_spacing": (1, 15),
-            "y_spacing": (1, 15),
-            "glucose": (0.001, 0.01),
-            "oxygen": (50, 150),
-        }
-        samples = generate_source_site_samples(
-            param_ranges=param_ranges,
+        output_dir = "inputs/STEM_CELL/density_source/grid_test"
+        generate_perturbed_parameters(
             sobol_power=10,
-            point_based=True,
-            y_interval=4,
-            radius_bound=radius+margin,
-            side_length=side_length,
-        )
-
-        generate_source_site_perturbations(
-            x_spacings=samples["x_spacing"],
-            y_spacings=samples["y_spacing"],
-            glucose_concentrations=samples["glucose"],
-            oxygen_concentrations=samples["oxygen"],
-            capillary_density=samples["capillary_density"],
-            distance_to_center=samples["distance_to_center"],
-            template_path=template_path,
+            param_ranges=SOURCE_PARAM_RANGES,
             output_dir=output_dir,
+            config_params=configs[1],
         )
 
     metric = "symmetry"

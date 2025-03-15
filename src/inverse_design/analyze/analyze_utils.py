@@ -110,7 +110,7 @@ def collect_parameter_data(input_files, parameter_list, labels=None):
         input_folder_path = Path(input_folder)
         params = get_parameters_from_json(input_folder_path, parameter_list)
         # Add folder name to params
-        params["input_folder"] = str(input_folder.name)
+        params["input_folder"] = str(input_folder_path.name)
         if labels is not None:
             params["percentile_label"] = labels[i]
         params_list.append(params)

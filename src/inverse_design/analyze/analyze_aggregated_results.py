@@ -439,7 +439,7 @@ def plot_metric_pairplot(
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/points"
     input_folder = parameter_base_folder + "/inputs"
     csv_file = f"{parameter_base_folder}/final_metrics.csv"
 
@@ -454,12 +454,12 @@ if __name__ == "__main__":
         posterior_metrics_files = [posterior_1]#, posterior_2, posterior_3, posterior_4]
         posterior_metrics_dfs = [pd.read_csv(posterior_metrics_file) for posterior_metrics_file in posterior_metrics_files]
         prior_metrics_file = (
-            "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/final_metrics.csv"
+            "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/points/final_metrics.csv"
         )
         target_metrics = {
             "symmetry": 0.8,
             "cycle_length": 30.0,
-            "act": 0.6,
+            "act_ratio": 0.6,
         }
         default_metrics = {metric: DEFAULT_METRICS[metric] for metric in target_metrics}
         save_file = f"{parameter_base_folder}/metric_distributions.png"
@@ -478,7 +478,7 @@ if __name__ == "__main__":
 
     # Create labeled parameter DataFrame
     input_files = list(top_n_input_file) + list(bottom_n_input_file)
-
+    input_files = [f"{input_folder}/{input_file}" for input_file in input_files]
     labels = ["top"] * len(top_n_input_file) + ["bottom"] * len(bottom_n_input_file)
     analyzed_param_df = collect_parameter_data(
         input_files, PARAMETER_LIST
@@ -491,6 +491,9 @@ if __name__ == "__main__":
     # add a column to metrics_df with the percentile label
     # if the metric['input_folder'] is in the top_n_input_file, assign label "top", otherwise "bottom"
     metrics_df['percentile_label'] = metrics_df['input_folder'].apply(
+        lambda x: "high" if x in top_n_input_file else "low" if x in bottom_n_input_file else "None"
+    )
+    analyzed_param_df['percentile_label'] = analyzed_param_df['input_folder'].apply(
         lambda x: "high" if x in top_n_input_file else "low" if x in bottom_n_input_file else "None"
     )
 
@@ -522,7 +525,7 @@ if __name__ == "__main__":
         save_file,
     )
 
-    if 0:
+    if 1:
         plot_cell_states_histogram(
             csv_file,
             f"{parameter_base_folder}/cell_states_histogram.png",

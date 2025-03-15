@@ -3,15 +3,15 @@ import subprocess
 from pathlib import Path
 import logging
 import os
+import json
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
-from scipy.stats import gaussian_kde
+from scipy.stats import gaussian_kde, qmc
 from inverse_design.common.enum import Target, Metric
 from inverse_design.rf.abc_smc_rf_arcade import ABCSMCRF
-from inverse_design.analyze.parameter_config import PARAM_RANGES
-from scipy.stats import qmc
-import json
+from inverse_design.analyze.parameter_config import PARAM_RANGES, SOURCE_PARAM_RANGES
+from inverse_design.analyze.source_metrics import calculate_capillary_density, calculate_distance_between_points
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 np.random.seed(42)
@@ -27,7 +27,7 @@ TARGET_RANGES = {
     "doub_time_std": (0.0, 0.5),
 }
 
-def prior_pdf(params, param_ranges=PARAM_RANGES):
+def prior_pdf(params, param_ranges=PARAM_RANGES, config_params=None):
     """
     Evaluate the uniform prior density at the given parameters.
     
@@ -42,33 +42,54 @@ def prior_pdf(params, param_ranges=PARAM_RANGES):
     density : float
         Prior probability density at the given parameters (constant if valid, 0 if invalid)
     """
-    
-    # Check if the number of parameters matches
     if len(params) != len(param_ranges):
         raise ValueError(f"Expected {len(param_ranges)} parameters, got {len(params)}")
-
-    for i, (min_val, max_val) in enumerate(param_ranges.values()):
-        if params[i] < min_val or params[i] > max_val:
-            return 0.0  # Parameter out of range, zero density
-    
+    if config_params["perturbed_config"] == "cellular":   
+        # Check if the number of parameters matches
+        for i, (min_val, max_val) in enumerate(param_ranges.values()):
+            if params[i] < min_val or params[i] > max_val:
+                return 0.0  # Parameter out of range, zero density
+        return 1.0 / (max_val - min_val)
+    else:
+        for i, (param_name, (min_val, max_val)) in enumerate(param_ranges.items()):
+            if param_name in ["X_SPACING", "Y_SPACING"]:
+                if config_params["point_based"] and param_name == "Y_SPACING":
+                    original_y_spacing = int(params[i].split(":")[0])
+                    if original_y_spacing < min_val or original_y_spacing > max_val:
+                        return 0.0  # Parameter out of range, zero density
+                else:
+                    spacing = int(params[i].split(":")[-1])
+                    if spacing < min_val or spacing > max_val:
+                        return 0.0  # Parameter out of range, zero density
+            elif param_name in ["GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]:
+                if params[i] < min_val or params[i] > max_val:
+                    return 0.0  # Parameter out of range, zero density
     return 1.0 / (max_val - min_val)
 
-def perturbation_kernel(params, iteration=1, max_iterations=5, param_ranges=PARAM_RANGES, seed=42):
-    #np.random.seed(seed)
-    # Check if the number of parameters matches
+def perturbation_kernel(params, iteration=1, max_iterations=5, param_ranges=PARAM_RANGES, seed=42, config_params=None):
+    perturbed_params = params.copy()
+    scale_factor = max(0.01, 0.1 * (1 - iteration/max_iterations))
     if len(params) != len(param_ranges):
         raise ValueError(f"Expected {len(param_ranges)} parameters, got {len(params)}")
-    
-    perturbed_params = params.copy()
-    
-    # Decrease perturbation scale as iterations progress
-    scale_factor = max(0.01, 0.1 * (1 - iteration/max_iterations))
-    for i, (min_val, max_val) in enumerate(param_ranges.values()):
-        param_range = max_val - min_val
-        scale = param_range * scale_factor
-        perturbed_params[i] += np.random.normal(0, scale)
-    
-
+    if config_params["perturbed_config"] == "cellular":
+        for i, (min_val, max_val) in enumerate(param_ranges.values()):
+            param_range = max_val - min_val
+            scale = param_range * scale_factor
+            perturbed_params[i] += np.random.normal(0, scale)
+    else:
+        for i, (param_name, (min_val, max_val)) in enumerate(param_ranges.items()):
+            if param_name in ["X_SPACING", "Y_SPACING"]:
+                if config_params["point_based"] and param_name == "Y_SPACING":
+                    original_y_spacing = int(perturbed_params[i].split(":")[0])
+                    perturb_value = config_params["y_interval"] * np.random.randint(-2, 3)
+                    final_y_spacing = original_y_spacing + perturb_value
+                    perturbed_params[i] = f"{final_y_spacing}:{final_y_spacing+1}"
+                else:
+                    perturbed_params[i] = "*:" + str(int(perturbed_params[i].split(":")[-1]) + np.random.randint(-4, 5))
+            elif param_name in ["GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]:
+                param_range = max_val - min_val
+                scale = param_range * scale_factor
+                perturbed_params[i] += np.random.normal(0, scale)
     return perturbed_params
 
 def plot_variable_importance(smc_rf, statistic_names, n_statistics, save_path=None):
@@ -260,7 +281,7 @@ def save_targets_to_json(target_names, target_values, output_file="targets.json"
 
 def run_example():
     """Run the ABC-SMC-DRF example on the ARCADE model"""
-    target_names = ["symmetry", "cycle_length", "act"]#, "doub_time"]
+    target_names = ["symmetry", "cycle_length", "act_ratio"]#, "doub_time"]
     target_values = [0.7, 30, 0.75]#, 35]
     #target_names = target_names + [name+"_std" for name in target_names]
     #target_values = target_values + [value*0.05 for value in target_values]    
@@ -270,12 +291,35 @@ def run_example():
     n_statistics = len(target_names)
     print("\nRunning ABC-SMC-DRF...")
     start_time = time.time()
-    param_ranges = PARAM_RANGES.copy()
-    param_ranges = {k: v for k, v in param_ranges.items() if v[0] != v[1]}
-    sobol_power = 9
+    sobol_power = 2
+    radius = 10
+    margin = 2
+    hex_size = 30
+    side_length = hex_size / np.sqrt(3)
+    input_configs = [
+        {
+            "perturbed_config": "cellular",
+            "template_path": "test_v3.xml",
+            "point_based": None,
+            "y_interval": None,
+            "radius_bound": None,
+            "side_length": None
+        },
+        {
+            "perturbed_config": "source",
+            "template_path": "test_source.xml",
+            "point_based": False,
+            "y_interval": 4,
+            "radius_bound": radius+margin,
+            "side_length": side_length
+        }
+    ]
     n_samples = 2**sobol_power
+    config_params = input_configs[1]
+    param_ranges = PARAM_RANGES.copy() if config_params["perturbed_config"] == "cellular" else SOURCE_PARAM_RANGES.copy()
+    param_ranges = {k: v for k, v in param_ranges.items() if v[0] != v[1]}
     smc_rf = ABCSMCRF(
-        n_iterations=5,           
+        n_iterations=2,           
         sobol_power=sobol_power,            
         rf_type='DRF',
         n_trees=100,
@@ -285,7 +329,8 @@ def run_example():
         criterion='CART',
         subsample_ratio=0.5,
         perturbation_kernel=perturbation_kernel,
-        prior_pdf=prior_pdf
+        prior_pdf=prior_pdf,
+        config_params=config_params
     )
     timestamps = [
         "000720",
@@ -303,8 +348,9 @@ def run_example():
         "009360",
         "010080",
     ]
-    input_dir = f"inputs/abc_smc_rf_n{n_samples}/"
-    output_dir = f"ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}/"
+    timestamps = timestamps[:2]
+    input_dir = f"inputs/abc_smc_rf_n{n_samples}_{config_params['perturbed_config']}/"
+    output_dir = f"ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}_{config_params['perturbed_config']}/"
     jar_path = "models/arcade-test-cycle-fix-affinity.jar"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -324,8 +370,33 @@ def run_example():
 
     posterior_samples = smc_rf.posterior_sample(1000)
     print("\nParameter estimation results:")
-    for i, param_name in enumerate(smc_rf.param_ranges.keys()):
-        print(f"{param_name}: {np.mean(posterior_samples[:, i]):.4f} ± {np.std(posterior_samples[:, i]):.4f}")
+    if config_params["perturbed_config"] == "cellular":
+        for i, param_name in enumerate(smc_rf.param_ranges.keys()):
+            print(f"{param_name}: {np.mean(posterior_samples[:, i]):.4f} ± {np.std(posterior_samples[:, i]):.4f}")
+    else:
+        for i, param_name in enumerate(smc_rf.param_ranges.keys()):
+            if param_name in ["X_SPACING", "Y_SPACING"]:
+                if config_params["point_based"]:
+                    point_center = (config_params["side_length"]/2, config_params["side_length"]/2)
+                    source_sites = [tuple(map(int, posterior_samples[j][i].split(":"))) for j in range(n_samples)]
+                    distance_to_center = [calculate_distance_between_points(
+                        point_center,
+                        source_site,
+                        config_params["side_length"],
+                        config_params["radius_bound"],
+                    ) for source_site in source_sites]
+                    print(f"DISTANCE_TO_CENTER: {np.mean(distance_to_center):.4f} ± {np.std(distance_to_center):.4f}")
+                else:
+                    capillary_densities = [calculate_capillary_density(
+                        int(posterior_samples[j][i].split(":")[1]),
+                        int(posterior_samples[j][i].split(":")[1]),
+                        config_params["side_length"],
+                    ) for j in range(n_samples)]
+                    print(f"CAPILLARY_DENSITY: {np.mean(capillary_densities):.4f} ± {np.std(capillary_densities):.4f}")
+                
+            else:
+                print(f"{param_name}: {np.mean(posterior_samples[:, i]):.4f} ± {np.std(posterior_samples[:, i]):.4f}")
+                
     
     # Plot results
     param_names = ["AFFINITY", "COMPRESSION_TOLERANCE", "CELL_VOLUME_MU"]

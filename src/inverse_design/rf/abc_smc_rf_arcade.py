@@ -37,7 +37,8 @@ class ABCSMCRF(ABCSMCRFBase):
         criterion: Literal['CART', 'MMD'] = 'CART',
         subsample_ratio: float = 0.5,
         perturbation_kernel: Optional[Callable] = None,
-        prior_pdf: Optional[Callable] = None
+        prior_pdf: Optional[Callable] = None,
+        config_params: Optional[Dict[str, Dict[str, str]]] = None
     ):
         """
         Initialize the ABC-SMC-RF model.
@@ -68,6 +69,8 @@ class ABCSMCRF(ABCSMCRFBase):
         prior_pdf : Callable, optional
             Function to evaluate the prior density.
             If None, a uniform prior in [0, 1] for each parameter is assumed.
+        config_params: Optional[Dict[str, Dict[str, str]]] = None
+            The configuration to perturb.
         """
         super().__init__(n_iterations, rf_type, n_trees, min_samples_leaf, n_try, random_state, criterion)
         self.sobol_power = sobol_power
@@ -75,7 +78,7 @@ class ABCSMCRF(ABCSMCRFBase):
         self.subsample_ratio = subsample_ratio
         self.perturbation_kernel = perturbation_kernel if perturbation_kernel is not None else self._default_perturbation_kernel
         self.prior_pdf = prior_pdf if prior_pdf is not None else self._default_prior_pdf
-        
+        self.config_params = config_params
     def _default_perturbation_kernel(self, parameters: np.ndarray) -> np.ndarray:
         """
         Default perturbation kernel (Gaussian noise).
@@ -195,7 +198,7 @@ class ABCSMCRF(ABCSMCRFBase):
             
         return self
 
-    def _analyze_simulation_results(self, output_dir: str, dir_postfix: str, timestamps: List[str]) -> Tuple[np.ndarray, np.ndarray]:
+    def _analyze_simulation_results(self, input_dir: str, output_dir: str, dir_postfix: str, timestamps: List[str]) -> Tuple[np.ndarray, np.ndarray]:
         """
         Analyze simulation results and extract statistics and parameters.
         
@@ -222,7 +225,7 @@ class ABCSMCRF(ABCSMCRFBase):
         # Analyze simulation results
 
         if not os.path.exists(f"{output_dir}/{dir_postfix}/final_metrics.csv"):
-            metrics_calculator = SimulationMetrics(output_dir + dir_postfix)
+            metrics_calculator = SimulationMetrics(output_dir + dir_postfix, input_dir + dir_postfix)
             metrics_calculator.analyze_all_simulations(timestamps, sim_folders)
             metrics_calculator.extract_and_save_parameters(sim_folders)
             statistics = pd.read_csv(f"{output_dir}/{dir_postfix}/final_metrics.csv")
@@ -235,6 +238,8 @@ class ABCSMCRF(ABCSMCRFBase):
             statistics.drop(columns=["input_folder", "states"], inplace=True)
             valid_parameters.drop(columns=["input_folder"], inplace=True)
         
+        if len(valid_parameters.columns) != len(self.param_ranges.keys()):
+            valid_parameters = valid_parameters[self.param_ranges.keys()]
         return statistics, valid_parameters
 
     def _first_iteration(self, input_dir: str, output_dir: str, jar_path: str, timestamps: List[str]) -> None:
@@ -247,13 +252,13 @@ class ABCSMCRF(ABCSMCRFBase):
         generate_perturbed_parameters(
             sobol_power=self.sobol_power,
             param_ranges=self.param_ranges,
+            config_params=self.config_params,
             output_dir=input_dir + dir_postfix,
-            template_path="sample_input_v3.xml"
         )
         # Run simulations in parallel
         self._run_parallel_simulations(input_dir + dir_postfix, output_dir + dir_postfix, jar_path)
         
-        statistics, valid_parameters = self._analyze_simulation_results(output_dir, dir_postfix, timestamps)
+        statistics, valid_parameters = self._analyze_simulation_results(input_dir, output_dir, dir_postfix, timestamps)
         target_stats = np.array([statistics[target_name] for target_name in self.target_names]).T
         self.parameter_samples.append(np.array(valid_parameters))
         self.statistics.append(target_stats)
@@ -268,7 +273,7 @@ class ABCSMCRF(ABCSMCRFBase):
         
         # Generate candidate parameters
         n_candidates = 2 ** self.sobol_power
-        parameters = np.zeros((n_candidates, prev_parameters.shape[1]))
+        parameters = np.zeros((n_candidates, prev_parameters.shape[1]), dtype=object)
         
         i = 0
         while i < n_candidates:
@@ -280,10 +285,10 @@ class ABCSMCRF(ABCSMCRFBase):
                                                         self.current_iteration,
                                                         max_iterations=self.n_iterations,
                                                         param_ranges=self.param_ranges,
-                                                        #seed=i
+                                                        config_params=self.config_params
             )
             # Check if the perturbed parameters have non-zero prior density
-            prior_density = self.prior_pdf(theta_candidate, param_ranges=self.param_ranges)
+            prior_density = self.prior_pdf(theta_candidate, param_ranges=self.param_ranges, config_params=self.config_params)
             if prior_density > 0:
                 parameters[i] = theta_candidate
                 i += 1
@@ -292,12 +297,12 @@ class ABCSMCRF(ABCSMCRFBase):
             param_names=self.param_ranges.keys(),
             param_values=parameters,
             output_dir=input_dir + dir_postfix,
-            template_path="sample_input_v3.xml"
+            config_params=self.config_params,
         )
         self._run_parallel_simulations(input_dir + dir_postfix, output_dir + dir_postfix, jar_path)
 
         # Analyze results and get statistics and parameters
-        statistics, valid_parameters = self._analyze_simulation_results(output_dir, dir_postfix, timestamps)
+        statistics, valid_parameters = self._analyze_simulation_results(input_dir, output_dir, dir_postfix, timestamps)
         target_stats = np.array([statistics[target_name] for target_name in self.target_names]).T
         if len(valid_parameters) < n_candidates:
             logging.warning(f"Only {len(valid_parameters)} valid simulations out of {n_candidates} attempts")

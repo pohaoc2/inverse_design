@@ -9,7 +9,7 @@ from inverse_design.analyze.cell_metrics import CellMetrics
 from inverse_design.analyze.population_metrics import PopulationMetrics
 from inverse_design.analyze.analyze_seed_results import SeedAnalyzer
 from inverse_design.analyze.analyze_utils import collect_parameter_data
-from inverse_design.analyze.parameter_config import PARAMETER_LIST
+from inverse_design.analyze.parameter_config import PARAMETER_LIST, SOURCE_PARAMS
 from inverse_design.analyze.metrics_config import (
     CELLULAR_METRICS,
     POPULATION_METRICS,
@@ -18,14 +18,14 @@ from inverse_design.analyze.metrics_config import (
 
 
 class SimulationMetrics:
-    def __init__(self, base_output_dir: str):
+    def __init__(self, base_output_dir: str, input_base_dir: str):
         """Initialize the metrics calculator
 
         Args:
             base_output_dir: Base directory containing all simulation output folders
         """
         self.base_output_dir = Path(base_output_dir)
-        self.input_folder = Path(base_output_dir + "/inputs")
+        self.input_base_dir = Path(input_base_dir)
         self.logger = logging.getLogger(__name__)
         self.cell_metrics = CellMetrics()
         self.population_metrics = PopulationMetrics()
@@ -161,6 +161,16 @@ class SimulationMetrics:
 
     def extract_and_save_parameters(self, sim_folders, save_file: str = "all_param_df.csv"):
         all_param_df = collect_parameter_data(sim_folders, PARAMETER_LIST)
+        param_from_input_folder = self.input_base_dir / "parameter_log.csv"
+        param_from_input_df = pd.read_csv(param_from_input_folder)
+        added_columns = [column for column in param_from_input_df.columns if column in SOURCE_PARAMS]
+        if added_columns:
+            all_param_df = pd.concat([all_param_df, param_from_input_df[added_columns]], axis=1)
+        
+        # Remove constant parameters
+        constant_columns = [col for col in all_param_df.columns if all_param_df[col].nunique() == 1]
+        all_param_df = all_param_df.drop(columns=constant_columns)
+
         all_param_df.to_csv(f"{str(self.base_output_dir)}/{save_file}", index=False)
         self.logger.info(
             f"Saved all parameters for {len(sim_folders)} simulations to {str(self.base_output_dir)}/all_param_df.csv"
@@ -170,9 +180,10 @@ class SimulationMetrics:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    parameter_base_folder = "ARCADE_OUTPUT/DEFAULT"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/points"
+    input_base_folder = "inputs/STEM_CELL/density_source/points"
     input_folder = parameter_base_folder + "/inputs"
-    metrics_calculator = SimulationMetrics(parameter_base_folder)
+    metrics_calculator = SimulationMetrics(parameter_base_folder, input_base_folder)
 
     timestamps = [
         "000000",
@@ -191,8 +202,6 @@ def main():
         "009360",
         "010080",
     ]
-    timestamps = [timestamp for idx, timestamp in enumerate(timestamps) if idx % 4 == 0]
-    timestamps += ["010080"]
     sim_folders = sorted(
         [f for f in Path(input_folder).glob("input_*")],
         key=lambda x: int(re.search(r"input_(\d+)", x.name).group(1)),
