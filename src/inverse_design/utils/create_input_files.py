@@ -862,14 +862,14 @@ def main():
             },
             {
                 "perturbed_config": "source",
-                "template_path": "test_source.xml",
-                "point_based": False,
+                "template_path": "sample_source_v3.xml",
+                "point_based": True,
                 "y_interval": 4,
                 "radius_bound": radius+margin,
                 "side_length": side_length
             }
         ]
-    if 1:
+    if 0:
         output_dir = "inputs/STEM_CELL/density_source/cellular_test"
         generate_perturbed_parameters(
             sobol_power=8,
@@ -879,7 +879,8 @@ def main():
         )
 
     if 1:
-        output_dir = "inputs/STEM_CELL/density_source/grid_test"
+        source_type = "point" if configs[1]["point_based"] else "grid"
+        output_dir = f"inputs/STEM_CELL/density_source/{source_type}"
         generate_perturbed_parameters(
             sobol_power=10,
             param_ranges=SOURCE_PARAM_RANGES,
