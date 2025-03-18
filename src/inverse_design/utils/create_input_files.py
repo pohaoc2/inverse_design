@@ -863,7 +863,7 @@ def main():
             {
                 "perturbed_config": "source",
                 "template_path": "sample_source_v3.xml",
-                "point_based": True,
+                "point_based": False,
                 "y_interval": 4,
                 "radius_bound": radius+margin,
                 "side_length": side_length
