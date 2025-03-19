@@ -863,7 +863,7 @@ def main():
             {
                 "perturbed_config": "source",
                 "template_path": "sample_source_v3.xml",
-                "point_based": False,
+                "point_based": True,
                 "y_interval": 4,
                 "radius_bound": radius+margin,
                 "side_length": side_length
@@ -880,7 +880,7 @@ def main():
 
     if 1:
         source_type = "point" if configs[1]["point_based"] else "grid"
-        output_dir = f"inputs/STEM_CELL/density_source/{source_type}"
+        output_dir = f"inputs/STEM_CELL/density_source/low_oxygen/{source_type}"
         generate_perturbed_parameters(
             sobol_power=10,
             param_ranges=SOURCE_PARAM_RANGES,

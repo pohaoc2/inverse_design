@@ -55,7 +55,6 @@ def perform_mi_analysis(param_df, metrics_df, parameter_names, save_mi_json=None
         dict: Dictionary containing sensitivity metrics
     """
     from sklearn.feature_selection import mutual_info_regression
-    from scipy.stats import spearmanr
     
     X = param_df.to_numpy()
     
@@ -99,7 +98,6 @@ def plot_mi_analysis(mi_results, save_path=None):
         mi_results (dict): Results from perform_mi_analysis
         save_path (str, optional): Path to save the plot
     """
-    import matplotlib.pyplot as plt
 
     n_metrics = len(mi_results)
     fig, axes = plt.subplots(2, n_metrics, figsize=(8 * n_metrics, 12))
@@ -254,17 +252,8 @@ def perform_sobol_analysis(param_df, metrics_df, parameter_names, calc_second_or
     for metric in metrics_df.columns:
         model = fit_rf_model(param_df, metrics_df[metric], metric, plot_performance=False)
         Y = model.predict(param_values_df)
-        
-        # Add small noise to prevent zero variance
         Y += np.random.normal(0, 1e-10, Y.shape)
-        
-        # Print some diagnostic information
-        print(f"\nDiagnostic information for {metric}:")
-        print(f"Y shape: {Y.shape}")
-        print(f"Y variance: {np.var(Y)}")
-        print(f"Y range: [{np.min(Y)}, {np.max(Y)}]")
-        
-        Si = sobol.analyze(problem, Y, calc_second_order=calc_second_order, print_to_console=True)
+        Si = sobol.analyze(problem, Y, calc_second_order=calc_second_order, print_to_console=False)
         
         if calc_second_order:
             results[metric] = {
@@ -273,9 +262,6 @@ def perform_sobol_analysis(param_df, metrics_df, parameter_names, calc_second_or
                 'S2': Si['S2'],
                 'names': parameter_names
             }
-            # Print second order indices for debugging
-            print("\nSecond order indices:")
-            print(Si['S2'])
         else:
             results[metric] = {
                 'S1': Si['S1'],
@@ -302,8 +288,6 @@ def plot_sobol_analysis(sobol_results, metrics_name, calc_second_order=True, sav
     """
     Plot Sobol sensitivity analysis results with indices sorted in decreasing order.
     """
-    import matplotlib.pyplot as plt
-    import seaborn as sns
 
     # Extract and clean indices (replace negative values with 0)
     S1 = np.maximum(sobol_results[metrics_name]['S1'], 0)
@@ -402,7 +386,7 @@ def remove_nan_rows(param_df, metrics_df):
     return cleaned_param_df, cleaned_metrics_df
 
 def main():
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/point"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/grid"
     param_file = f"{parameter_base_folder}/all_param_df.csv"
     metrics_file = f"{parameter_base_folder}/final_metrics.csv"
     target_metrics = ['symmetry', 'n_cells']#, 'activity', 'shannon', 'vol', 'colony_diameter']
@@ -411,12 +395,11 @@ def main():
     param_df, metrics_df = load_data(param_file, metrics_file, target_metrics + alignment_columns)
     param_df, metrics_df = align_dataframes(param_df, metrics_df)
     param_df, metrics_df = remove_nan_rows(param_df, metrics_df)
-    param_df = param_df.drop(columns=['Y_SPACING'])
+    param_df = param_df.drop(columns=['X_SPACING', 'Y_SPACING'])
     param_names = param_df.columns.tolist()
     param_df.to_csv(f"{parameter_base_folder}/param_df.csv", index=False)
     metrics_df.to_csv(f"{parameter_base_folder}/metrics_df.csv", index=False)
 
-    import matplotlib.pyplot as plt
     fig, axes = plt.subplots(1, len(param_names), figsize=(15, 6))
     for i, param in enumerate(param_names):
         axes[i].scatter(param_df[param], metrics_df['n_cells'])
@@ -428,7 +411,7 @@ def main():
     # Perform both types of sensitivity analysis
     save_mi_json = f"{parameter_base_folder}/mi_analysis.json"
     save_sobol_json = f"{parameter_base_folder}/sobol_analysis.json"
-    if 0:
+    if 1:
         mi_results = perform_mi_analysis(param_df, metrics_df, param_names, save_mi_json)
         plot_mi_analysis(mi_results, save_path=f"{parameter_base_folder}/mi_analysis.png")
 
