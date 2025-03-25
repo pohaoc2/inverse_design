@@ -118,8 +118,8 @@ def generate_perturbed_parameters(
         seed: Random seed for reproducibility
     """
     config_type = config_params["perturbed_config"]
-    if config_type not in ["cellular", "source"]:
-        raise ValueError('config_type must be either "cellular" or "source"')
+    if config_type not in ["cellular", "source", "combined"]:
+        raise ValueError('config_type must be one of "cellular", "source", or "combined"')
     template_path = config_params["template_path"]
     point_based = config_params["point_based"]
     y_interval = config_params["y_interval"]
@@ -159,7 +159,7 @@ def generate_perturbed_parameters(
             output_dir=output_dir,
         )
 
-    else: # source configuration
+    elif config_type == "source": # source configuration
         samples = generate_source_site_samples(
             param_ranges=param_ranges,
             sobol_power=sobol_power,
@@ -173,6 +173,46 @@ def generate_perturbed_parameters(
             template_path=template_path,
             output_dir=output_dir,
         )
+    
+    else: # combined cellular + source configuration
+        # Get cellular parameter samples
+        cellular_param_ranges = {k: v for k, v in param_ranges.items() 
+                               if k in PARAM_RANGES or k.replace("_MU", "").replace("_SIGMA", "") in PARAM_RANGES}
+        
+        # Get source parameter samples
+        source_param_ranges = {k: v for k, v in param_ranges.items() 
+                              if k in SOURCE_PARAM_RANGES}
+        
+        # Generate cellular samples
+        cellular_sampler = qmc.Sobol(d=len(cellular_param_ranges), scramble=True, seed=seed)
+        cellular_samples = cellular_sampler.random_base2(m=sobol_power)
+        
+        # Scale samples and convert to parameter dictionary format for cellular params
+        cellular_params = {name: [] for name in cellular_param_ranges.keys()}
+        for sample in cellular_samples:
+            for j, ((name, (min_val, max_val))) in enumerate(cellular_param_ranges.items()):
+                scaled_value = min_val + (max_val - min_val) * sample[j]
+                cellular_params[name].append(scaled_value)
+        
+        # Generate source samples
+        source_samples = generate_source_site_samples(
+            param_ranges=source_param_ranges,
+            sobol_power=sobol_power,
+            point_based=point_based,
+            y_interval=y_interval,
+            radius_bound=radius_bound,
+            side_length=side_length,
+        )
+        
+        # Combine the parameter logs
+        combined_param_log = generate_combined_perturbations(
+            cellular_params=cellular_params,
+            source_params=source_samples,
+            template_path=template_path,
+            output_dir=output_dir,
+        )
+        
+        param_log = combined_param_log
 
     _save_param_log(param_log, output_dir)
 
@@ -843,6 +883,87 @@ def update_xml_parameters(root: ET.Element, params: dict) -> None:
                     param.set("value", f"NORMAL(MU={mu},SIGMA={sigma})")
 
 
+def generate_combined_perturbations(
+    cellular_params: dict,
+    source_params: dict,
+    template_path: str,
+    output_dir: str,
+) -> list:
+    """Generate input XML files for combined cellular and source site perturbations.
+
+    Args:
+        cellular_params: Dictionary of cellular parameter values {param_name: [values]}
+        source_params: Dictionary of source parameter values
+        template_path: Path to template XML file
+        output_dir: Directory to save generated XML files
+        
+    Returns:
+        List of parameter log entries
+    """
+    # Create output directories if they don't exist
+    if not os.path.exists(f"{output_dir}/inputs"):
+        os.makedirs(f"{output_dir}/inputs")
+
+    # Read template XML
+    tree = ET.parse(template_path)
+    root = tree.getroot()
+
+    # Prepare parameter logging
+    param_log = []
+    n_samples = len(next(iter(cellular_params.values())))
+    
+    # Verify that source_params has the same number of samples
+    source_sample_counts = [len(values) for values in source_params.values() if isinstance(values, list)]
+    if source_sample_counts and source_sample_counts[0] != n_samples:
+        raise ValueError(f"Cellular parameters have {n_samples} samples but source parameters have {source_sample_counts[0]} samples")
+
+    # Generate files for each parameter set
+    for i in range(n_samples):
+        # Create cellular parameter dictionary for this sample
+        cellular_sample = {
+            name: values[i] 
+            for name, values in cellular_params.items()
+        }
+
+        # Update XML with cellular parameters
+        update_xml_parameters(root, cellular_sample)
+        
+        # Find and update source sites component
+        sites_component = root.find(".//component[@id='SITES']")
+        if sites_component is None:
+            raise ValueError("Could not find component with id='SITES' in XML")
+
+        # Update source parameters
+        if "X_SPACING" in source_params:
+            sites_component.find("component.parameter[@id='X_SPACING']").set(
+                "value", str(source_params["X_SPACING"][i]))
+        if "Y_SPACING" in source_params:
+            sites_component.find("component.parameter[@id='Y_SPACING']").set(
+                "value", str(source_params["Y_SPACING"][i]))
+
+        # Update concentrations
+        for layer_id, param_name in [("GLUCOSE", "GLUCOSE_CONCENTRATION"), ("OXYGEN", "OXYGEN_CONCENTRATION")]:
+            if param_name in source_params:
+                layer = root.find(f".//layer[@id='{layer_id}']")
+                for param in layer.findall("layer.parameter"):
+                    if param.get("operation") == "generator" or param.get("id") == "INITIAL_CONCENTRATION":
+                        param.set("value", str(source_params[param_name][i]))
+
+        # Save modified XML
+        output_file = f"{output_dir}/inputs/input_{i+1}.xml"
+        tree.write(output_file, encoding="utf-8", xml_declaration=True)
+
+        # Create log entry with both cellular and source parameters
+        log_entry = _create_parameter_log_entry(cellular_sample, i + 1)
+        
+        # Add source parameters to log entry
+        for param_name in source_params:
+            if isinstance(source_params[param_name], list) and i < len(source_params[param_name]):
+                log_entry[param_name] = source_params[param_name][i]
+        
+        param_log.append(log_entry)
+
+    return param_log
 
 def main():
     
@@ -863,7 +984,15 @@ def main():
             {
                 "perturbed_config": "source",
                 "template_path": "sample_source_v3.xml",
-                "point_based": True,
+                "point_based": False,
+                "y_interval": 4,
+                "radius_bound": radius+margin,
+                "side_length": side_length
+            },
+            {
+                "perturbed_config": "combined",
+                "template_path": "sample_combined_v3.xml",  # Template with both cellular and source parameters
+                "point_based": False,
                 "y_interval": 4,
                 "radius_bound": radius+margin,
                 "side_length": side_length
@@ -878,14 +1007,25 @@ def main():
             config_params=configs[0],
         )
 
-    if 1:
+    if 0:
         source_type = "point" if configs[1]["point_based"] else "grid"
-        output_dir = f"inputs/STEM_CELL/density_source/{source_type}"
+        output_dir = f"inputs/STEM_CELL/density_source/low_oxygen/{source_type}"
         generate_perturbed_parameters(
             sobol_power=10,
             param_ranges=SOURCE_PARAM_RANGES,
             output_dir=output_dir,
             config_params=configs[1],
+        )
+
+    if 1:
+        output_dir = "inputs/STEM_CELL/density_source/combined/grid"
+        # Create a combined parameter ranges dictionary
+        combined_ranges = {**PARAM_RANGES, **SOURCE_PARAM_RANGES}
+        generate_perturbed_parameters(
+            sobol_power=11,
+            param_ranges=combined_ranges,
+            output_dir=output_dir,
+            config_params=configs[2],
         )
 
     metric = "symmetry"
