@@ -74,8 +74,8 @@ class CellMetrics:
         """Calculate the average age of the cells"""
         if not cells:
             return 0.0
-
-        return sum([cell["age"] for cell in cells if cell["state"] not in ["NECROTIC"]]) / len(cells)
+        non_necrotic_cells = [cell for cell in cells if cell["state"] not in ["NECROTIC"]]
+        return sum([cell["age"] for cell in non_necrotic_cells]) / len(non_necrotic_cells)
 
     @staticmethod
     def calculate_cycle_length(cells: List[Dict[str, Any]]) -> float:

@@ -1007,7 +1007,7 @@ def main():
             config_params=configs[0],
         )
 
-    if 0:
+    if 1:
         source_type = "point" if configs[1]["point_based"] else "grid"
         output_dir = f"inputs/STEM_CELL/density_source/low_oxygen/{source_type}"
         generate_perturbed_parameters(
@@ -1017,7 +1017,7 @@ def main():
             config_params=configs[1],
         )
 
-    if 1:
+    if 0:
         output_dir = "inputs/STEM_CELL/density_source/combined/grid"
         # Create a combined parameter ranges dictionary
         combined_ranges = {**PARAM_RANGES, **SOURCE_PARAM_RANGES}

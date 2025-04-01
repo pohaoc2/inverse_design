@@ -219,6 +219,7 @@ def fit_rf_model(param_df, metrics_df, metric_name, n_estimators=100, random_sta
         plt.scatter(test_y, Y_pred_test)
         plt.xlabel('Actual')
         plt.ylabel('Predicted')
+        plt.savefig("rf.png")
         plt.show()
         print(f"R^2 (train) {metric_name}: {r2_score(train_y, Y_pred_train)}")
         print(f"R^2 (test) {metric_name}: {r2_score(test_y, Y_pred_test)}")
@@ -250,7 +251,7 @@ def perform_sobol_analysis(param_df, metrics_df, parameter_names, calc_second_or
 
     results = {}
     for metric in metrics_df.columns:
-        model = fit_rf_model(param_df, metrics_df[metric], metric, plot_performance=False)
+        model = fit_rf_model(param_df, metrics_df[metric], metric, plot_performance=True)
         Y = model.predict(param_values_df)
         Y += np.random.normal(0, 1e-10, Y.shape)
         Si = sobol.analyze(problem, Y, calc_second_order=calc_second_order, print_to_console=False)
@@ -296,7 +297,7 @@ def plot_sobol_analysis(sobol_results, metrics_name, calc_second_order=True, sav
 
     # Determine number of subplots based on calc_second_order
     if calc_second_order:
-        fig = plt.figure(figsize=(20, 6))
+        fig = plt.figure(figsize=(20, 10))
         gs = plt.GridSpec(1, 3, width_ratios=[1, 1, 1.2])
         ax1 = fig.add_subplot(gs[0])
         ax2 = fig.add_subplot(gs[1])
@@ -305,7 +306,7 @@ def plot_sobol_analysis(sobol_results, metrics_name, calc_second_order=True, sav
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 
     # Sort indices by total order (ST) for consistent ordering
-    ST_sorted_idx = np.argsort(ST)[::-1]  # Reverse to get descending order
+    ST_sorted_idx = np.argsort(ST)[::1]  # Reverse to get descending order
     names_sorted = [names[i] for i in ST_sorted_idx]
     S1_sorted = S1[ST_sorted_idx]
     ST_sorted = ST[ST_sorted_idx]
@@ -395,23 +396,23 @@ def main():
     param_df, metrics_df = load_data(param_file, metrics_file, target_metrics + alignment_columns)
     param_df, metrics_df = align_dataframes(param_df, metrics_df)
     param_df, metrics_df = remove_nan_rows(param_df, metrics_df)
-    param_df = param_df.drop(columns=['X_SPACING', 'Y_SPACING'])
+    param_df = param_df.drop(columns=['X_SPACING', 'Y_SPACING', 'DISTANCE_TO_CENTER'])
     param_names = param_df.columns.tolist()
     param_df.to_csv(f"{parameter_base_folder}/param_df.csv", index=False)
     metrics_df.to_csv(f"{parameter_base_folder}/metrics_df.csv", index=False)
-
-    fig, axes = plt.subplots(1, len(param_names), figsize=(15, 6))
-    for i, param in enumerate(param_names):
-        axes[i].scatter(param_df[param], metrics_df['n_cells'])
-        axes[i].set_xlabel(param)
-        axes[i].set_ylabel('n_cells')
-    plt.savefig(f"{parameter_base_folder}/n_cells_vs_params.png", bbox_inches='tight', dpi=300)
-    plt.close()
+    for target_metric in target_metrics:
+        fig, axes = plt.subplots(1, len(param_names), figsize=(15, 6))
+        for i, param in enumerate(param_names):
+            axes[i].scatter(param_df[param], metrics_df[target_metric])
+            axes[i].set_xlabel(param)
+            axes[i].set_ylabel(target_metric)
+        plt.savefig(f"{parameter_base_folder}/{target_metric}_vs_params.png", bbox_inches='tight', dpi=300)
+        plt.close()
 
     # Perform both types of sensitivity analysis
     save_mi_json = f"{parameter_base_folder}/mi_analysis.json"
     save_sobol_json = f"{parameter_base_folder}/sobol_analysis.json"
-    if 1:
+    if 0:
         mi_results = perform_mi_analysis(param_df, metrics_df, param_names, save_mi_json)
         plot_mi_analysis(mi_results, save_path=f"{parameter_base_folder}/mi_analysis.png")
 

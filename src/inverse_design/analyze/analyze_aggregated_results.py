@@ -439,7 +439,7 @@ def plot_metric_pairplot(
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/points"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/combined/grid"
     input_folder = parameter_base_folder + "/inputs"
     csv_file = f"{parameter_base_folder}/final_metrics.csv"
 
@@ -454,7 +454,7 @@ if __name__ == "__main__":
         posterior_metrics_files = [posterior_1]#, posterior_2, posterior_3, posterior_4]
         posterior_metrics_dfs = [pd.read_csv(posterior_metrics_file) for posterior_metrics_file in posterior_metrics_files]
         prior_metrics_file = (
-            "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/points/final_metrics.csv"
+            "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/grid/final_metrics.csv"
         )
         target_metrics = {
             "symmetry": 0.8,
@@ -497,7 +497,7 @@ if __name__ == "__main__":
         lambda x: "high" if x in top_n_input_file else "low" if x in bottom_n_input_file else "None"
     )
 
-    if 1:
+    if 0:
         save_file = f"{parameter_base_folder}/metric_pairplot_{metrics_name}.png"
         remove_metrics = ['input_folder', 'percentile_label', 'age', 'age_std', 'states', 'colony_growth_r', 'colony_growth', "doub_time",]
         metrics_list = [col for col in metrics_df.columns if col not in remove_metrics and not col.endswith('_std')]
@@ -509,12 +509,12 @@ if __name__ == "__main__":
             save_file
         )
 
-    if 1:
+    if 0:
         save_file = f"{parameter_base_folder}/parameter_distributions_{metrics_name}.png"
         plot_top_bottom_parameter_distributions(
             analyzed_param_df, PARAMETER_LIST, parameter_base_folder, percentile, save_file
         )
-    if 1:
+    if 0:
         save_file = f"{parameter_base_folder}/pca_parameters_{metrics_name}.png"
         plot_pca_parameters(
             analyzed_param_df,
@@ -525,7 +525,7 @@ if __name__ == "__main__":
         save_file,
     )
 
-    if 1:
+    if 0:
         plot_cell_states_histogram(
             csv_file,
             f"{parameter_base_folder}/cell_states_histogram.png",

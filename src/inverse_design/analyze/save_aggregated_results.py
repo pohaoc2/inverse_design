@@ -148,7 +148,6 @@ class SimulationMetrics:
         cols.append("input_folder")
         cols.append("states")
         df = df[cols]
-
         # Save final metrics
         output_file = self.base_output_dir / "final_metrics.csv"
         df.to_csv(output_file, index=False)
@@ -180,8 +179,8 @@ class SimulationMetrics:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/grid"
-    input_base_folder = "inputs/STEM_CELL/density_source/grid"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/low_oxygen/grid"
+    input_base_folder = "inputs/STEM_CELL/density_source/low_oxygen/grid"
     input_folder = parameter_base_folder + "/inputs"
     metrics_calculator = SimulationMetrics(parameter_base_folder, input_base_folder)
 
