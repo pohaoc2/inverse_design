@@ -387,7 +387,7 @@ def remove_nan_rows(param_df, metrics_df):
     return cleaned_param_df, cleaned_metrics_df
 
 def main():
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/grid"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/low_low_oxygen/grid"
     param_file = f"{parameter_base_folder}/all_param_df.csv"
     metrics_file = f"{parameter_base_folder}/final_metrics.csv"
     target_metrics = ['symmetry', 'n_cells']#, 'activity', 'shannon', 'vol', 'colony_diameter']

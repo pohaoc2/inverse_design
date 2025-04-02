@@ -1009,9 +1009,9 @@ def main():
 
     if 1:
         source_type = "point" if configs[1]["point_based"] else "grid"
-        output_dir = f"inputs/STEM_CELL/density_source/low_oxygen/{source_type}"
+        output_dir = f"inputs/STEM_CELL/density_source/low_low_oxygen/{source_type}"
         generate_perturbed_parameters(
-            sobol_power=10,
+            sobol_power=6,
             param_ranges=SOURCE_PARAM_RANGES,
             output_dir=output_dir,
             config_params=configs[1],

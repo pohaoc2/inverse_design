@@ -123,9 +123,9 @@ if __name__ == "__main__":
     metric = "act"
     n_samples = 32
     run_simulations(
-        input_dir=f"inputs/STEM_CELL/density_source/combined/grid/inputs",
-        output_dir=f"ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/combined/grid",
+        input_dir=f"inputs/STEM_CELL/density_source/low_low_oxygen/grid/inputs",
+        output_dir=f"ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/low_low_oxygen/grid",
         jar_path="models/arcade-logging-necrotic.jar",
         max_workers=int(mp.cpu_count()),
-        running_index=[i for i in range(1, 2049)],
+        running_index=[i for i in range(40, 65)],
     )
