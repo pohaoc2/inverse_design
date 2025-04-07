@@ -89,10 +89,9 @@ def perform_mi_analysis(param_df, metrics_df, parameter_names, save_mi_json=None
 
 def plot_mi_analysis(mi_results, save_path=None):
     """
-    Plot sensitivity analysis results showing both absolute and relative importance.
-    For each metric, creates two subplots:
-    1. Absolute MI values with direction (Spearman)
-    2. Normalized MI values (relative importance) with direction (Spearman)
+    Plot sensitivity analysis results showing absolute importance.
+    For each metric, creates a subplot showing:
+    - Absolute MI values with direction (Spearman)
 
     Args:
         mi_results (dict): Results from perform_mi_analysis
@@ -100,9 +99,9 @@ def plot_mi_analysis(mi_results, save_path=None):
     """
 
     n_metrics = len(mi_results)
-    fig, axes = plt.subplots(2, n_metrics, figsize=(8 * n_metrics, 12))
+    fig, axes = plt.subplots(1, n_metrics, figsize=(8 * n_metrics, 6))
     if n_metrics == 1:
-        axes = axes.reshape(2, 1)
+        axes = np.array([axes])
 
     max_mi = 0
     for col, (metric, results) in enumerate(mi_results.items()):
@@ -114,49 +113,44 @@ def plot_mi_analysis(mi_results, save_path=None):
         names = results["names"]
         mi_scores = results["MI"]
         spearman_corr = results["spearman"]
-        # Calculate normalized MI scores
-        mi_scores_norm = mi_scores / np.sum(mi_scores) if np.sum(mi_scores) > 0 else mi_scores
-        for row, (mi_vals, title_suffix) in enumerate([(mi_scores, "Absolute MI"), 
-                                                      (mi_scores_norm, "Relative MI")]):
-            ax = axes[row, col]
-            if row == 0:
-                ax.set_xlim(0, max_mi+0.01)
-            # Sort parameters by importance
-            sorted_idx = np.argsort(mi_vals)
-            pos = np.arange(len(names))
+        
+        ax = axes[col]
+        ax.set_xlim(0, max_mi+0.01)
+        # Sort parameters by importance
+        sorted_idx = np.argsort(mi_scores)
+        pos = np.arange(len(names))
 
-            # Create horizontal bar plot
-            bars = ax.barh(pos, mi_vals[sorted_idx])
-            
-            # Color bars based on Spearman correlation
-            for idx, bar in enumerate(bars):
-                corr = spearman_corr[sorted_idx[idx]]
-                # Red for positive correlation, Blue for negative
-                color = 'red' if corr > 0 else 'blue'
-                # Opacity based on correlation strength
-                alpha = min(abs(corr) + 0.2, 1.0)  # minimum opacity of 0.2
-                bar.set_color(color)
-                bar.set_alpha(alpha)
-            
-            # Add parameter names
-            ax.set_yticks(pos)
-            ax.set_yticklabels([names[i] for i in sorted_idx])
-            
-            # Add value labels on bars
-            for i, (mi, corr) in enumerate(zip(mi_vals[sorted_idx], spearman_corr[sorted_idx])):
-                label = f'MI={mi:.3f}, ρ={corr:.2f}'
-                ax.text(mi+0.01, i, label, va='center')
+        # Create horizontal bar plot
+        bars = ax.barh(pos, mi_scores[sorted_idx])
+        
+        # Color bars based on Spearman correlation
+        for idx, bar in enumerate(bars):
+            corr = spearman_corr[sorted_idx[idx]]
+            # Red for positive correlation, Blue for negative
+            color = 'red' if corr > 0 else 'blue'
+            # Opacity based on correlation strength
+            alpha = min(abs(corr) + 0.2, 1.0)  # minimum opacity of 0.2
+            bar.set_color(color)
+            bar.set_alpha(alpha)
+        
+        # Add parameter names
+        ax.set_yticks(pos)
+        ax.set_yticklabels([names[i] for i in sorted_idx])
+        
+        # Add value labels on bars
+        for i, (mi, corr) in enumerate(zip(mi_scores[sorted_idx], spearman_corr[sorted_idx])):
+            label = f'MI={mi:.3f}, ρ={corr:.2f}'
+            ax.text(mi+0.01, i, label, va='center')
 
-            # Customize plot
-            ax.set_xlabel('Mutual Information Score')
-            ax.set_title(f'{metric} - {title_suffix}\n' + 
-                        'Red: Positive effect, Blue: Negative effect\n' +
-                        'Color intensity: Strength of directional relationship')
+        # Customize plot
+        ax.set_xlabel('Mutual Information Score')
+        ax.set_title(f'{metric}\n' + 
+                    'Red: Positive effect, Blue: Negative effect\n' +
+                    'Color intensity: Strength of directional relationship')
 
     # Add a note about interpretation at the bottom of the figure
     fig.text(0.1,-0.05, 
-             'Note: Absolute MI shows overall importance across all metrics (including non-linear effects)\n' +
-             'Relative MI shows importance within each metric\n' +
+             'Note: MI shows overall importance across all metrics (including non-linear effects)\n' +
              'ρ (Spearman) shows direction of monotonic relationship',
              fontsize=12, ha='left')
 
@@ -387,10 +381,11 @@ def remove_nan_rows(param_df, metrics_df):
     return cleaned_param_df, cleaned_metrics_df
 
 def main():
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/low_low_oxygen/grid"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/combined/large_range/grid"
     param_file = f"{parameter_base_folder}/all_param_df.csv"
     metrics_file = f"{parameter_base_folder}/final_metrics.csv"
-    target_metrics = ['symmetry', 'n_cells']#, 'activity', 'shannon', 'vol', 'colony_diameter']
+    target_metrics = ['symmetry', 'n_cells', 'activity', 'colony_diameter']
+    #target_metrics = [f"{metric}_std" for metric in target_metrics]
     alignment_columns = ['input_folder']
     
     param_df, metrics_df = load_data(param_file, metrics_file, target_metrics + alignment_columns)
@@ -412,11 +407,11 @@ def main():
     # Perform both types of sensitivity analysis
     save_mi_json = f"{parameter_base_folder}/mi_analysis.json"
     save_sobol_json = f"{parameter_base_folder}/sobol_analysis.json"
-    if 0:
-        mi_results = perform_mi_analysis(param_df, metrics_df, param_names, save_mi_json)
-        plot_mi_analysis(mi_results, save_path=f"{parameter_base_folder}/mi_analysis.png")
-
     if 1:
+        mi_results = perform_mi_analysis(param_df, metrics_df, param_names, save_mi_json)
+        plot_mi_analysis(mi_results, save_path=f"{parameter_base_folder}/mi_analysis_median.png")
+
+    if 0:
         metrics_name = 'symmetry'
         sobol_results = perform_sobol_analysis(param_df, metrics_df, param_names,
                                             calc_second_order=True,

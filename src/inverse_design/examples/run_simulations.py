@@ -127,5 +127,5 @@ if __name__ == "__main__":
         output_dir=f"ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/combined/large_range/grid",
         jar_path="models/arcade-logging-necrotic.jar",
         max_workers=int(mp.cpu_count()/2),
-        running_index=[i for i in range(200, 512)],
+        running_index=[i for i in range(940, 1025)],
     )

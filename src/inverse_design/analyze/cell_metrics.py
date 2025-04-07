@@ -17,9 +17,10 @@ class CellMetrics:
         """Calculate average cell volume"""
         if not cells:
             return 0.0
-
-        volumes = [cell["volume"] for cell in cells]
-        return sum(volumes) / len(volumes)
+        non_necrotic_cells = [cell for cell in cells if cell["state"] not in ["NECROTIC"]]
+        if len(non_necrotic_cells) == 0:
+            return 0.0
+        return sum([cell["volume"] for cell in non_necrotic_cells]) / len(non_necrotic_cells)
 
 
     @staticmethod
@@ -75,6 +76,8 @@ class CellMetrics:
         if not cells:
             return 0.0
         non_necrotic_cells = [cell for cell in cells if cell["state"] not in ["NECROTIC"]]
+        if len(non_necrotic_cells) == 0:
+            return 0.0
         return sum([cell["age"] for cell in non_necrotic_cells]) / len(non_necrotic_cells)
 
     @staticmethod

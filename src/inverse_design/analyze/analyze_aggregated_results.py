@@ -439,7 +439,7 @@ def plot_metric_pairplot(
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/low_low_oxygen/grid"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/combined/large_range/grid"
     input_folder = parameter_base_folder + "/inputs"
     csv_file = f"{parameter_base_folder}/final_metrics.csv"
 
@@ -459,7 +459,11 @@ if __name__ == "__main__":
         target_metrics = {
             "symmetry": 0.8,
             "cycle_length": 30.0,
+            "n_cells": 100,
             "act_ratio": 0.6,
+            "vol": 2000,
+            "activity": 0.5,
+            "colony_diameter": 300,
         }
         default_metrics = {metric: DEFAULT_METRICS[metric] for metric in target_metrics}
         save_file = f"{parameter_base_folder}/metric_distributions.png"

@@ -955,12 +955,10 @@ def generate_combined_perturbations(
 
         # Create log entry with both cellular and source parameters
         log_entry = _create_parameter_log_entry(cellular_sample, i + 1)
-        
         # Add source parameters to log entry
         for param_name in source_params:
-            if isinstance(source_params[param_name], list) and i < len(source_params[param_name]):
+            if i < len(source_params[param_name]):
                 log_entry[param_name] = source_params[param_name][i]
-        
         param_log.append(log_entry)
 
     return param_log

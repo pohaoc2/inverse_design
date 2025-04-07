@@ -5,7 +5,6 @@ from typing import List, Dict, Any, Tuple
 import logging
 import re
 import numpy as np
-from inverse_design.analyze.cell_metrics import CellMetrics
 from inverse_design.analyze.population_metrics import PopulationMetrics
 from inverse_design.analyze.analyze_seed_results import SeedAnalyzer
 from inverse_design.analyze.analyze_utils import collect_parameter_data
@@ -27,7 +26,6 @@ class SimulationMetrics:
         self.base_output_dir = Path(base_output_dir)
         self.input_base_dir = Path(input_base_dir)
         self.logger = logging.getLogger(__name__)
-        self.cell_metrics = CellMetrics()
         self.population_metrics = PopulationMetrics()
         self.seed_analyzer = SeedAnalyzer(base_output_dir)
 
@@ -138,7 +136,7 @@ class SimulationMetrics:
                 temporal_results[folder.name] = metrics["temporal_metrics"]
             except Exception as e:
                 self.logger.error(f"Error processing {folder}: {str(e)}")
-        # Create DataFrame for final metrics
+
         df = pd.DataFrame(final_results)
 
         # Reorder columns
@@ -179,8 +177,8 @@ class SimulationMetrics:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/low_low_oxygen/grid"
-    input_base_folder = "inputs/STEM_CELL/density_source/low_low_oxygen/grid"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/combined/large_range/grid"
+    input_base_folder = "inputs/STEM_CELL/density_source/combined/large_range/grid"
     input_folder = parameter_base_folder + "/inputs"
     metrics_calculator = SimulationMetrics(parameter_base_folder, input_base_folder)
 
@@ -201,11 +199,29 @@ def main():
         "009360",
         "010080",
     ]
+    timestamps = [
+        "000000",
+        "001400",
+        "002800",
+        "004200",
+        "005600",
+        "007000",
+        "008400",
+        "009800",
+        "011200",
+        "012600",
+        "014000",
+        "015400",
+        "016800",
+        "018200",
+        "019600",
+        "020160",
+    ]
     sim_folders = sorted(
         [f for f in Path(input_folder).glob("input_*")],
         key=lambda x: int(re.search(r"input_(\d+)", x.name).group(1)),
     )
-    metrics_calculator.analyze_all_simulations(timestamps=timestamps, sim_folders=sim_folders)
+    #metrics_calculator.analyze_all_simulations(timestamps=timestamps, sim_folders=sim_folders)
     metrics_calculator.extract_and_save_parameters(sim_folders)
 
 
