@@ -6,7 +6,7 @@ import scipy.stats.qmc
 from typing import Dict
 import os
 import json
-from inverse_design.analyze.parameter_config import PARAM_RANGES, SOURCE_PARAM_RANGES
+from inverse_design.analyze.parameter_config import PARAM_RANGES, SOURCE_PARAM_RANGES, PARAM_RANGES_LOG
 from inverse_design.analyze.source_metrics import calculate_capillary_density, calculate_distance_between_points
 from scipy.stats import qmc
 
@@ -973,7 +973,7 @@ def main():
     configs = [
             {
                 "perturbed_config": "cellular",
-                "template_path": "test_v3.xml",
+                "template_path": "sample_cellular_v3.xml",
                 "point_based": None,
                 "y_interval": None,
                 "radius_bound": None,
@@ -996,11 +996,11 @@ def main():
                 "side_length": side_length
             }
         ]
-    if 0:
-        output_dir = "inputs/STEM_CELL/density_source/cellular_test"
+    if 1:
+        output_dir = "inputs/STEM_CELL/cellular/"
         generate_perturbed_parameters(
-            sobol_power=8,
-            param_ranges=PARAM_RANGES,
+            sobol_power=9,
+            param_ranges=PARAM_RANGES_LOG,
             output_dir=output_dir,
             config_params=configs[0],
         )
@@ -1015,7 +1015,7 @@ def main():
             config_params=configs[1],
         )
 
-    if 1:
+    if 0:
         output_dir = "inputs/STEM_CELL/density_source/combined/large_range/grid"
         # Create a combined parameter ranges dictionary
         combined_ranges = {**PARAM_RANGES, **SOURCE_PARAM_RANGES}
