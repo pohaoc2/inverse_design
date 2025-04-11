@@ -8,6 +8,7 @@
 *.jar
 outputs/
 results/
+ARCADE_OUTPUT/
 src/**/*.png
 *.zip
 *.html
