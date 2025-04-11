@@ -996,7 +996,7 @@ def main():
                 "side_length": side_length
             }
         ]
-    if 1:
+    if 0:
         output_dir = "inputs/STEM_CELL/cellular/"
         generate_perturbed_parameters(
             sobol_power=9,
@@ -1015,12 +1015,12 @@ def main():
             config_params=configs[1],
         )
 
-    if 0:
-        output_dir = "inputs/STEM_CELL/density_source/combined/large_range/grid"
+    if 1:
+        output_dir = "inputs/STEM_CELL/density_source/combined/grid"
         # Create a combined parameter ranges dictionary
         combined_ranges = {**PARAM_RANGES, **SOURCE_PARAM_RANGES}
         generate_perturbed_parameters(
-            sobol_power=10,
+            sobol_power=11,
             param_ranges=combined_ranges,
             output_dir=output_dir,
             config_params=configs[2],

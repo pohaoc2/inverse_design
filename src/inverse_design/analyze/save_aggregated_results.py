@@ -177,8 +177,8 @@ class SimulationMetrics:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/cellular"
-    input_base_folder = "inputs/STEM_CELL/cellular"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/grid"
+    input_base_folder = "inputs/STEM_CELL/density_source/grid"
     input_folder = parameter_base_folder + "/inputs"
     metrics_calculator = SimulationMetrics(parameter_base_folder, input_base_folder)
 
@@ -199,24 +199,25 @@ def main():
         "009360",
         "010080",
     ]
-    timestamps = [
-        "000000",
-        "001400",
-        "002800",
-        "004200",
-        "005600",
-        "007000",
-        "008400",
-        "009800",
-        "011200",
-        "012600",
-        "014000",
-        "015400",
-        "016800",
-        "018200",
-        "019600",
-        "020160",
-    ]
+    if 0:
+        timestamps = [
+            "000000",
+            "001400",
+            "002800",
+            "004200",
+            "005600",
+            "007000",
+            "008400",
+            "009800",
+            "011200",
+            "012600",
+            "014000",
+            "015400",
+            "016800",
+            "018200",
+            "019600",
+            "020160",
+        ]
     sim_folders = sorted(
         [f for f in Path(input_folder).glob("input_*")],
         key=lambda x: int(re.search(r"input_(\d+)", x.name).group(1)),

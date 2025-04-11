@@ -212,7 +212,7 @@ def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, de
         default_metrics (dict): Dictionary containing mean and std for default metrics
             Format: {'metric_name': {'mean': value, 'std': value}}
         save_path (str, optional): Path to save the figure
-        plot_type (str): Type of plot to generate. Options: 'kde' for KDE plots, 'bar' for bar plots
+        plot_type (str): Type of plot to generate. Options: 'kde' for KDE plots, 'bar' for bar plots, 'violin' for violin plots
         remove_outliers (bool): Whether to remove outliers using IQR method
         iqr_multiplier (float): Multiplier for IQR to determine outlier bounds (default: 1.5)
     """
@@ -228,8 +228,8 @@ def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, de
     fig, axes = plt.subplots(len(metrics_list), 1, figsize=(10, 4*len(metrics_list)))
     if len(metrics_list) == 1:
         axes = [axes]
-    x_mins = [0.5, 0, 0, 0]
-    x_maxs = [1.0, 40, 400, 4000]
+    x_mins = [0.0, 0, 0, 0]
+    x_maxs = [1.0, 40, 150, 500]
     for idx, metric in enumerate(metrics_list):
         ax = axes[idx]
         # Filter out NaN and infinite values
@@ -249,7 +249,6 @@ def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, de
                 print(f"Removed {len(posterior_df[metric]) - len(valid_posterior)} outliers for {metric} in posterior")
             else:
                 valid_posteriors.append(valid_posterior)
-
 
         if plot_type == 'kde':
             # Plot prior distribution as KDE
@@ -283,11 +282,11 @@ def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, de
             ax2.tick_params(axis="y", labelcolor=posterior_colors[0])
             
         else:
-            prior_hist = sns.histplot(data=valid_prior, ax=ax, label="Cellular and environmental parameters", color="gray", alpha=0.5, bins=20)
+            prior_hist = sns.histplot(data=valid_prior, ax=ax, label="Environmental Only", color="gray", alpha=0.5, bins=20)
             ax.set_ylabel("Prior Count", color="gray")
             ax.tick_params(axis="y", labelcolor="gray")
             x_bounds = [prior_hist.get_xlim()]
-            if 1:
+            if 0:
                 ax2 = ax.twinx()
                 for posterior_df, color, label in zip(valid_posteriors, posterior_colors, posterior_labels):
                     posterior_hist = sns.histplot(
@@ -309,8 +308,6 @@ def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, de
             x_min = min(target_metrics[metric], min(bound[0] for bound in x_bounds))
             x_max = max(target_metrics[metric], max(bound[1] for bound in x_bounds))
             
-
-        
         # Plot target line
         if 0:
             ax.axvline(
@@ -347,7 +344,7 @@ def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, de
 
         # Combine legends
         lines1, labels1 = ax.get_legend_handles_labels()
-        if 1:
+        if 0:
             lines2, labels2 = ax2.get_legend_handles_labels()
             ax2.legend(
                 lines1 + lines2, 
@@ -510,9 +507,77 @@ def plot_metric_pairplot(
         plt.show()
 
 
+def plot_histogram_comparison(
+    dfs,
+    labels,
+    metric,
+    save_path=None,
+    remove_outliers=False,
+    iqr_multiplier=1.5):
+    """
+    Create horizontal histogram plots for a single metric, with each subplot showing a different distribution.
+    
+    Args:
+        dfs (list[pd.DataFrame]): List of DataFrames containing multiple samples
+        metric (str): The metric to plot
+        save_path (str, optional): Path to save the figure
+        remove_outliers (bool): Whether to remove outliers using IQR method
+        iqr_multiplier (float): Multiplier for IQR to determine outlier bounds (default: 1.5)
+    """
+    if isinstance(dfs, pd.DataFrame):
+        dfs = [dfs]
+    
+    colors = ['gray', 'purple', 'blue', 'magenta', 'orange', 'green', 'red', 'brown', 'pink', 'gray']
+    
+    n_distributions = len(dfs)
+    fig, axes = plt.subplots(n_distributions, 1, figsize=(6, 2*n_distributions))
+    if n_distributions == 1:
+        axes = [axes]
+    
+    valid_dfs = []
+    for df in dfs:
+        valid_df = df[metric].replace([np.inf, -np.inf], np.nan).dropna()
+        if remove_outliers and len(valid_df) > 0:
+            valid_df = _remove_outliers(valid_df, iqr_multiplier)
+            valid_dfs.append(valid_df)
+            print(f"Removed {len(df[metric]) - len(valid_df)} outliers for {metric} in df")
+        else:
+            valid_dfs.append(valid_df)
+    
+    # Calculate overall x-axis bounds
+    x_min = valid_dfs[0].min()
+    x_max = valid_dfs[0].max()
+    for valid_df in valid_dfs:
+        x_min = min(x_min, valid_df.min())
+        x_max = max(x_max, valid_df.max())
+    
+    padding = 0.1 * (x_max - x_min)
+    x_min -= padding
+    x_max += padding
+    for i, (df, color, label) in enumerate(zip(valid_dfs, colors, labels)):
+        ax = axes[i]
+        sns.histplot(data=df, ax=ax, color=color, alpha=0.5, bins=20)
+        ax.set_title(label)
+        if i == len(valid_dfs) - 1:
+            ax.set_xlabel(metric)
+        else:
+            ax.set_xlabel('')
+        ax.set_xlim(x_min, x_max)
+        ax.grid(axis='y', linestyle='--')
+        if i > 0:
+            ax.sharex(axes[0])
+
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
+        plt.close()
+    else:
+        plt.show()
+
+
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/combined/large_range/grid"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/combined/grid"
     input_folder = parameter_base_folder + "/inputs"
     csv_file = f"{parameter_base_folder}/final_metrics.csv"
 
@@ -526,13 +591,13 @@ if __name__ == "__main__":
         posterior_4 = f"{parameter_base_folder}/MS_POSTERIOR_10P_N256_5P_N256_3P_N512_1P/n32/final_metrics.csv"
         posterior_metrics_files = [posterior_1]#, posterior_2, posterior_3, posterior_4]
         posterior_metrics_dfs = [pd.read_csv(posterior_metrics_file) for posterior_metrics_file in posterior_metrics_files]
-        prior_metrics_file = (
+        env_only_file = (
             "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/grid/final_metrics.csv"
         )
-        #prior_metrics_file = (
-        #    "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_PRIOR_N1024/final_metrics.csv"
-        #)
-        #prior_metrics_file = csv_file
+        cellular_only_file = (
+            "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_PRIOR_N1024/final_metrics.csv"
+        )
+        both_file = csv_file
         target_metrics = {
             "symmetry": 0.8,
             "cycle_length": 30.0,
@@ -544,29 +609,44 @@ if __name__ == "__main__":
             #"colony_diameter": 300,
         }
         default_metrics = {metric: DEFAULT_METRICS[metric] for metric in target_metrics}
-        plot_type = 'bar'
-        save_file = f"{parameter_base_folder}/metric_distributions_{plot_type}.png"
-        df = pd.read_csv(csv_file)
-        metric = "n_cells"
-        df[metric] = df[metric].replace([np.inf, -np.inf], np.nan)
-        df = df.dropna(subset=[metric])
-        print(f"Row with max cycle length:\n{df.loc[df[metric].idxmax()]}")
-        asd()
 
+        df_paths = [cellular_only_file, env_only_file, both_file]
+        dfs = [pd.read_csv(df) for df in df_paths]
+        labels = ["Cellular only", "Environmental only", "Cellular and environmental parameters"]
+        for metric in target_metrics:
+            save_file = f"{parameter_base_folder}/metric_distributions_bar_{metric}_removed_outliers.png"
+            plot_histogram_comparison(
+                dfs,
+                labels,
+                metric,
+                save_path=save_file,
+                remove_outliers=True,
+            )
+            save_file = f"{parameter_base_folder}/metric_distributions_bar_{metric}.png"
+            plot_histogram_comparison(
+                dfs,
+                labels,
+                metric,
+                save_path=save_file,
+                remove_outliers=False,
+            )
 
-        plot_distributions(
-            pd.read_csv(prior_metrics_file),
-            posterior_metrics_dfs,
-            target_metrics,
-            list(target_metrics.keys()),
-            default_metrics,
-            save_file,
-            plot_type=plot_type,
-            remove_outliers=False,
-        )
+        if 0:
+            plot_type = 'violin'
+            save_file = f"{parameter_base_folder}/metric_distributions_{plot_type}.png"
+            plot_distributions(
+                pd.read_csv(prior_metrics_file),
+                posterior_metrics_dfs,
+                target_metrics,
+                list(target_metrics.keys()),
+                default_metrics,
+                save_file,
+                plot_type=plot_type,
+                remove_outliers=True,
+            )
     percentile = 10
     top_n_input_file, bottom_n_input_file, labeled_metrics_df = analyze_metric_percentiles(
-        csv_file, metrics_name, percentile, verbose=True
+        csv_file, metrics_name, percentile, verbose=False
     )
 
     # Create labeled parameter DataFrame

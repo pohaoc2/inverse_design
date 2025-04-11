@@ -381,15 +381,16 @@ def remove_nan_rows(param_df, metrics_df):
     return cleaned_param_df, cleaned_metrics_df
 
 def main():
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/cellular"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_PRIOR_N1024/"
     param_file = f"{parameter_base_folder}/all_param_df.csv"
     metrics_file = f"{parameter_base_folder}/final_metrics.csv"
-    target_metrics = ['symmetry', 'n_cells', 'activity', 'colony_diameter']
+    target_metrics = ['symmetry', 'n_cells', 'doub_time', 'cycle_length', 'act']
     #target_metrics = [f"{metric}_std" for metric in target_metrics]
     alignment_columns = ['input_folder']
     
     param_df, metrics_df = load_data(param_file, metrics_file, target_metrics + alignment_columns)
     param_df, metrics_df = align_dataframes(param_df, metrics_df)
+    metrics_df = metrics_df.replace([np.inf, -np.inf], np.nan)
     param_df, metrics_df = remove_nan_rows(param_df, metrics_df)
     #param_df = param_df.drop(columns=['X_SPACING', 'Y_SPACING', 'DISTANCE_TO_CENTER'])
     param_names = param_df.columns.tolist()
