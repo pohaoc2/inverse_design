@@ -381,7 +381,7 @@ def remove_nan_rows(param_df, metrics_df):
     return cleaned_param_df, cleaned_metrics_df
 
 def main():
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/combined/large_range/grid"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/cellular"
     param_file = f"{parameter_base_folder}/all_param_df.csv"
     metrics_file = f"{parameter_base_folder}/final_metrics.csv"
     target_metrics = ['symmetry', 'n_cells', 'activity', 'colony_diameter']
@@ -391,7 +391,7 @@ def main():
     param_df, metrics_df = load_data(param_file, metrics_file, target_metrics + alignment_columns)
     param_df, metrics_df = align_dataframes(param_df, metrics_df)
     param_df, metrics_df = remove_nan_rows(param_df, metrics_df)
-    param_df = param_df.drop(columns=['X_SPACING', 'Y_SPACING', 'DISTANCE_TO_CENTER'])
+    #param_df = param_df.drop(columns=['X_SPACING', 'Y_SPACING', 'DISTANCE_TO_CENTER'])
     param_names = param_df.columns.tolist()
     param_df.to_csv(f"{parameter_base_folder}/param_df.csv", index=False)
     metrics_df.to_csv(f"{parameter_base_folder}/metrics_df.csv", index=False)
@@ -411,7 +411,7 @@ def main():
         mi_results = perform_mi_analysis(param_df, metrics_df, param_names, save_mi_json)
         plot_mi_analysis(mi_results, save_path=f"{parameter_base_folder}/mi_analysis_median.png")
 
-    if 0:
+    if 1:
         metrics_name = 'symmetry'
         sobol_results = perform_sobol_analysis(param_df, metrics_df, param_names,
                                             calc_second_order=True,

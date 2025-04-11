@@ -177,8 +177,8 @@ class SimulationMetrics:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/combined/large_range/grid"
-    input_base_folder = "inputs/STEM_CELL/density_source/combined/large_range/grid"
+    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/cellular"
+    input_base_folder = "inputs/STEM_CELL/cellular"
     input_folder = parameter_base_folder + "/inputs"
     metrics_calculator = SimulationMetrics(parameter_base_folder, input_base_folder)
 
@@ -221,7 +221,7 @@ def main():
         [f for f in Path(input_folder).glob("input_*")],
         key=lambda x: int(re.search(r"input_(\d+)", x.name).group(1)),
     )
-    #metrics_calculator.analyze_all_simulations(timestamps=timestamps, sim_folders=sim_folders)
+    metrics_calculator.analyze_all_simulations(timestamps=timestamps, sim_folders=sim_folders)
     metrics_calculator.extract_and_save_parameters(sim_folders)
 
 

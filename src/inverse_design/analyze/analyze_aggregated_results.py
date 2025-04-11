@@ -186,8 +186,21 @@ def get_kde_bounds(kde_plot, percentile: float = 0.01):
     
     return x_min, x_max
 
+def _remove_outliers(data, iqr_multiplier):
+    if len(data) > 0:
+        # Calculate IQR and bounds
+        Q1 = data.quantile(0.25)
+        Q3 = data.quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - iqr_multiplier * IQR
+        upper_bound = Q3 + iqr_multiplier * IQR
+        # Remove outliers
+        data = data[(data >= lower_bound) & (data <= upper_bound)]
+    return data
 
-def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, default_metrics=None, save_path=None):
+
+
+def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, default_metrics=None, save_path=None, plot_type='kde', remove_outliers=False, iqr_multiplier=1.5):
     """
     Plot distributions of metrics with prior, multiple posteriors, target, and default values.
     
@@ -199,6 +212,9 @@ def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, de
         default_metrics (dict): Dictionary containing mean and std for default metrics
             Format: {'metric_name': {'mean': value, 'std': value}}
         save_path (str, optional): Path to save the figure
+        plot_type (str): Type of plot to generate. Options: 'kde' for KDE plots, 'bar' for bar plots
+        remove_outliers (bool): Whether to remove outliers using IQR method
+        iqr_multiplier (float): Multiplier for IQR to determine outlier bounds (default: 1.5)
     """
     # Convert single DataFrame to list for backwards compatibility
     if isinstance(posterior_dfs, pd.DataFrame):
@@ -207,46 +223,102 @@ def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, de
     # Define colors for multiple posteriors
     posterior_colors = ['blue', 'purple', 'cyan', 'magenta', 'orange', 'green', 'red', 'brown', 'pink', 'gray']
     posterior_labels = [f'Posterior {i+1}' for i in range(len(posterior_dfs))]
+    posterior_labels = ["Cellular and environmental parameters"]
     
     fig, axes = plt.subplots(len(metrics_list), 1, figsize=(10, 4*len(metrics_list)))
     if len(metrics_list) == 1:
         axes = [axes]
-
+    x_mins = [0.5, 0, 0, 0]
+    x_maxs = [1.0, 40, 400, 4000]
     for idx, metric in enumerate(metrics_list):
         ax = axes[idx]
-        prior_kde = sns.kdeplot(data=prior_df[metric], ax=ax, label="Prior", color="gray")
-        ax.set_ylabel("Prior Density", color="gray")
-        ax.tick_params(axis="y", labelcolor="gray")
-        
-        ax2 = ax.twinx()
-        
-        # Plot each posterior distribution
-        posterior_kdes = []
-        x_bounds = [prior_kde.get_lines()[0].get_xdata()[[0, -1]]]  # Start with prior bounds
-        for posterior_df, color, label in zip(posterior_dfs, posterior_colors, posterior_labels):
-            posterior_kde = sns.kdeplot(
-                data=posterior_df[metric], 
-                ax=ax2, 
-                label=label, 
-                color=color
-            )
-            lines = posterior_kde.get_lines()
-            mode_value = lines[-1].get_xdata()[np.argmax(lines[-1].get_ydata())]
-            posterior_kdes.append(posterior_kde)
-            x_bounds.append(posterior_kde.get_lines()[0].get_xdata()[[0, -1]])
-            ax2.axvline(x=mode_value, color=color, linestyle='--', alpha=0.5, label=f"{label} (mode: {mode_value:.3f})")
+        # Filter out NaN and infinite values
+        valid_prior = prior_df[metric].replace([np.inf, -np.inf], np.nan).dropna()
+        if remove_outliers and len(valid_prior) > 0:
+            valid_prior = _remove_outliers(valid_prior, iqr_multiplier)
+            print(f"Removed {len(prior_df[metric]) - len(valid_prior)} outliers for {metric} in prior")
+        if len(valid_prior) == 0:
+            print(f"Warning: No valid data points for {metric} in prior")
+            continue
+        valid_posteriors = []
+        for posterior_df in posterior_dfs:
+            valid_posterior = posterior_df[metric].replace([np.inf, -np.inf], np.nan).dropna()
+            if remove_outliers and len(valid_posterior) > 0:
+                valid_posterior = _remove_outliers(valid_posterior, iqr_multiplier)
+                valid_posteriors.append(valid_posterior)
+                print(f"Removed {len(posterior_df[metric]) - len(valid_posterior)} outliers for {metric} in posterior")
+            else:
+                valid_posteriors.append(valid_posterior)
 
-        # Calculate overall x-axis bounds
-        x_min = min(target_metrics[metric], min(bound[0] for bound in x_bounds))
-        x_max = max(target_metrics[metric], max(bound[1] for bound in x_bounds))
+
+        if plot_type == 'kde':
+            # Plot prior distribution as KDE
+            prior_kde = sns.kdeplot(data=valid_prior, ax=ax, label="Prior", color="gray")
+            ax.set_ylabel("Prior Density", color="gray")
+            ax.tick_params(axis="y", labelcolor="gray")
+            ax2 = ax.twinx()
+            
+            # Plot each posterior distribution as KDE
+            posterior_kdes = []
+            x_bounds = [prior_kde.get_lines()[0].get_xdata()[[0, -1]]]  # Start with prior bounds
+            for posterior_df, color, label in zip(valid_posteriors, posterior_colors, posterior_labels):
+                
+                posterior_kde = sns.kdeplot(
+                    data=posterior_df, 
+                    ax=ax2, 
+                    label=label, 
+                    color=color
+                )
+                lines = posterior_kde.get_lines()
+                mode_value = lines[-1].get_xdata()[np.argmax(lines[-1].get_ydata())]
+                posterior_kdes.append(posterior_kde)
+                x_bounds.append(posterior_kde.get_lines()[0].get_xdata()[[0, -1]])
+                ax2.axvline(x=mode_value, color=color, linestyle='--', alpha=0.5, label=f"{label} (mode: {mode_value:.3f})")
+            
+            # Calculate overall x-axis bounds
+            x_min = min(target_metrics[metric], min(bound[0] for bound in x_bounds))
+            x_max = max(target_metrics[metric], max(bound[1] for bound in x_bounds))
+            
+            ax2.set_ylabel("Posterior Density", color=posterior_colors[0])
+            ax2.tick_params(axis="y", labelcolor=posterior_colors[0])
+            
+        else:
+            prior_hist = sns.histplot(data=valid_prior, ax=ax, label="Cellular and environmental parameters", color="gray", alpha=0.5, bins=20)
+            ax.set_ylabel("Prior Count", color="gray")
+            ax.tick_params(axis="y", labelcolor="gray")
+            x_bounds = [prior_hist.get_xlim()]
+            if 1:
+                ax2 = ax.twinx()
+                for posterior_df, color, label in zip(valid_posteriors, posterior_colors, posterior_labels):
+                    posterior_hist = sns.histplot(
+                        data=posterior_df, 
+                        ax=ax2, 
+                        label=label, 
+                        color=color,
+                        alpha=0.5,
+                        bins=20
+                    )
+                    # Calculate mode (bin with highest count)
+                    counts, bins = np.histogram(posterior_df, bins=20)  # Use fixed number of bins
+                    mode_value = bins[np.argmax(counts)]
+                    x_bounds.append(posterior_hist.get_xlim())
+                    ax2.axvline(x=mode_value, color=color, linestyle='--', alpha=0.5, label=f"{label} (mode: {mode_value:.3f})")
+                ax2.set_ylabel("Posterior Count", color=posterior_colors[0])
+                ax2.tick_params(axis="y", labelcolor=posterior_colors[0])
+            # Calculate overall x-axis bounds
+            x_min = min(target_metrics[metric], min(bound[0] for bound in x_bounds))
+            x_max = max(target_metrics[metric], max(bound[1] for bound in x_bounds))
+            
+
         
         # Plot target line
-        ax.axvline(
-            x=target_metrics[metric],
-            color="red",
-            linestyle="--",
-            label=f"Target ({target_metrics[metric]:.3f})",
-        )
+        if 0:
+            ax.axvline(
+                x=target_metrics[metric],
+                color="red",
+                linestyle="--",
+                label=f"Target ({target_metrics[metric]:.3f})",
+            )
         
         if default_metrics and metric in default_metrics:
             mean = default_metrics[metric]['mean']
@@ -275,21 +347,22 @@ def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, de
 
         # Combine legends
         lines1, labels1 = ax.get_legend_handles_labels()
-        lines2, labels2 = ax2.get_legend_handles_labels()
-        ax2.legend(
-            lines1 + lines2, 
-            labels1 + labels2,
-            bbox_to_anchor=(1.15, 1),
-            loc='upper left'
-        )
+        if 1:
+            lines2, labels2 = ax2.get_legend_handles_labels()
+            ax2.legend(
+                lines1 + lines2, 
+                labels1 + labels2,
+                bbox_to_anchor=(1.15, 1),
+                loc='upper left'
+            )
 
         ax.set_title(f"{metric} Distribution")
         ax.set_xlabel(metric)
         padding = 0.1 * (x_max - x_min)
-        ax.set_xlim(x_min - padding, x_max + padding)
-        ax2.set_ylabel("Posterior Density", color=posterior_colors[0])
-        ax2.tick_params(axis="y", labelcolor=posterior_colors[0])
-
+        #ax.set_xlim(x_min - padding, x_max + padding)
+        x_min, x_max = x_mins[idx], x_maxs[idx]
+        ax.set_xlim(x_min, x_max)
+        ax.legend()
     plt.tight_layout()
     if save_path:
         plt.savefig(save_path, bbox_inches='tight', dpi=300)
@@ -456,24 +529,40 @@ if __name__ == "__main__":
         prior_metrics_file = (
             "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/grid/final_metrics.csv"
         )
+        #prior_metrics_file = (
+        #    "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_PRIOR_N1024/final_metrics.csv"
+        #)
+        #prior_metrics_file = csv_file
         target_metrics = {
             "symmetry": 0.8,
             "cycle_length": 30.0,
+            "doub_time": 20,
             "n_cells": 100,
-            "act_ratio": 0.6,
-            "vol": 2000,
-            "activity": 0.5,
-            "colony_diameter": 300,
+            #"act_ratio": 0.6,
+            #"vol": 2000,
+            #"activity": 0.5,
+            #"colony_diameter": 300,
         }
         default_metrics = {metric: DEFAULT_METRICS[metric] for metric in target_metrics}
-        save_file = f"{parameter_base_folder}/metric_distributions.png"
+        plot_type = 'bar'
+        save_file = f"{parameter_base_folder}/metric_distributions_{plot_type}.png"
+        df = pd.read_csv(csv_file)
+        metric = "n_cells"
+        df[metric] = df[metric].replace([np.inf, -np.inf], np.nan)
+        df = df.dropna(subset=[metric])
+        print(f"Row with max cycle length:\n{df.loc[df[metric].idxmax()]}")
+        asd()
+
+
         plot_distributions(
             pd.read_csv(prior_metrics_file),
             posterior_metrics_dfs,
             target_metrics,
             list(target_metrics.keys()),
             default_metrics,
-            save_file
+            save_file,
+            plot_type=plot_type,
+            remove_outliers=False,
         )
     percentile = 10
     top_n_input_file, bottom_n_input_file, labeled_metrics_df = analyze_metric_percentiles(
