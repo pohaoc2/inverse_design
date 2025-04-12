@@ -163,7 +163,6 @@ class SimulationMetrics:
         added_columns = [column for column in param_from_input_df.columns if column in SOURCE_PARAMS]
         if added_columns:
             all_param_df = pd.concat([all_param_df, param_from_input_df[added_columns]], axis=1)
-        
         # Remove constant parameters
         constant_columns = [col for col in all_param_df.columns if all_param_df[col].nunique() == 1]
         all_param_df = all_param_df.drop(columns=constant_columns)

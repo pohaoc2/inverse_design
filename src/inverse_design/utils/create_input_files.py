@@ -606,8 +606,8 @@ def generate_input_files(
         output_dir: Directory to save generated XML files
     """
     config_type = config_params["perturbed_config"]
-    if config_type not in ["cellular", "source"]:
-        raise ValueError('config_type must be either "cellular" or "source"')
+    if config_type not in ["cellular", "source", "combined"]:
+        raise ValueError('config_type must be one of "cellular", "source", or "combined"')
     template_path = config_params["template_path"]
 
     # Check if the input directory exists
@@ -640,7 +640,7 @@ def generate_input_files(
             output_dir=output_dir,
         )
 
-    else:  # source configuration
+    elif config_type == "source":  # source configuration
         # Convert to dictionary format for source parameters
         params = {
             "X_SPACING": [],
@@ -661,6 +661,49 @@ def generate_input_files(
             template_path=template_path,
             output_dir=output_dir,
         )
+    
+    else:  # combined configuration
+        # Separate cellular and source parameters
+        cellular_param_names = [name for name in param_names 
+                               if name not in ["X_SPACING", "Y_SPACING", "GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]]
+        source_param_names = [name for name in param_names 
+                             if name in ["X_SPACING", "Y_SPACING", "GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]]
+        
+        # Convert to dictionary format for cellular parameters
+        cellular_params = {
+            name: [] for name in cellular_param_names
+        }
+        
+        # Convert to dictionary format for source parameters
+        source_params = {
+            "X_SPACING": [],
+            "Y_SPACING": [],
+            "GLUCOSE_CONCENTRATION": [],
+            "OXYGEN_CONCENTRATION": [],
+        }
+        
+        for values in param_values:
+            params_dict = dict(zip(param_names, values))
+            
+            # Add cellular parameters
+            for name in cellular_param_names:
+                if name in params_dict:
+                    cellular_params[name].append(params_dict[name])
+            
+            # Add source parameters
+            source_params["X_SPACING"].append(params_dict.get("X_SPACING", ""))
+            source_params["Y_SPACING"].append(params_dict.get("Y_SPACING", ""))
+            source_params["GLUCOSE_CONCENTRATION"].append(params_dict.get("GLUCOSE_CONCENTRATION", 0))
+            source_params["OXYGEN_CONCENTRATION"].append(params_dict.get("OXYGEN_CONCENTRATION", 0))
+        
+        # Generate combined parameter files
+        param_log = generate_combined_perturbations(
+            cellular_params=cellular_params,
+            source_params=source_params,
+            template_path=template_path,
+            output_dir=output_dir,
+        )
+    
     _save_param_log(param_log, output_dir)
 
 def generate_source_site_perturbations(

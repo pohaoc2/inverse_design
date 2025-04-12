@@ -310,7 +310,8 @@ class ABCSMCRF(ABCSMCRFBase):
                 if key != "X_SPACING":
                     new_param_ranges[key] = value
             param_names = new_param_ranges.keys()
-
+        print(param_names)
+        print(parameters)
         generate_input_files(
             param_names=param_names,
             param_values=parameters,

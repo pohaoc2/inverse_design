@@ -76,7 +76,7 @@ def perturbation_kernel(params, iteration=1, max_iterations=5, param_ranges=PARA
             param_range = max_val - min_val
             scale = param_range * scale_factor
             perturbed_params[i] += np.random.normal(0, scale)
-    else:
+    elif config_params["perturbed_config"] == "source":
         for i, (param_name, (min_val, max_val)) in enumerate(param_ranges.items()):
             if param_name in ["X_SPACING", "Y_SPACING"]:
                 if config_params["point_based"] and param_name == "Y_SPACING":
@@ -98,6 +98,38 @@ def perturbation_kernel(params, iteration=1, max_iterations=5, param_ranges=PARA
                 param_range = max_val - min_val
                 scale = param_range * scale_factor
                 perturbed_params[i] += np.random.normal(0, scale)
+    elif config_params["perturbed_config"] == "combined":
+        # First handle cellular parameters
+        cellular_params = {k: v for k, v in param_ranges.items() if k not in ["X_SPACING", "Y_SPACING", "GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]}
+        for i, (min_val, max_val) in enumerate(cellular_params.values()):
+            param_range = max_val - min_val
+            scale = param_range * scale_factor
+            perturbed_params[i] += np.random.normal(0, scale)
+            
+        # Then handle source parameters
+        source_params = {k: v for k, v in param_ranges.items() if k in ["X_SPACING", "Y_SPACING", "GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]}
+        for i, (param_name, (min_val, max_val)) in enumerate(source_params.items()):
+            source_index = len(cellular_params) + i
+            if param_name in ["X_SPACING", "Y_SPACING"]:
+                if config_params["point_based"] and param_name == "Y_SPACING":
+                    original_y_spacing = int(perturbed_params[source_index].split(":")[0])
+                    perturb_value = config_params["y_interval"] * np.random.randint(-2, 3)
+                    final_y_spacing = original_y_spacing + perturb_value
+                    perturbed_params[source_index] = f"{final_y_spacing}:{final_y_spacing+1}"
+                else:
+                    if param_name == "X_SPACING":
+                        x_spacing_value = float(perturbed_params[source_index].split(":")[-1]) + np.random.randint(-4, 5)
+                    else:
+                        y_spacing_value = float(perturbed_params[source_index].split(":")[-1]) + np.random.randint(-4, 5)
+                        # swap x and y spacing if y spacing is smaller than x spacing
+                        x_final = min(x_spacing_value, y_spacing_value)
+                        y_final = max(x_spacing_value, y_spacing_value)
+                        perturbed_params[source_index-1] = "*:" + str(int(x_final))
+                        perturbed_params[source_index] = "*:" + str(int(y_final))
+            elif param_name in ["GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]:
+                param_range = max_val - min_val
+                scale = param_range * scale_factor
+                perturbed_params[source_index] += np.random.normal(0, scale)
     return perturbed_params
 
 def plot_variable_importance(smc_rf, statistic_names, n_statistics, save_path=None):
@@ -119,7 +151,6 @@ def plot_variable_importance(smc_rf, statistic_names, n_statistics, save_path=No
         plt.savefig(save_path)
     else:
         plt.show()
-
 
 def plot_parameter_iterations(smc_rf, param_names, sobol_power=8, plot_kde=False, save_path=None):
     """Plot parameter distributions across iterations.
@@ -290,7 +321,7 @@ def save_targets_to_json(target_names, target_values, output_file="targets.json"
 def run_example():
     """Run the ABC-SMC-DRF example on the ARCADE model"""
     target_names = ["symmetry", "cycle_length", "act_ratio"]#, "doub_time"]
-    target_values = [0.7, 30, 0.75]#, 35]
+    target_values = [0.75, 32, 0.7]#, 30]
     #target_names = target_names + [name+"_std" for name in target_names]
     #target_values = target_values + [value*0.05 for value in target_values]    
     targets = []
@@ -307,7 +338,7 @@ def run_example():
     input_configs = [
         {
             "perturbed_config": "cellular",
-            "template_path": "test_v3.xml",
+            "template_path": "sample_cellular_v3.xml",
             "point_based": None,
             "y_interval": None,
             "radius_bound": None,
@@ -315,18 +346,32 @@ def run_example():
         },
         {
             "perturbed_config": "source",
-            "template_path": "test_source.xml",
+            "template_path": "sample_source_v3.xml",
             "point_based": True,
+            "y_interval": 4,
+            "radius_bound": radius+margin,
+            "side_length": side_length
+        },
+        {
+            "perturbed_config": "combined",
+            "template_path": "test_combined_v3.xml",  # Template with both cellular and source parameters
+            "point_based": False,
             "y_interval": 4,
             "radius_bound": radius+margin,
             "side_length": side_length
         }
     ]
     n_samples = 2**sobol_power
-    config_params = input_configs[1]
-    param_ranges = PARAM_RANGES.copy() if config_params["perturbed_config"] == "cellular" else SOURCE_PARAM_RANGES.copy()
+    config_params = input_configs[2]
+    if config_params["perturbed_config"] == "cellular":
+        param_ranges = PARAM_RANGES.copy()
+    elif config_params["perturbed_config"] == "source":
+        param_ranges = SOURCE_PARAM_RANGES.copy()
+    elif config_params["perturbed_config"] == "combined":
+        param_ranges = {**PARAM_RANGES, **SOURCE_PARAM_RANGES}
     if config_params["point_based"]:
         param_ranges.pop("X_SPACING")
+        
     param_ranges = {k: v for k, v in param_ranges.items() if v[0] != v[1]}
     smc_rf = ABCSMCRF(
         n_iterations=2,           
@@ -362,12 +407,12 @@ def run_example():
     source_type = "point" if config_params["point_based"] else "grid"
     input_dir = f"inputs/abc_smc_rf_n{n_samples}_{config_params['perturbed_config']}_{source_type}/"
     output_dir = f"ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}_{config_params['perturbed_config']}_{source_type}/"
-    jar_path = "models/arcade-test-cycle-fix-affinity.jar"
+    jar_path = "models/arcade-logging-necrotic.jar"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     save_targets_to_json(target_names, target_values, f"{output_dir}targets.json")
     smc_rf.fit(target_names, target_values, input_dir, output_dir, jar_path, timestamps)
-    plot_dir = f"ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}/PLOTS/"
+    plot_dir = f"{output_dir}/PLOTS/"
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
     smc_rf.plot_tree(
@@ -414,16 +459,16 @@ def run_example():
                 
             else:
                 print(f"{param_name}: {np.mean(posterior_samples[:, i]):.4f} ± {np.std(posterior_samples[:, i]):.4f}")
-                
-    
     # Plot results
     if config_params["perturbed_config"] == "cellular":
         param_names = ["AFFINITY", "COMPRESSION_TOLERANCE", "CELL_VOLUME_MU"]
-    else:
+    elif config_params["perturbed_config"] == "source":
         if config_params["point_based"]:
             param_names = ["Y_SPACING", "GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]
         else:
             param_names = ["X_SPACING", "Y_SPACING", "GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]
+    elif config_params["perturbed_config"] == "combined":
+        param_names = ["COMPRESSION_TOLERANCE", "CELL_VOLUME_MU", "X_SPACING", "Y_SPACING", "GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]
 
     plot_parameter_iterations(smc_rf, param_names, save_path=f"{plot_dir}/arcade_params_iterations")
     plot_statistic_iterations(smc_rf, target_names, target_values, save_path=f"{plot_dir}/arcade_stats_iterations")
