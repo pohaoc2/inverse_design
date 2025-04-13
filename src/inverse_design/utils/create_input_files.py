@@ -703,7 +703,6 @@ def generate_input_files(
             template_path=template_path,
             output_dir=output_dir,
         )
-    
     _save_param_log(param_log, output_dir)
 
 def generate_source_site_perturbations(

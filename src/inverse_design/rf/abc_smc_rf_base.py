@@ -55,6 +55,7 @@ class ABCSMCRFBase:
         
         # Storage for results
         self.parameter_samples = []
+        self.parameter_columns = []
         self.weights = []
         self.statistics = []
         self.rf_models = []

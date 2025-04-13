@@ -68,6 +68,8 @@ class DRF(BaseRF):
         
         for t in range(self.n_trees):
             # Subsample for tree building (not bootstrap)
+            if t%10 == 0:
+                print(f"Building tree {t+1} of {self.n_trees}")
             all_indices = np.arange(n_samples)
             self.rng.shuffle(all_indices)
             
@@ -250,13 +252,17 @@ class DRF(BaseRF):
                 if len(left_params) < self.min_samples_leaf or len(right_params) < self.min_samples_leaf:
                     continue
                 
+                # Filter out non-float elements and convert to NumPy arrays
+                left_params_non_str = np.array([[p for p in params if isinstance(p, float)] for params in left_params])
+                right_params_non_str = np.array([[p for p in params if isinstance(p, float)] for params in right_params])
+
                 # Compute means for each side
-                left_mean = np.mean(left_params, axis=0)
-                right_mean = np.mean(right_params, axis=0)
+                left_mean = np.mean(left_params_non_str, axis=0)
+                right_mean = np.mean(right_params_non_str, axis=0)
                 
                 # Compute the CART criterion (equation 4 in the paper)
-                left_size = len(left_params)
-                right_size = len(right_params)
+                left_size = len(left_params_non_str)
+                right_size = len(right_params_non_str)
                 cart_score = (left_size * right_size / (n_samples ** 2)) * np.sum((right_mean - left_mean) ** 2)
                 
                 if cart_score > best_score:

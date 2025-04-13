@@ -237,9 +237,16 @@ class ABCSMCRF(ABCSMCRFBase):
             valid_parameters = pd.read_csv(f"{output_dir}/{dir_postfix}/all_param_df.csv")
             statistics.drop(columns=["input_folder", "states"], inplace=True)
             valid_parameters.drop(columns=["input_folder"], inplace=True)
-        
         if len(valid_parameters.columns) != len(self.param_ranges.keys()):
             valid_parameters = valid_parameters[self.param_ranges.keys()]
+        #if self.config_params["perturbed_config"] == "source" or self.config_params["perturbed_config"] == "combined":
+        #    valid_parameters.drop(columns=["X_SPACING", "Y_SPACING"], inplace=True)
+
+        # drop CAPILLAY_DENSITY if config_params["point_based"] else drop DISTANCE_TO_CENTER
+        if self.config_params["point_based"]:
+            valid_parameters.drop(columns=["CAPILLARY_DENSITY"], inplace=True)
+        else:
+            valid_parameters.drop(columns=["DISTANCE_TO_CENTER"], inplace=True)
         return statistics, valid_parameters
 
     def _first_iteration(self, input_dir: str, output_dir: str, jar_path: str, timestamps: List[str]) -> None:
@@ -261,6 +268,7 @@ class ABCSMCRF(ABCSMCRFBase):
         statistics, valid_parameters = self._analyze_simulation_results(input_dir, output_dir, dir_postfix, timestamps)
         target_stats = np.array([statistics[target_name] for target_name in self.target_names]).T
         self.parameter_samples.append(np.array(valid_parameters))
+        self.parameter_columns = list(valid_parameters.columns)
         self.statistics.append(target_stats)
 
     def _subsequent_iteration(self, input_dir: str, output_dir: str, jar_path: str, timestamps: List[str]) -> None:
@@ -282,19 +290,19 @@ class ABCSMCRF(ABCSMCRFBase):
             theta_star = prev_parameters[idx]
             # Perturb the parameters
             theta_candidate = self.perturbation_kernel(theta_star,
+                                                        self.parameter_columns,
                                                         self.current_iteration,
                                                         max_iterations=self.n_iterations,
                                                         param_ranges=self.param_ranges,
                                                         config_params=self.config_params
             )
-            # Check if the perturbed parameters have non-zero prior density
-            prior_density = self.prior_pdf(theta_candidate, param_ranges=self.param_ranges, config_params=self.config_params)
+            updated_param_ranges = {param_name: (min_val, max_val) for param_name, (min_val, max_val) in self.param_ranges.items() if param_name in self.parameter_columns}
+            prior_density = self.prior_pdf(theta_candidate, self.parameter_columns, param_ranges=updated_param_ranges, config_params=self.config_params)
             if prior_density > 0:
                 parameters[i] = theta_candidate
                 i += 1
 
         dir_postfix = f"iter_{self.current_iteration}"
-        param_names = list(self.param_ranges.keys())
         if self.config_params["point_based"]:
             # Create new parameters array with one extra column for x_center
             added_params = np.zeros((n_candidates, parameters.shape[1] + 1), dtype=object)
@@ -310,10 +318,9 @@ class ABCSMCRF(ABCSMCRFBase):
                 if key != "X_SPACING":
                     new_param_ranges[key] = value
             param_names = new_param_ranges.keys()
-        print(param_names)
-        print(parameters)
+
         generate_input_files(
-            param_names=param_names,
+            param_names=self.parameter_columns,
             param_values=parameters,
             output_dir=input_dir + dir_postfix,
             config_params=self.config_params,

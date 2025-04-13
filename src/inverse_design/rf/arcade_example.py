@@ -27,7 +27,7 @@ TARGET_RANGES = {
     "doub_time_std": (0.0, 0.5),
 }
 
-def prior_pdf(params, param_ranges=PARAM_RANGES, config_params=None):
+def prior_pdf(params, param_columns, param_ranges=PARAM_RANGES, config_params=None):
     """
     Evaluate the uniform prior density at the given parameters.
     
@@ -46,90 +46,98 @@ def prior_pdf(params, param_ranges=PARAM_RANGES, config_params=None):
         raise ValueError(f"Expected {len(param_ranges)} parameters, got {len(params)}")
     if config_params["perturbed_config"] == "cellular":   
         # Check if the number of parameters matches
-        for i, (min_val, max_val) in enumerate(param_ranges.values()):
-            if params[i] < min_val or params[i] > max_val:
+        for i, (param_name, (min_val, max_val)) in enumerate(param_ranges.items()):
+            param_index = param_columns.index(param_name)
+            if params[param_index] < min_val or params[param_index] > max_val:
                 return 0.0  # Parameter out of range, zero density
-        return 1.0 / (max_val - min_val)
+            else:
+                return 1.0 / (max_val - min_val)
     else:
         for i, (param_name, (min_val, max_val)) in enumerate(param_ranges.items()):
+            param_index = param_columns.index(param_name)
             if param_name in ["X_SPACING", "Y_SPACING"]:
                 if config_params["point_based"] and param_name == "Y_SPACING":
-                    original_y_spacing = int(params[i].split(":")[0])
+                    original_y_spacing = int(params[param_index].split(":")[0])
                     if original_y_spacing < min_val or original_y_spacing > max_val:
                         return 0.0  # Parameter out of range, zero density
                 else:
-                    spacing = int(params[i].split(":")[-1])
+                    spacing = int(params[param_index].split(":")[-1])
                     if spacing < min_val or spacing > max_val:
                         return 0.0  # Parameter out of range, zero density
             elif param_name in ["GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]:
-                if params[i] < min_val or params[i] > max_val:
+                if params[param_index] < min_val or params[param_index] > max_val:
                     return 0.0  # Parameter out of range, zero density
     return 1.0 / (max_val - min_val)
 
-def perturbation_kernel(params, iteration=1, max_iterations=5, param_ranges=PARAM_RANGES, seed=42, config_params=None):
+def perturbation_kernel(params, param_columns, iteration=1, max_iterations=5, param_ranges=PARAM_RANGES, seed=42, config_params=None):
     perturbed_params = params.copy()
     scale_factor = max(0.01, 0.1 * (1 - iteration/max_iterations))
+    # Match the param_ranges with the parameter columns
+    param_ranges = {col_name: param_ranges[col_name] for col_name in param_columns}
     if len(params) != len(param_ranges):
         raise ValueError(f"Expected {len(param_ranges)} parameters, got {len(params)}")
     if config_params["perturbed_config"] == "cellular":
-        for i, (min_val, max_val) in enumerate(param_ranges.values()):
+        for i, (param_name, (min_val, max_val)) in enumerate(param_ranges.items()):
+            param_index = param_columns.index(param_name)
             param_range = max_val - min_val
             scale = param_range * scale_factor
-            perturbed_params[i] += np.random.normal(0, scale)
+            perturbed_params[param_index] += np.random.normal(0, scale)
     elif config_params["perturbed_config"] == "source":
         for i, (param_name, (min_val, max_val)) in enumerate(param_ranges.items()):
+            param_index = param_columns.index(param_name)
             if param_name in ["X_SPACING", "Y_SPACING"]:
                 if config_params["point_based"] and param_name == "Y_SPACING":
-                    original_y_spacing = int(perturbed_params[i].split(":")[0])
+                    original_y_spacing = int(perturbed_params[param_index].split(":")[0])
                     perturb_value = config_params["y_interval"] * np.random.randint(-2, 3)
                     final_y_spacing = original_y_spacing + perturb_value
-                    perturbed_params[i] = f"{final_y_spacing}:{final_y_spacing+1}"
+                    perturbed_params[param_index] = f"{final_y_spacing}:{final_y_spacing+1}"
                 else:
                     if param_name == "X_SPACING":
-                        x_spacing_value = float(perturbed_params[i].split(":")[-1]) + np.random.randint(-4, 5)
+                        x_spacing_value = float(perturbed_params[param_index].split(":")[-1]) + np.random.randint(-4, 5)
                     else:
-                        y_spacing_value = float(perturbed_params[i].split(":")[-1]) + np.random.randint(-4, 5)
+                        y_spacing_value = float(perturbed_params[param_index].split(":")[-1]) + np.random.randint(-4, 5)
                         # swap x and y spacing if y spacing is smaller than x spacing
                         x_final = min(x_spacing_value, y_spacing_value)
                         y_final = max(x_spacing_value, y_spacing_value)
-                        perturbed_params[i-1] = "*:" + str(int(x_final))
-                        perturbed_params[i] = "*:" + str(int(y_final))
+                        perturbed_params[param_index-1] = "*:" + str(int(x_final))
+                        perturbed_params[param_index] = "*:" + str(int(y_final))
             elif param_name in ["GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]:
                 param_range = max_val - min_val
                 scale = param_range * scale_factor
-                perturbed_params[i] += np.random.normal(0, scale)
+                perturbed_params[param_index] += np.random.normal(0, scale)
     elif config_params["perturbed_config"] == "combined":
         # First handle cellular parameters
         cellular_params = {k: v for k, v in param_ranges.items() if k not in ["X_SPACING", "Y_SPACING", "GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]}
-        for i, (min_val, max_val) in enumerate(cellular_params.values()):
+        for i, (param_name, (min_val, max_val)) in enumerate(cellular_params.items()):
+            param_index = param_columns.index(param_name)
             param_range = max_val - min_val
             scale = param_range * scale_factor
-            perturbed_params[i] += np.random.normal(0, scale)
+            perturbed_params[param_index] += np.random.normal(0, scale)
             
         # Then handle source parameters
         source_params = {k: v for k, v in param_ranges.items() if k in ["X_SPACING", "Y_SPACING", "GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]}
         for i, (param_name, (min_val, max_val)) in enumerate(source_params.items()):
-            source_index = len(cellular_params) + i
+            param_index = param_columns.index(param_name)
             if param_name in ["X_SPACING", "Y_SPACING"]:
                 if config_params["point_based"] and param_name == "Y_SPACING":
-                    original_y_spacing = int(perturbed_params[source_index].split(":")[0])
+                    original_y_spacing = int(perturbed_params[param_index].split(":")[0])
                     perturb_value = config_params["y_interval"] * np.random.randint(-2, 3)
                     final_y_spacing = original_y_spacing + perturb_value
-                    perturbed_params[source_index] = f"{final_y_spacing}:{final_y_spacing+1}"
+                    perturbed_params[param_index] = f"{final_y_spacing}:{final_y_spacing+1}"
                 else:
                     if param_name == "X_SPACING":
-                        x_spacing_value = float(perturbed_params[source_index].split(":")[-1]) + np.random.randint(-4, 5)
+                        x_spacing_value = float(perturbed_params[param_index].split(":")[-1]) + np.random.randint(-4, 5)
                     else:
-                        y_spacing_value = float(perturbed_params[source_index].split(":")[-1]) + np.random.randint(-4, 5)
+                        y_spacing_value = float(perturbed_params[param_index].split(":")[-1]) + np.random.randint(-4, 5)
                         # swap x and y spacing if y spacing is smaller than x spacing
                         x_final = min(x_spacing_value, y_spacing_value)
                         y_final = max(x_spacing_value, y_spacing_value)
-                        perturbed_params[source_index-1] = "*:" + str(int(x_final))
-                        perturbed_params[source_index] = "*:" + str(int(y_final))
+                        perturbed_params[param_index-1] = "*:" + str(int(x_final))
+                        perturbed_params[param_index] = "*:" + str(int(y_final))
             elif param_name in ["GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]:
                 param_range = max_val - min_val
                 scale = param_range * scale_factor
-                perturbed_params[source_index] += np.random.normal(0, scale)
+                perturbed_params[param_index] += np.random.normal(0, scale)
     return perturbed_params
 
 def plot_variable_importance(smc_rf, statistic_names, n_statistics, save_path=None):
@@ -330,7 +338,7 @@ def run_example():
     n_statistics = len(target_names)
     print("\nRunning ABC-SMC-DRF...")
     start_time = time.time()
-    sobol_power = 2
+    sobol_power = 10
     radius = 10
     margin = 2
     hex_size = 30
@@ -354,7 +362,7 @@ def run_example():
         },
         {
             "perturbed_config": "combined",
-            "template_path": "test_combined_v3.xml",  # Template with both cellular and source parameters
+            "template_path": "sample_combined_v3.xml",  # Template with both cellular and source parameters
             "point_based": False,
             "y_interval": 4,
             "radius_bound": radius+margin,
@@ -371,13 +379,12 @@ def run_example():
         param_ranges = {**PARAM_RANGES, **SOURCE_PARAM_RANGES}
     if config_params["point_based"]:
         param_ranges.pop("X_SPACING")
-        
     param_ranges = {k: v for k, v in param_ranges.items() if v[0] != v[1]}
     smc_rf = ABCSMCRF(
-        n_iterations=2,           
+        n_iterations=5,           
         sobol_power=sobol_power,            
         rf_type='DRF',
-        n_trees=100,
+        n_trees=50,
         min_samples_leaf=5,
         param_ranges=param_ranges,
         random_state=42, 
@@ -403,7 +410,7 @@ def run_example():
         "009360",
         "010080",
     ]
-    timestamps = timestamps[:2]
+    #timestamps = timestamps[:2]
     source_type = "point" if config_params["point_based"] else "grid"
     input_dir = f"inputs/abc_smc_rf_n{n_samples}_{config_params['perturbed_config']}_{source_type}/"
     output_dir = f"ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}_{config_params['perturbed_config']}_{source_type}/"
@@ -416,9 +423,9 @@ def run_example():
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
     smc_rf.plot_tree(
-        iteration=-1,  # last iteration
-        feature_names=target_names,  # your statistics names
-        max_depth=10,  # adjust for more or less detail
+        iteration=-1,
+        feature_names=target_names,
+        max_depth=10,
         target_values=target_values,
         save_path=f"{plot_dir}/arcade_tree"
     )
