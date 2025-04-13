@@ -328,7 +328,7 @@ def save_targets_to_json(target_names, target_values, output_file="targets.json"
 
 def run_example():
     """Run the ABC-SMC-DRF example on the ARCADE model"""
-    target_names = ["symmetry", "cycle_length", "act_ratio"]#, "doub_time"]
+    target_names = ["symmetry", "doub_time", "act_ratio"]#, "cycle_length"]
     target_values = [0.75, 32, 0.7]#, 30]
     #target_names = target_names + [name+"_std" for name in target_names]
     #target_values = target_values + [value*0.05 for value in target_values]    

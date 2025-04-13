@@ -609,7 +609,8 @@ def generate_input_files(
     if config_type not in ["cellular", "source", "combined"]:
         raise ValueError('config_type must be one of "cellular", "source", or "combined"')
     template_path = config_params["template_path"]
-
+    length = int(6 * config_params["radius_bound"] - 3)
+    width = int(4 * config_params["radius_bound"] - 2)
     # Check if the input directory exists
     if os.path.exists(output_dir):
         num_files = len([f for f in os.listdir(output_dir + "/inputs") if f.startswith("input_")])
@@ -680,6 +681,8 @@ def generate_input_files(
             "Y_SPACING": [],
             "GLUCOSE_CONCENTRATION": [],
             "OXYGEN_CONCENTRATION": [],
+            "CAPILLARY_DENSITY": [],
+            "DISTANCE_TO_CENTER": [],
         }
         
         for values in param_values:
@@ -695,7 +698,32 @@ def generate_input_files(
             source_params["Y_SPACING"].append(params_dict.get("Y_SPACING", ""))
             source_params["GLUCOSE_CONCENTRATION"].append(params_dict.get("GLUCOSE_CONCENTRATION", 0))
             source_params["OXYGEN_CONCENTRATION"].append(params_dict.get("OXYGEN_CONCENTRATION", 0))
-        
+            if not config_params["point_based"]:
+                capillary_density = calculate_capillary_density(
+                    radius_bound=config_params["radius_bound"],
+                    length_spacing=int(params_dict.get("X_SPACING", "").split(":")[1]),
+                    width_spacing=int(params_dict.get("Y_SPACING", "").split(":")[1]),
+                    side_length=config_params["side_length"],
+                )
+                source_params["CAPILLARY_DENSITY"].append(capillary_density)
+                source_params["DISTANCE_TO_CENTER"].append(np.nan)
+            else:
+                point_center = np.array([length//2, width//2, 0]).astype(int)
+                source_site = np.array([length//2, int(params_dict.get("Y_SPACING", "").split(":")[1])], 0).astype(int)
+                distance_to_center = calculate_distance_between_points(
+                    point_center=point_center,
+                    source_site=source_site,
+                    side_length=config_params["side_length"],
+                    radius_bound=config_params["radius_bound"],
+                )
+                source_params["DISTANCE_TO_CENTER"].append(distance_to_center)
+                capillary_density = calculate_capillary_density(
+                    radius_bound=config_params["radius_bound"],
+                    length_spacing=length,
+                    width_spacing=width,
+                    side_length=config_params["side_length"],
+                )
+                source_params["CAPILLARY_DENSITY"].append(capillary_density)
         # Generate combined parameter files
         param_log = generate_combined_perturbations(
             cellular_params=cellular_params,

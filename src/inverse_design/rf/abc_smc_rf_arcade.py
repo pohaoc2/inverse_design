@@ -241,7 +241,6 @@ class ABCSMCRF(ABCSMCRFBase):
             valid_parameters = valid_parameters[self.param_ranges.keys()]
         #if self.config_params["perturbed_config"] == "source" or self.config_params["perturbed_config"] == "combined":
         #    valid_parameters.drop(columns=["X_SPACING", "Y_SPACING"], inplace=True)
-
         # drop CAPILLAY_DENSITY if config_params["point_based"] else drop DISTANCE_TO_CENTER
         if self.config_params["point_based"]:
             valid_parameters.drop(columns=["CAPILLARY_DENSITY"], inplace=True)
