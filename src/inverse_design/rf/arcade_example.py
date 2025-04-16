@@ -6,6 +6,7 @@ import os
 import json
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 from scipy.integrate import odeint
 from scipy.stats import gaussian_kde, qmc
 from inverse_design.common.enum import Target, Metric
@@ -17,10 +18,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 np.random.seed(42)
 PARAM_RANGES = PARAM_RANGES.copy()
 TARGET_RANGES = {
-    "symmetry": (0.0, 1.0),
+    "symmetry": (0.6, 1.2),
     "cycle_length": (10.0, 70.0),
     "act_ratio": (0.0, 1.0),
-    "doub_time": (10.0, 70.0),
+    "doub_time": (20.0, 100.0),
     "symmetry_std": (0.0, 0.01),
     "cycle_length_std": (0.0, 0.5),
     "act_ratio_std": (0.0, 0.01),
@@ -176,14 +177,14 @@ def plot_parameter_iterations(smc_rf, param_names, sobol_power=8, plot_kde=False
     """
     n_iterations = len(smc_rf.parameter_samples)
     n_params = len(param_names)
-    fig, axes = plt.subplots(n_params, n_iterations, figsize=(15, 4 * n_params), squeeze=False)
+    fig, axes = plt.subplots(n_params, n_iterations, figsize=(12, 5 * n_params), squeeze=False)
     # Generate Sobol samples for prior
     from scipy.stats import qmc
     sampler = qmc.Sobol(d=len(param_names), seed=42)
     n_samples = 2**sobol_power
     
     for idx, param_name in enumerate(param_names):
-        param_idx = list(smc_rf.param_ranges.keys()).index(param_name)
+        param_idx = smc_rf.parameter_columns.index(param_name)
         min_val, max_val = smc_rf.param_ranges[param_name]
         
         for t in range(n_iterations):
@@ -247,7 +248,7 @@ def plot_statistic_iterations(smc_rf, target_names, target_values, plot_kde=True
     """
     n_iterations = len(smc_rf.parameter_samples)
     n_stats = len(target_names)
-    fig, axes = plt.subplots(n_stats, n_iterations, figsize=(15, 4 * n_stats), squeeze=False)
+    fig, axes = plt.subplots(n_stats, n_iterations, figsize=(12, 5 * n_stats), squeeze=False)
     
     for idx, (stat_name, target_val) in enumerate(zip(target_names, target_values)):
         min_val, max_val = TARGET_RANGES[stat_name]
@@ -255,16 +256,18 @@ def plot_statistic_iterations(smc_rf, target_names, target_values, plot_kde=True
         for t in range(n_iterations):
             _, stats, weights = smc_rf.get_iteration_results(t)
             stat_values = stats[:, idx]
+            # remove NaN or -inf, inf values
+            weights = weights[~np.isnan(stat_values) & ~np.isinf(stat_values)]
+            stat_values = stat_values[~np.isnan(stat_values) & ~np.isinf(stat_values)]
+            
             ax = axes[idx, t]
             ax.set_xlim(min_val, max_val)
             
             # Plot histogram
             if t == 0:
-                ax.hist(stat_values, bins=10, weights=weights, alpha=0.5, 
-                        density=True, color='gray', label='Prior', edgecolor='black')
+                ax.hist(stat_values, bins=10, weights=weights, alpha=0.5, color='gray', label='Prior', edgecolor='black')
             else:
-                ax.hist(stat_values, bins=10, weights=weights, alpha=0.5, 
-                        density=True, color='blue', label='Posterior', edgecolor='black')
+                ax.hist(stat_values, bins=10, weights=weights, alpha=0.5, color='blue', label='Posterior', edgecolor='black')
             
             # Add target line
             ax.axvline(target_val, color='g', linestyle='--', label='Target')
@@ -287,7 +290,7 @@ def plot_statistic_iterations(smc_rf, target_names, target_values, plot_kde=True
                     ax.annotate(f'{mode_x:.2f}', xy=(mode_x, mode_y), 
                                 xytext=(10, 10), textcoords='offset points',
                                 bbox=dict(facecolor='white', edgecolor='none', alpha=0.7))
-                except np.linalg.LinAlgError:
+                except np.linalg.LinAlgError and ValueError:
                     print(f"Error computing KDE for {stat_name} at iteration {t+1}")
             
             if idx == 0:
@@ -384,7 +387,7 @@ def run_example():
         n_iterations=5,           
         sobol_power=sobol_power,            
         rf_type='DRF',
-        n_trees=50,
+        n_trees=1,
         min_samples_leaf=5,
         param_ranges=param_ranges,
         random_state=42, 
@@ -431,10 +434,19 @@ def run_example():
     )
     print(f"ABC-SMC-DRF completed in {time.time() - start_time:.2f} seconds")
 
-    posterior_samples = smc_rf.posterior_sample(1000)
+    posterior_samples = smc_rf.posterior_sample(n_samples * 2)
+    n_samples = posterior_samples.shape[0]
     print("\nParameter estimation results:")
-    
-    for i, param_name in enumerate(smc_rf.param_ranges.keys()):
+    valid_parameters = pd.read_csv(f"{output_dir}/iter_0/all_param_df.csv")
+    valid_parameters.drop(columns=["input_folder"], inplace=True)
+    if len(valid_parameters.columns) != len(smc_rf.param_ranges.keys()):
+        valid_parameters = valid_parameters[smc_rf.param_ranges.keys()]
+    if config_params["point_based"]:
+        valid_parameters.drop(columns=["CAPILLARY_DENSITY"], inplace=True)
+    else:
+        valid_parameters.drop(columns=["DISTANCE_TO_CENTER"], inplace=True)
+    parameter_columns = list(valid_parameters.columns)
+    for i, param_name in enumerate(parameter_columns):
         if config_params["perturbed_config"] == "cellular":
             print(f"{param_name}: {np.mean(posterior_samples[:, i]):.4f} ± {np.std(posterior_samples[:, i]):.4f}")
         else:
@@ -478,7 +490,7 @@ def run_example():
         param_names = ["COMPRESSION_TOLERANCE", "CELL_VOLUME_MU", "X_SPACING", "Y_SPACING", "GLUCOSE_CONCENTRATION", "OXYGEN_CONCENTRATION"]
 
     plot_parameter_iterations(smc_rf, param_names, save_path=f"{plot_dir}/arcade_params_iterations")
-    plot_statistic_iterations(smc_rf, target_names, target_values, save_path=f"{plot_dir}/arcade_stats_iterations")
+    plot_statistic_iterations(smc_rf, target_names, target_values, save_path=f"{plot_dir}/arcade_stats_iterations", plot_kde=False)
     plot_variable_importance(smc_rf, target_names, n_statistics, save_path=f"{plot_dir}/arcade_variable_importance.png")
 
 if __name__ == "__main__":

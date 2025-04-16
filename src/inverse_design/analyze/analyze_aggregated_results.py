@@ -512,6 +512,7 @@ def plot_histogram_comparison(
     labels,
     metric,
     save_path=None,
+    target_metric=None,
     remove_outliers=False,
     iqr_multiplier=1.5):
     """
@@ -566,7 +567,9 @@ def plot_histogram_comparison(
         ax.grid(axis='y', linestyle='--')
         if i > 0:
             ax.sharex(axes[0])
-
+        if target_metric:
+            ax.axvline(x=target_metric, color='red', linestyle='--', label=f'Target {metric} = {target_metric}')
+        ax.legend()
     plt.tight_layout()
     if save_path:
         plt.savefig(save_path, bbox_inches='tight', dpi=300)
@@ -577,19 +580,20 @@ def plot_histogram_comparison(
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/combined/grid"
-    input_folder = parameter_base_folder + "/inputs"
-    csv_file = f"{parameter_base_folder}/final_metrics.csv"
+    parameter_base_folder = "ARCADE_OUTPUT/ABC_SMC_RF_N1024_combined_grid"
+    input_folder = parameter_base_folder + "/iter_0/inputs"
+    csv_file = f"{parameter_base_folder}/iter_0/final_metrics.csv"
 
     metrics_name = "n_cells"
     metrics_df = pd.read_csv(csv_file)
     if 1:
         #posterior_metrics_files = [f"{parameter_base_folder}/accepted_metrics_{i}p.csv" for i in range(20, 4, -5)]
         posterior_1 = csv_file
-        posterior_2 = f"{parameter_base_folder}/MS_POSTERIOR_10P_N256_5P/n256/final_metrics.csv"
-        posterior_3 = f"{parameter_base_folder}/MS_POSTERIOR_10P_N256_5P_N256_3P/n512/final_metrics.csv"
-        posterior_4 = f"{parameter_base_folder}/MS_POSTERIOR_10P_N256_5P_N256_3P_N512_1P/n32/final_metrics.csv"
-        posterior_metrics_files = [posterior_1]#, posterior_2, posterior_3, posterior_4]
+        posterior_2 = f"{parameter_base_folder}/iter_1/final_metrics.csv"
+        posterior_3 = f"{parameter_base_folder}/iter_2/final_metrics.csv"
+        posterior_4 = f"{parameter_base_folder}/iter_3/final_metrics.csv"
+        posterior_5 = f"{parameter_base_folder}/iter_4/final_metrics.csv"
+        posterior_metrics_files = [posterior_1, posterior_2, posterior_3, posterior_4, posterior_5]
         posterior_metrics_dfs = [pd.read_csv(posterior_metrics_file) for posterior_metrics_file in posterior_metrics_files]
         env_only_file = (
             "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/grid/final_metrics.csv"
@@ -599,11 +603,11 @@ if __name__ == "__main__":
         )
         both_file = csv_file
         target_metrics = {
-            "symmetry": 0.8,
-            "cycle_length": 30.0,
-            "doub_time": 20,
-            "n_cells": 100,
-            #"act_ratio": 0.6,
+            "symmetry": 0.75,
+            #"cycle_length": 30.0,
+            "doub_time": 32,
+            #"n_cells": 100,
+            "act_ratio": 0.7,
             #"vol": 2000,
             #"activity": 0.5,
             #"colony_diameter": 300,
@@ -612,22 +616,26 @@ if __name__ == "__main__":
 
         df_paths = [cellular_only_file, env_only_file, both_file]
         dfs = [pd.read_csv(df) for df in df_paths]
+        dfs = posterior_metrics_dfs
         labels = ["Cellular only", "Environmental only", "Cellular and environmental parameters"]
-        for metric in target_metrics:
-            save_file = f"{parameter_base_folder}/metric_distributions_bar_{metric}_removed_outliers.png"
+        labels = ["iter_0", "iter_1", "iter_2", "iter_3", "iter_4"]
+        for metric_name, metric_value in target_metrics.items():
+            save_file = f"{parameter_base_folder}/metric_distributions_bar_{metric_name}_removed_outliers.png"
             plot_histogram_comparison(
                 dfs,
                 labels,
-                metric,
+                metric_name,
                 save_path=save_file,
+                target_metric=metric_value,
                 remove_outliers=True,
             )
-            save_file = f"{parameter_base_folder}/metric_distributions_bar_{metric}.png"
+            save_file = f"{parameter_base_folder}/metric_distributions_bar_{metric_name}.png"
             plot_histogram_comparison(
                 dfs,
                 labels,
-                metric,
+                metric_name,
                 save_path=save_file,
+                target_metric=metric_value,
                 remove_outliers=False,
             )
 
