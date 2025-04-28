@@ -9,6 +9,7 @@
 outputs/
 results/
 ARCADE_OUTPUT/
+inputs/
 src/**/*.png
 *.zip
 *.html
