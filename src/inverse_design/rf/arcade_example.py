@@ -384,10 +384,10 @@ def run_example():
         param_ranges.pop("X_SPACING")
     param_ranges = {k: v for k, v in param_ranges.items() if v[0] != v[1]}
     smc_rf = ABCSMCRF(
-        n_iterations=5,           
+        n_iterations=2,           
         sobol_power=sobol_power,            
         rf_type='DRF',
-        n_trees=1,
+        n_trees=2,
         min_samples_leaf=5,
         param_ranges=param_ranges,
         random_state=42, 
@@ -422,6 +422,7 @@ def run_example():
         os.makedirs(output_dir)
     save_targets_to_json(target_names, target_values, f"{output_dir}targets.json")
     smc_rf.fit(target_names, target_values, input_dir, output_dir, jar_path, timestamps)
+    asd()
     plot_dir = f"{output_dir}/PLOTS/"
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)

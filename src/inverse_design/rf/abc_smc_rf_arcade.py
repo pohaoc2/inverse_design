@@ -10,6 +10,7 @@ import os
 import re
 import pandas as pd
 import numpy as np
+from sklearn.preprocessing import StandardScaler
 from inverse_design.rf.rf import RF
 from inverse_design.rf.drf import DRF
 from inverse_design.examples.run_simulations import run_simulations
@@ -79,6 +80,7 @@ class ABCSMCRF(ABCSMCRFBase):
         self.perturbation_kernel = perturbation_kernel if perturbation_kernel is not None else self._default_perturbation_kernel
         self.prior_pdf = prior_pdf if prior_pdf is not None else self._default_prior_pdf
         self.config_params = config_params
+        self.scaler = None
     def _default_perturbation_kernel(self, parameters: np.ndarray) -> np.ndarray:
         """
         Default perturbation kernel (Gaussian noise).
@@ -198,6 +200,23 @@ class ABCSMCRF(ABCSMCRFBase):
             
         return self
 
+    def _remove_invalid_rows(self, statistics: np.ndarray, valid_parameters: pd.DataFrame) -> Tuple[np.ndarray, pd.DataFrame]:
+        """
+        Remove rows containing NaN or infinite values.
+        """
+        indices = np.where(np.isnan(statistics).any(axis=1) | np.isinf(statistics).any(axis=1))[0]
+        statistics = np.delete(statistics, indices, axis=0)
+        valid_parameters = valid_parameters.drop(valid_parameters.index[indices])
+        return statistics, valid_parameters
+
+    def normalize_statistics(self, statistics: np.ndarray) -> Tuple[np.ndarray, StandardScaler]:
+        """
+        Normalize statistics to be between 0 and 1.
+        """
+        scaler = StandardScaler()
+        scaler.fit(statistics)
+        return scaler.transform(statistics), scaler
+
     def _analyze_simulation_results(self, input_dir: str, output_dir: str, dir_postfix: str, timestamps: List[str]) -> Tuple[np.ndarray, np.ndarray]:
         """
         Analyze simulation results and extract statistics and parameters.
@@ -239,9 +258,7 @@ class ABCSMCRF(ABCSMCRFBase):
             valid_parameters.drop(columns=["input_folder"], inplace=True)
         if len(valid_parameters.columns) != len(self.param_ranges.keys()):
             valid_parameters = valid_parameters[self.param_ranges.keys()]
-        #if self.config_params["perturbed_config"] == "source" or self.config_params["perturbed_config"] == "combined":
-        #    valid_parameters.drop(columns=["X_SPACING", "Y_SPACING"], inplace=True)
-        # drop CAPILLAY_DENSITY if config_params["point_based"] else drop DISTANCE_TO_CENTER
+
         if self.config_params["point_based"]:
             valid_parameters.drop(columns=["CAPILLARY_DENSITY"], inplace=True)
         else:
@@ -265,10 +282,15 @@ class ABCSMCRF(ABCSMCRFBase):
         self._run_parallel_simulations(input_dir + dir_postfix, output_dir + dir_postfix, jar_path)
         
         statistics, valid_parameters = self._analyze_simulation_results(input_dir, output_dir, dir_postfix, timestamps)
-        target_stats = np.array([statistics[target_name] for target_name in self.target_names]).T
+        # Debug: Check for infinite values
+        target_stats_array = np.array([statistics[target_name] for target_name in self.target_names]).T
+        target_stats_array, valid_parameters = self._remove_invalid_rows(target_stats_array, valid_parameters)
+        target_stats, self.scaler = self.normalize_statistics(target_stats_array)
+        self.target_values = self.scaler.transform(np.array(self.target_values).reshape(-1, len(self.target_values))).flatten()
         self.parameter_samples.append(np.array(valid_parameters))
         self.parameter_columns = list(valid_parameters.columns)
         self.statistics.append(target_stats)
+        
 
     def _subsequent_iteration(self, input_dir: str, output_dir: str, jar_path: str, timestamps: List[str]) -> None:
         """
@@ -329,11 +351,12 @@ class ABCSMCRF(ABCSMCRFBase):
         # Analyze results and get statistics and parameters
         statistics, valid_parameters = self._analyze_simulation_results(input_dir, output_dir, dir_postfix, timestamps)
         target_stats = np.array([statistics[target_name] for target_name in self.target_names]).T
+        target_stats, valid_parameters = self._remove_invalid_rows(target_stats, valid_parameters)
+        target_stats = self.scaler.transform(target_stats)
         if len(valid_parameters) < n_candidates:
             logging.warning(f"Only {len(valid_parameters)} valid simulations out of {n_candidates} attempts")
         self.parameter_samples.append(np.array(valid_parameters))
         self.statistics.append(target_stats)
-
             
     def _compute_weights(self, t: int) -> None:
         """
