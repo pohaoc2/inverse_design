@@ -365,7 +365,7 @@ def run_example():
         },
         {
             "perturbed_config": "combined",
-            "template_path": "sample_combined_v3.xml",  # Template with both cellular and source parameters
+            "template_path": "sample_combined_v3.xml",
             "point_based": False,
             "y_interval": 4,
             "radius_bound": radius+margin,
@@ -384,10 +384,10 @@ def run_example():
         param_ranges.pop("X_SPACING")
     param_ranges = {k: v for k, v in param_ranges.items() if v[0] != v[1]}
     smc_rf = ABCSMCRF(
-        n_iterations=2,           
+        n_iterations=5,           
         sobol_power=sobol_power,            
         rf_type='DRF',
-        n_trees=2,
+        n_trees=50,
         min_samples_leaf=5,
         param_ranges=param_ranges,
         random_state=42, 
@@ -413,16 +413,15 @@ def run_example():
         "009360",
         "010080",
     ]
-    #timestamps = timestamps[:2]
+    # timestamps = timestamps[:8]
     source_type = "point" if config_params["point_based"] else "grid"
-    input_dir = f"inputs/abc_smc_rf_n{n_samples}_{config_params['perturbed_config']}_{source_type}/"
-    output_dir = f"ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}_{config_params['perturbed_config']}_{source_type}/"
+    input_dir = f"inputs/abc_smc_rf_n{n_samples}_{config_params['perturbed_config']}_{source_type}_stded/"
+    output_dir = f"ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}_{config_params['perturbed_config']}_{source_type}_stded/"
     jar_path = "models/arcade-logging-necrotic.jar"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     save_targets_to_json(target_names, target_values, f"{output_dir}targets.json")
     smc_rf.fit(target_names, target_values, input_dir, output_dir, jar_path, timestamps)
-    asd()
     plot_dir = f"{output_dir}/PLOTS/"
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)

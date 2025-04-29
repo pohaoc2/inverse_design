@@ -290,7 +290,6 @@ class ABCSMCRF(ABCSMCRFBase):
         self.parameter_samples.append(np.array(valid_parameters))
         self.parameter_columns = list(valid_parameters.columns)
         self.statistics.append(target_stats)
-        
 
     def _subsequent_iteration(self, input_dir: str, output_dir: str, jar_path: str, timestamps: List[str]) -> None:
         """
