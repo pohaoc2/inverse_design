@@ -3,6 +3,7 @@ import numpy as np
 import json
 from pathlib import Path
 import matplotlib.pyplot as plt
+from matplotlib.colors import to_rgb, to_hex
 import seaborn as sns
 from typing import List, Optional, Tuple
 from sklearn.preprocessing import StandardScaler
@@ -511,6 +512,7 @@ def plot_histogram_comparison(
     dfs,
     labels,
     metric,
+    color='k',
     save_path=None,
     target_metric=None,
     remove_outliers=False,
@@ -527,8 +529,6 @@ def plot_histogram_comparison(
     """
     if isinstance(dfs, pd.DataFrame):
         dfs = [dfs]
-    
-    colors = ['gray', 'purple', 'blue', 'magenta', 'orange', 'green', 'red', 'brown', 'pink', 'gray']
     
     n_distributions = len(dfs)
     fig, axes = plt.subplots(n_distributions, 1, figsize=(6, 2*n_distributions))
@@ -555,9 +555,17 @@ def plot_histogram_comparison(
     padding = 0.1 * (x_max - x_min)
     x_min -= padding
     x_max += padding
-    for i, (df, color, label) in enumerate(zip(valid_dfs, colors, labels)):
+
+    base_rgb = to_rgb(color)
+    colors = []
+    for i in range(n_distributions):
+        darken_factor = 0.15 * i
+        adjusted_rgb = tuple((1 - darken_factor) * c for c in base_rgb)
+        colors.append(to_hex(adjusted_rgb))
+
+    for i, (df, label, plot_color) in enumerate(zip(valid_dfs, labels, colors)):
         ax = axes[i]
-        sns.histplot(data=df, ax=ax, color=color, alpha=0.5, bins=20)
+        sns.histplot(data=df, ax=ax, color=plot_color, alpha=0.5, bins=20)
         ax.set_title(label)
         if i == len(valid_dfs) - 1:
             ax.set_xlabel(metric)
@@ -587,6 +595,7 @@ if __name__ == "__main__":
     metrics_name = "n_cells"
     metrics_df = pd.read_csv(csv_file)
     if 1:
+        colors = ['purple', 'blue', 'magenta', 'orange', 'green', 'red', 'brown', 'pink']
         #posterior_metrics_files = [f"{parameter_base_folder}/accepted_metrics_{i}p.csv" for i in range(20, 4, -5)]
         posterior_1 = csv_file
         posterior_2 = f"{parameter_base_folder}/iter_1/final_metrics.csv"
@@ -619,12 +628,13 @@ if __name__ == "__main__":
         dfs = posterior_metrics_dfs
         labels = ["Cellular only", "Environmental only", "Cellular and environmental parameters"]
         labels = ["iter_0", "iter_1", "iter_2", "iter_3", "iter_4"]
-        for metric_name, metric_value in target_metrics.items():
+        for i, (metric_name, metric_value) in enumerate(target_metrics.items()):
             save_file = f"{parameter_base_folder}/metric_distributions_bar_{metric_name}_removed_outliers.png"
             plot_histogram_comparison(
                 dfs,
                 labels,
                 metric_name,
+                color=colors[i],
                 save_path=save_file,
                 target_metric=metric_value,
                 remove_outliers=True,
@@ -634,6 +644,7 @@ if __name__ == "__main__":
                 dfs,
                 labels,
                 metric_name,
+                color=colors[i],
                 save_path=save_file,
                 target_metric=metric_value,
                 remove_outliers=False,
