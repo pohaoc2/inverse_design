@@ -565,6 +565,11 @@ def plot_histogram_comparison(
 
     for i, (df, label, plot_color) in enumerate(zip(valid_dfs, labels, colors)):
         ax = axes[i]
+        if i == 0:
+            plot_color = 'gray'
+        else:
+            plot_color = colors[i]
+            
         sns.histplot(data=df, ax=ax, color=plot_color, alpha=0.5, bins=20)
         ax.set_title(label)
         if i == len(valid_dfs) - 1:
@@ -588,14 +593,14 @@ def plot_histogram_comparison(
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "ARCADE_OUTPUT/ABC_SMC_RF_N1024_combined_grid"
+    parameter_base_folder = "ARCADE_OUTPUT/ABC_SMC_RF_N1024_combined_grid_stded"
     input_folder = parameter_base_folder + "/iter_0/inputs"
     csv_file = f"{parameter_base_folder}/iter_0/final_metrics.csv"
 
     metrics_name = "n_cells"
     metrics_df = pd.read_csv(csv_file)
     if 1:
-        colors = ['purple', 'blue', 'magenta', 'orange', 'green', 'red', 'brown', 'pink']
+        colors = ['purple', 'blue', 'orange', 'green', 'red', 'brown', 'pink']
         #posterior_metrics_files = [f"{parameter_base_folder}/accepted_metrics_{i}p.csv" for i in range(20, 4, -5)]
         posterior_1 = csv_file
         posterior_2 = f"{parameter_base_folder}/iter_1/final_metrics.csv"
