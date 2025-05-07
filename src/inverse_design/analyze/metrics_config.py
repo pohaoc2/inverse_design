@@ -147,3 +147,85 @@ DEFAULT_METRICS = {
         "std": 3.137
     }
 }
+
+EXP_METRICS = {
+    "Breast Cancer": {
+        "doubling_time": {
+            "min": 20,
+            "25%": 25,
+            "median": 32,
+            "75%": 44,
+            "max": 50,
+            "std": 4.32
+        },
+        "symmetry": {
+            "min": 0.7,
+            "25%": 0.75,
+            "median": 0.82,
+            "75%": 0.9,
+            "max": 1.0,
+            "std": 0.05
+        },
+        "growth_rate": {
+            "min": 0.015,
+            "25%": 0.02,
+            "median": 0.025,
+            "75%": 0.03,
+            "max": 0.035,
+            "std": 0.005
+        }
+    },
+    "Glioblastoma": {
+        "doubling_time": {
+            "min": 15,
+            "25%": 18,
+            "median": 22,
+            "75%": 27,
+            "max": 33,
+            "std": 3.1
+        },
+        "symmetry": {
+            "min": 0.6,
+            "25%": 0.68,
+            "median": 0.75,
+            "75%": 0.82,
+            "max": 0.9,
+            "std": 0.04
+        },
+        "growth_rate": {
+            "min": 0.02,
+            "25%": 0.03,
+            "median": 0.04,
+            "75%": 0.05,
+            "max": 0.06,
+            "std": 0.007
+        }
+    },
+    "Melanoma": {
+        "doubling_time": {
+            "min": 10,
+            "25%": 15,
+            "median": 18,
+            "75%": 22,
+            "max": 28,
+            "std": 2.7
+        },
+        "symmetry": {
+            "min": 0.65,
+            "25%": 0.7,
+            "median": 0.78,
+            "75%": 0.85,
+            "max": 0.93,
+            "std": 0.045
+        },
+        "growth_rate": {
+            "min": 0.04,
+            "25%": 0.05,
+            "median": 0.06,
+            "75%": 0.08,
+            "max": 0.1,
+            "std": 0.012
+        }
+    }
+}
+

@@ -100,6 +100,10 @@ class SimulationMetrics:
             else:
                 aggregated_metrics[metric_name] = np.median(values)
                 aggregated_metrics[metric_name + "_std"] = np.std(values)
+                aggregated_metrics[metric_name + "_min"] = np.min(values)
+                aggregated_metrics[metric_name + "_max"] = np.max(values)
+                aggregated_metrics[metric_name + "_25"] = np.percentile(values, 25)
+                aggregated_metrics[metric_name + "_75"] = np.percentile(values, 75)
 
         return aggregated_metrics
 
