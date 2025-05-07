@@ -11,7 +11,7 @@ from sklearn.decomposition import PCA
 from inverse_design.analyze.analyze_utils import collect_parameter_data, analyze_metric_percentiles
 from inverse_design.analyze.parameter_config import PARAMETER_LIST
 from inverse_design.analyze.metrics_config import DEFAULT_METRICS
-
+from utils.utils import remove_outliers
 
 def plot_top_bottom_parameter_distributions(
     all_param_df,
@@ -187,19 +187,6 @@ def get_kde_bounds(kde_plot, percentile: float = 0.01):
     
     return x_min, x_max
 
-def _remove_outliers(data, iqr_multiplier):
-    if len(data) > 0:
-        # Calculate IQR and bounds
-        Q1 = data.quantile(0.25)
-        Q3 = data.quantile(0.75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - iqr_multiplier * IQR
-        upper_bound = Q3 + iqr_multiplier * IQR
-        # Remove outliers
-        data = data[(data >= lower_bound) & (data <= upper_bound)]
-    return data
-
-
 
 def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, default_metrics=None, save_path=None, plot_type='kde', remove_outliers=False, iqr_multiplier=1.5):
     """
@@ -236,7 +223,7 @@ def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, de
         # Filter out NaN and infinite values
         valid_prior = prior_df[metric].replace([np.inf, -np.inf], np.nan).dropna()
         if remove_outliers and len(valid_prior) > 0:
-            valid_prior = _remove_outliers(valid_prior, iqr_multiplier)
+            valid_prior = remove_outliers(valid_prior, iqr_multiplier)
             print(f"Removed {len(prior_df[metric]) - len(valid_prior)} outliers for {metric} in prior")
         if len(valid_prior) == 0:
             print(f"Warning: No valid data points for {metric} in prior")
@@ -245,7 +232,7 @@ def plot_distributions(prior_df, posterior_dfs, target_metrics, metrics_list, de
         for posterior_df in posterior_dfs:
             valid_posterior = posterior_df[metric].replace([np.inf, -np.inf], np.nan).dropna()
             if remove_outliers and len(valid_posterior) > 0:
-                valid_posterior = _remove_outliers(valid_posterior, iqr_multiplier)
+                valid_posterior = remove_outliers(valid_posterior, iqr_multiplier)
                 valid_posteriors.append(valid_posterior)
                 print(f"Removed {len(posterior_df[metric]) - len(valid_posterior)} outliers for {metric} in posterior")
             else:
@@ -539,7 +526,7 @@ def plot_histogram_comparison(
     for df in dfs:
         valid_df = df[metric].replace([np.inf, -np.inf], np.nan).dropna()
         if remove_outliers and len(valid_df) > 0:
-            valid_df = _remove_outliers(valid_df, iqr_multiplier)
+            valid_df = remove_outliers(valid_df, iqr_multiplier)
             valid_dfs.append(valid_df)
             print(f"Removed {len(df[metric]) - len(valid_df)} outliers for {metric} in df")
         else:
@@ -593,7 +580,7 @@ def plot_histogram_comparison(
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "ARCADE_OUTPUT/ABC_SMC_RF_N1024_combined_grid_stded"
+    parameter_base_folder = "ARCADE_OUTPUT/ABC_SMC_RF_N1024_combined_grid_symmetry"
     input_folder = parameter_base_folder + "/iter_0/inputs"
     csv_file = f"{parameter_base_folder}/iter_0/final_metrics.csv"
 
@@ -605,9 +592,9 @@ if __name__ == "__main__":
         posterior_1 = csv_file
         posterior_2 = f"{parameter_base_folder}/iter_1/final_metrics.csv"
         posterior_3 = f"{parameter_base_folder}/iter_2/final_metrics.csv"
-        posterior_4 = f"{parameter_base_folder}/iter_3/final_metrics.csv"
-        posterior_5 = f"{parameter_base_folder}/iter_4/final_metrics.csv"
-        posterior_metrics_files = [posterior_1, posterior_2, posterior_3, posterior_4, posterior_5]
+        #posterior_4 = f"{parameter_base_folder}/iter_3/final_metrics.csv"
+        #posterior_5 = f"{parameter_base_folder}/iter_4/final_metrics.csv"
+        posterior_metrics_files = [posterior_1, posterior_2, posterior_3]#, posterior_4, posterior_5]
         posterior_metrics_dfs = [pd.read_csv(posterior_metrics_file) for posterior_metrics_file in posterior_metrics_files]
         env_only_file = (
             "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/grid/final_metrics.csv"
@@ -635,6 +622,8 @@ if __name__ == "__main__":
         labels = ["iter_0", "iter_1", "iter_2", "iter_3", "iter_4"]
         for i, (metric_name, metric_value) in enumerate(target_metrics.items()):
             save_file = f"{parameter_base_folder}/metric_distributions_bar_{metric_name}_removed_outliers.png"
+            if metric_value != 0.75:
+                metric_value = None
             plot_histogram_comparison(
                 dfs,
                 labels,

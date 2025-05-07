@@ -72,18 +72,16 @@ class SimulationMetrics:
         for n1, n2 in zip(n_cells_t1_seed_list, n_cells_t2_seed_list):
             doub_time = self.population_metrics.calculate_doub_time(n1, n2, time_difference)
             doub_times_seed.append(doub_time)
+        # Add doubling and colony growth rates to metrics_by_timestamp_seed
+        metrics_by_timestamp_seed[timestamps[-1]]["doub_time"] = doub_times_seed
+        metrics_by_timestamp_seed[timestamps[-1]]["colony_growth"] = colony_growth_rates_results["slope"]
+        metrics_by_timestamp_seed[timestamps[-1]]["colony_growth_r"] = colony_growth_rates_results["r_value"]
         for timestamp, metrics_seed in metrics_by_timestamp_seed.items():
             temporal_metrics[timestamp] = self._aggregate_timestamp_metrics(metrics_seed)
-
-        # Add median doubling time to final metrics
         final_metrics = temporal_metrics[timestamps[-1]]
-        final_metrics["doub_time"] = np.median(doub_times_seed)
-        final_metrics["doub_time_std"] = np.std(doub_times_seed)
-        final_metrics["colony_growth"] = colony_growth_rates_results["slope"]
-        final_metrics["colony_growth_std"] = colony_growth_rates_results["slope_std"]
-        final_metrics["colony_growth_r"] = colony_growth_rates_results["r_value"]
         final_metrics = self._round_metrics(final_metrics)
-        return {"temporal_metrics": temporal_metrics, "final_metrics": final_metrics}
+
+        return {"metrics_by_timestamp_seed": metrics_by_timestamp_seed, "temporal_metrics": temporal_metrics, "final_metrics": final_metrics}
 
     def _aggregate_timestamp_metrics(
         self, metrics_for_timestamp: Dict[str, Dict[str, List[float]]]
@@ -122,6 +120,7 @@ class SimulationMetrics:
         # Ensure timestamps are sorted
         timestamps = sorted(timestamps, key=lambda x: int(x))
         final_results = []
+        final_results_seed = []
         temporal_results = {}
 
         for folder in sim_folders:
@@ -133,28 +132,39 @@ class SimulationMetrics:
                 final_metrics_flat = metrics["final_metrics"].copy()
                 final_metrics_flat["input_folder"] = folder.name
                 final_results.append(final_metrics_flat)
+                final_results_seed_flat = metrics["metrics_by_timestamp_seed"][timestamps[-1]].copy()
+                n_seeds = len(final_results_seed_flat["n_cells"])
+                metrics_names = final_results_seed_flat.keys()
+                for i in range(n_seeds):
+                    seed_results = {metric_name: final_results_seed_flat[metric_name][i] for metric_name in metrics_names}
+                    seed_results["input_folder"] = folder.name
+                    final_results_seed.append(seed_results)
                 temporal_results[folder.name] = metrics["temporal_metrics"]
             except Exception as e:
                 self.logger.error(f"Error processing {folder}: {str(e)}")
-
         df = pd.DataFrame(final_results)
+        df_seed = pd.DataFrame(final_results_seed)
+        df = self._reorder_columns(df)
+        df_seed = self._reorder_columns(df_seed)
+        # Save final metrics
+        output_file = self.base_output_dir / "final_metrics.csv"
+        df.to_csv(output_file, index=False)
+        output_file_seed = self.base_output_dir / "final_metrics_seed.csv"
+        df_seed.to_csv(output_file_seed, index=False)
+        self.logger.info(
+            f"Saved final metrics for {len(final_results)} simulations to {output_file}"
+        )
 
-        # Reorder columns
+        return df, temporal_results
+
+    def _reorder_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         cols = df.columns.tolist()
         cols.remove("input_folder")
         cols.remove("states")
         cols.append("input_folder")
         cols.append("states")
         df = df[cols]
-        # Save final metrics
-        output_file = self.base_output_dir / "final_metrics.csv"
-        df.to_csv(output_file, index=False)
-
-        self.logger.info(
-            f"Saved final metrics for {len(final_results)} simulations to {output_file}"
-        )
-
-        return df, temporal_results
+        return df
 
     def extract_and_save_parameters(self, sim_folders, save_file: str = "all_param_df.csv"):
         all_param_df = collect_parameter_data(sim_folders, PARAMETER_LIST)

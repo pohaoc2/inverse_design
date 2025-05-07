@@ -331,8 +331,8 @@ def save_targets_to_json(target_names, target_values, output_file="targets.json"
 
 def run_example():
     """Run the ABC-SMC-DRF example on the ARCADE model"""
-    target_names = ["act_ratio"]#, "doub_time", "symmetry"]#, "cycle_length"]
-    target_values = [0.7]#, 32, 0.75]#, 30]
+    target_names = ["symmetry", "doub_time", "act_ratio"]#, "cycle_length"]
+    target_values = [0.75, 32, 0.7]#, 30]
     #target_names = target_names + [name+"_std" for name in target_names]
     #target_values = target_values + [value*0.05 for value in target_values]    
     targets = []
@@ -384,10 +384,10 @@ def run_example():
         param_ranges.pop("X_SPACING")
     param_ranges = {k: v for k, v in param_ranges.items() if v[0] != v[1]}
     smc_rf = ABCSMCRF(
-        n_iterations=3,           
+        n_iterations=5,           
         sobol_power=sobol_power,            
         rf_type='DRF',
-        n_trees=50,
+        n_trees=2,
         min_samples_leaf=5,
         param_ranges=param_ranges,
         random_state=42, 
@@ -415,8 +415,8 @@ def run_example():
     ]
     # timestamps = timestamps[:8]
     source_type = "point" if config_params["point_based"] else "grid"
-    input_dir = f"inputs/abc_smc_rf_n{n_samples}_{config_params['perturbed_config']}_{source_type}_act/"
-    output_dir = f"ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}_{config_params['perturbed_config']}_{source_type}_act/"
+    input_dir = f"inputs/abc_smc_rf_n{n_samples}_{config_params['perturbed_config']}_{source_type}_stded/"
+    output_dir = f"ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}_{config_params['perturbed_config']}_{source_type}_stded/"
     jar_path = "models/arcade-logging-necrotic.jar"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -433,7 +433,7 @@ def run_example():
         save_path=f"{plot_dir}/arcade_tree"
     )
     print(f"ABC-SMC-DRF completed in {time.time() - start_time:.2f} seconds")
-
+    asd()
     posterior_samples = smc_rf.posterior_sample(n_samples * 2)
     n_samples = posterior_samples.shape[0]
     print("\nParameter estimation results:")

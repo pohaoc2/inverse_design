@@ -2,7 +2,20 @@
 import os
 from typing import List, Dict
 import pandas as pd
+import numpy as np
 
+
+def remove_outliers(data, iqr_multiplier):
+    if len(data) > 0:
+        # Calculate IQR and bounds
+        Q1 = data.quantile(0.25)
+        Q3 = data.quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - iqr_multiplier * IQR
+        upper_bound = Q3 + iqr_multiplier * IQR
+        # Remove outliers
+        data = data[(data >= lower_bound) & (data <= upper_bound)]
+    return data
 
 def get_samples_data(
     param_metrics_distances_results: List[Dict],

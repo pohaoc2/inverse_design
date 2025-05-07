@@ -232,11 +232,9 @@ class PopulationMetrics:
             )
             slopes.append(slope)
             r_values.append(r_value)
-
         results = {
-            "slope": np.median(slopes),
-            "slope_std": np.std(slopes),
-            "r_value": np.median(r_values)
+            "slope": slopes,
+            "r_value": r_values
         }
 
         return results
