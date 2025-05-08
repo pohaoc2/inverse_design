@@ -14,6 +14,12 @@ Breast Cancer reference:
     Cancer Research 43.2 (1983): 556-560.
 [3] Isert, Lorenz, et al. "An in vitro approach to model EMT in breast cancer." 
     International Journal of Molecular Sciences 24.9 (2023): 7757.
+
+Colon reference:
+[1] NCI-60 Breast Cancer Cell Line Panel
+[2] Brú, Antonio, et al. The universal dynamics of tumor growth. Biophysical journal 85.5 (2003): 2948-2961.
+[3] Hassani, Iman, et al. Establishment of a tissue‐engineered colon cancer model for comparative analysis of 
+cancer cell lines. Journal of Biomedical Materials Research Part A 112.2 (2024): 231-249.
 """
 
 
@@ -185,14 +191,14 @@ EXP_METRICS = {
         }
     },
     "Glioblastoma_U87MG": {
-        "doubling_time": {
+        "doubling_time": { #1
             "mean": 30.8,
             "std": 4.32
         },
-        "volume": {
+        "volume": { #1
             "mean": 5203.72,
         },
-        "colony_growth_rate": { # um/day
+        "colony_growth_rate": { # um/day #1
             "mean": 35.408,
         },
         "symmetry": { #2
@@ -201,15 +207,28 @@ EXP_METRICS = {
         }
     },
     "Glioblastoma_GBP03": {
-        "doubling_time": {
+        "doubling_time": { #1
             "mean": 25.4,
             "std": 0.5
         },
-        "volume": {
+        "volume": { #1
             "mean": 3591.36,
         },
-        "colony_growth_rate": { # um/day
+        "colony_growth_rate": { # um/day #1
             "mean": 56.8815,
+        }
+    },
+    "Colon": {
+        "doubling_time": { #1
+            "mean": 22.41,
+            "std": 4.26
+        },
+        "symmetry": { #3 (HT-29)
+            "mean": 0.42,
+            "std": 0.02
+        },
+        "colony_growth_rate": { # um/day #2
+            "mean": 46.32,
         }
     },
 }
