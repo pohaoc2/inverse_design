@@ -1,4 +1,22 @@
 # Metrics configuration organized by cellular and population levels
+"""
+Glioblastoma reference:
+[1] Oraiopoulou, M-E., et al. In vitro/in silico study on the role of doubling time heterogeneity among primary 
+    glioblastoma cell lines. BioMed research international 2017.1 (2017): 8569328.
+[2] Seyfoori, Amir, et al. "Self-filling microwell arrays (SFMAs) for tumor spheroid formation." 
+    Lab on a Chip 18.22 (2018): 3516-3528.
+
+Melanoma reference:
+
+Breast Cancer reference:
+[1] NCI-60 Breast Cancer Cell Line Panel
+[2] Conger, Alan D., and Marvin C. Ziskin. "Growth of mammalian multicellular tumor spheroids." 
+    Cancer Research 43.2 (1983): 556-560.
+[3] Isert, Lorenz, et al. "An in vitro approach to model EMT in breast cancer." 
+    International Journal of Molecular Sciences 24.9 (2023): 7757.
+"""
+
+
 
 CELLULAR_METRICS = {
     "vol": {
@@ -150,82 +168,49 @@ DEFAULT_METRICS = {
 
 EXP_METRICS = {
     "Breast Cancer": {
+        "doubling_time": { #1
+            "min": 22.5,
+            "25%": 33.65,
+            "median": 45.5,
+            "75%": 53.85,
+            "max": 62,
+            "std": 13.79
+        },
+        "symmetry": { #3
+            "mean": 0.806,
+            "std": 0.067
+        },
+        "colony_growth_rate": { # um/day #2
+            "mean": 18.3,
+        }
+    },
+    "Glioblastoma_U87MG": {
         "doubling_time": {
-            "min": 20,
-            "25%": 25,
-            "median": 32,
-            "75%": 44,
-            "max": 50,
+            "mean": 30.8,
             "std": 4.32
         },
-        "symmetry": {
-            "min": 0.7,
-            "25%": 0.75,
-            "median": 0.82,
-            "75%": 0.9,
-            "max": 1.0,
-            "std": 0.05
+        "volume": {
+            "mean": 5203.72,
         },
-        "growth_rate": {
-            "min": 0.015,
-            "25%": 0.02,
-            "median": 0.025,
-            "75%": 0.03,
-            "max": 0.035,
-            "std": 0.005
+        "colony_growth_rate": { # um/day
+            "mean": 35.408,
+        },
+        "symmetry": { #2
+            "mean": 0.91,
+            "std": 0.11
         }
     },
-    "Glioblastoma": {
+    "Glioblastoma_GBP03": {
         "doubling_time": {
-            "min": 15,
-            "25%": 18,
-            "median": 22,
-            "75%": 27,
-            "max": 33,
-            "std": 3.1
+            "mean": 25.4,
+            "std": 0.5
         },
-        "symmetry": {
-            "min": 0.6,
-            "25%": 0.68,
-            "median": 0.75,
-            "75%": 0.82,
-            "max": 0.9,
-            "std": 0.04
+        "volume": {
+            "mean": 3591.36,
         },
-        "growth_rate": {
-            "min": 0.02,
-            "25%": 0.03,
-            "median": 0.04,
-            "75%": 0.05,
-            "max": 0.06,
-            "std": 0.007
+        "colony_growth_rate": { # um/day
+            "mean": 56.8815,
         }
     },
-    "Melanoma": {
-        "doubling_time": {
-            "min": 10,
-            "25%": 15,
-            "median": 18,
-            "75%": 22,
-            "max": 28,
-            "std": 2.7
-        },
-        "symmetry": {
-            "min": 0.65,
-            "25%": 0.7,
-            "median": 0.78,
-            "75%": 0.85,
-            "max": 0.93,
-            "std": 0.045
-        },
-        "growth_rate": {
-            "min": 0.04,
-            "25%": 0.05,
-            "median": 0.06,
-            "75%": 0.08,
-            "max": 0.1,
-            "std": 0.012
-        }
-    }
 }
 
