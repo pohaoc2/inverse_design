@@ -22,12 +22,14 @@ TARGET_RANGES = {
     "cycle_length": (10.0, 70.0),
     "act_ratio": (0.0, 1.0),
     "doub_time": (20.0, 100.0),
+    "vol": (0.0, 10000.0),
     "colony_growth": (0.0, 100.0),
     "symmetry_std": (0.0, 0.01),
     "cycle_length_std": (0.0, 0.5),
     "act_ratio_std": (0.0, 0.01),
     "doub_time_std": (0.0, 0.5),
-    "colony_growth_std": (0.0, 0.5),
+    "vol_std": (0.0, 1000.0),
+    "colony_growth_std": (0.0, 10.0),
 }
 
 def prior_pdf(params, param_columns, param_ranges=PARAM_RANGES, config_params=None):
@@ -333,10 +335,10 @@ def save_targets_to_json(target_names, target_values, output_file="targets.json"
 
 def run_example():
     """Run the ABC-SMC-DRF example on the ARCADE model"""
-    target_names = ["doub_time","symmetry", "colony_growth"]
-    target_values = [45.5, 0.806, 18.3]
-    target_names = target_names + [name+"_std" for name in target_names[:-1]]
-    target_values = target_values + [13.79, 0.067,]
+    target_names = ["doub_time", "symmetry", "vol", "colony_growth"]
+    target_values = [30.8, 0.91, 5203.72, 35.408]
+    target_names = target_names + [name+"_std" for name in target_names[:2]]
+    target_values = target_values + [4.32, 0.11]
     targets = []
     for name, value in zip(target_names, target_values):
         targets.append(Target(metric=Metric.get(name), value=value, weight=1.0))

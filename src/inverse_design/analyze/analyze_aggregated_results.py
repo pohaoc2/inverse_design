@@ -587,7 +587,7 @@ if __name__ == "__main__":
     metrics_name = "n_cells"
     metrics_df = pd.read_csv(csv_file)
     if 1:
-        colors = ['purple', 'blue', 'orange', 'green', 'red', 'brown', 'pink']
+        colors = ['purple', "#d303fc", 'blue', "#03ecfc", 'brown', 'orange', 'green', 'red', 'pink']
         #posterior_metrics_files = [f"{parameter_base_folder}/accepted_metrics_{i}p.csv" for i in range(20, 4, -5)]
         posterior_1 = csv_file
         posterior_2 = f"{parameter_base_folder}/iter_1/final_metrics.csv"
@@ -597,10 +597,10 @@ if __name__ == "__main__":
         posterior_metrics_files = [posterior_1, posterior_2, posterior_3, posterior_4, posterior_5]
         posterior_metrics_dfs = [pd.read_csv(posterior_metrics_file) for posterior_metrics_file in posterior_metrics_files]
         env_only_file = (
-            "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/grid/final_metrics.csv"
+            "../../../ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/grid/final_metrics.csv"
         )
         cellular_only_file = (
-            "ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_PRIOR_N1024/final_metrics.csv"
+            "../../../ARCADE_OUTPUT/STEM_CELL/MS_ALL/MS_PRIOR_N1024/final_metrics.csv"
         )
         both_file = csv_file
         target_metrics = {
