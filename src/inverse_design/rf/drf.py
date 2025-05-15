@@ -300,13 +300,17 @@ class DRF(BaseRF):
             MMD criterion value for the best split (higher is better).
         """
         n_samples = parameters.shape[0]
-        n_params = parameters.shape[1]
+        
         best_score = -float('inf')
         best_stat_idx = -1
         best_threshold = 0.0
         
+        # Filter out non-float elements and convert to NumPy arrays
+        parameters_non_str = np.array([[p for p in params if isinstance(p, float)] for params in parameters])
+        n_params = parameters_non_str.shape[1]
+
         # Compute median pairwise distance between parameters (for kernel bandwidth)
-        pairwise_dist = pdist(parameters, metric='euclidean')
+        pairwise_dist = pdist(parameters_non_str, metric='euclidean')
         sigma = np.median(pairwise_dist) if len(pairwise_dist) > 0 else 1.0
         
         # Generate random Fourier features
@@ -318,7 +322,7 @@ class DRF(BaseRF):
         # Precompute Fourier features for all samples
         fourier_features = np.zeros((n_samples, self.n_fourier_features))
         for l in range(self.n_fourier_features):
-            fourier_features[:, l] = np.cos(np.dot(parameters, random_omega[l]))
+            fourier_features[:, l] = np.cos(np.dot(parameters_non_str, random_omega[l]))
         
         for stat_idx in statistic_indices:
             # Sort samples based on the current statistic

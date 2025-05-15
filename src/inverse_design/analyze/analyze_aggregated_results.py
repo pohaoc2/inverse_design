@@ -502,7 +502,7 @@ def plot_histogram_comparison(
     color='k',
     save_path=None,
     target_metric=None,
-    remove_outliers=False,
+    remove_outliers_flag=False,
     iqr_multiplier=1.5):
     """
     Create horizontal histogram plots for a single metric, with each subplot showing a different distribution.
@@ -525,7 +525,7 @@ def plot_histogram_comparison(
     valid_dfs = []
     for df in dfs:
         valid_df = df[metric].replace([np.inf, -np.inf], np.nan).dropna()
-        if remove_outliers and len(valid_df) > 0:
+        if remove_outliers_flag and len(valid_df) > 0:
             valid_df = remove_outliers(valid_df, iqr_multiplier)
             valid_dfs.append(valid_df)
             print(f"Removed {len(df[metric]) - len(valid_df)} outliers for {metric} in df")
@@ -580,7 +580,7 @@ def plot_histogram_comparison(
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "ARCADE_OUTPUT/ABC_SMC_RF_N1024_combined_grid_symmetry"
+    parameter_base_folder = "../../../ARCADE_OUTPUT/ABC_SMC_RF_N1024_combined_grid_breast_mmd"
     input_folder = parameter_base_folder + "/iter_0/inputs"
     csv_file = f"{parameter_base_folder}/iter_0/final_metrics.csv"
 
@@ -592,9 +592,9 @@ if __name__ == "__main__":
         posterior_1 = csv_file
         posterior_2 = f"{parameter_base_folder}/iter_1/final_metrics.csv"
         posterior_3 = f"{parameter_base_folder}/iter_2/final_metrics.csv"
-        #posterior_4 = f"{parameter_base_folder}/iter_3/final_metrics.csv"
-        #posterior_5 = f"{parameter_base_folder}/iter_4/final_metrics.csv"
-        posterior_metrics_files = [posterior_1, posterior_2, posterior_3]#, posterior_4, posterior_5]
+        posterior_4 = f"{parameter_base_folder}/iter_3/final_metrics.csv"
+        posterior_5 = f"{parameter_base_folder}/iter_4/final_metrics.csv"
+        posterior_metrics_files = [posterior_1, posterior_2, posterior_3, posterior_4, posterior_5]
         posterior_metrics_dfs = [pd.read_csv(posterior_metrics_file) for posterior_metrics_file in posterior_metrics_files]
         env_only_file = (
             "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/grid/final_metrics.csv"
@@ -605,25 +605,22 @@ if __name__ == "__main__":
         both_file = csv_file
         target_metrics = {
             "symmetry": 0.75,
+            "symmetry_std": 0.067,
             #"cycle_length": 30.0,
             "doub_time": 32,
+            "doub_time_std": 13.79,
             #"n_cells": 100,
-            "act_ratio": 0.7,
+            #"act_ratio": 0.7,
+            #"act_ratio_std": 0.067,
             #"vol": 2000,
             #"activity": 0.5,
-            #"colony_diameter": 300,
+            "colony_growth": 18.3,
         }
-        default_metrics = {metric: DEFAULT_METRICS[metric] for metric in target_metrics}
 
-        df_paths = [cellular_only_file, env_only_file, both_file]
-        dfs = [pd.read_csv(df) for df in df_paths]
         dfs = posterior_metrics_dfs
-        labels = ["Cellular only", "Environmental only", "Cellular and environmental parameters"]
         labels = ["iter_0", "iter_1", "iter_2", "iter_3", "iter_4"]
         for i, (metric_name, metric_value) in enumerate(target_metrics.items()):
             save_file = f"{parameter_base_folder}/metric_distributions_bar_{metric_name}_removed_outliers.png"
-            if metric_value != 0.75:
-                metric_value = None
             plot_histogram_comparison(
                 dfs,
                 labels,
@@ -631,8 +628,9 @@ if __name__ == "__main__":
                 color=colors[i],
                 save_path=save_file,
                 target_metric=metric_value,
-                remove_outliers=True,
+                remove_outliers_flag=True,
             )
+            """
             save_file = f"{parameter_base_folder}/metric_distributions_bar_{metric_name}.png"
             plot_histogram_comparison(
                 dfs,
@@ -643,20 +641,7 @@ if __name__ == "__main__":
                 target_metric=metric_value,
                 remove_outliers=False,
             )
-
-        if 0:
-            plot_type = 'violin'
-            save_file = f"{parameter_base_folder}/metric_distributions_{plot_type}.png"
-            plot_distributions(
-                pd.read_csv(prior_metrics_file),
-                posterior_metrics_dfs,
-                target_metrics,
-                list(target_metrics.keys()),
-                default_metrics,
-                save_file,
-                plot_type=plot_type,
-                remove_outliers=True,
-            )
+            """
     percentile = 10
     top_n_input_file, bottom_n_input_file, labeled_metrics_df = analyze_metric_percentiles(
         csv_file, metrics_name, percentile, verbose=False

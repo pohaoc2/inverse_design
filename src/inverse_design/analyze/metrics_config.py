@@ -186,7 +186,7 @@ EXP_METRICS = {
             "mean": 0.806,
             "std": 0.067
         },
-        "colony_growth_rate": { # um/day #2
+        "colony_growth": { # um/day #2
             "mean": 18.3,
         }
     },
@@ -198,7 +198,7 @@ EXP_METRICS = {
         "volume": { #1
             "mean": 5203.72,
         },
-        "colony_growth_rate": { # um/day #1
+        "colony_growth": { # um/day #1
             "mean": 35.408,
         },
         "symmetry": { #2
@@ -214,7 +214,7 @@ EXP_METRICS = {
         "volume": { #1
             "mean": 3591.36,
         },
-        "colony_growth_rate": { # um/day #1
+        "colony_growth": { # um/day #1
             "mean": 56.8815,
         }
     },
@@ -227,7 +227,7 @@ EXP_METRICS = {
             "mean": 0.42,
             "std": 0.02
         },
-        "colony_growth_rate": { # um/day #2
+        "colony_growth": { # um/day #2
             "mean": 46.32,
         }
     },
