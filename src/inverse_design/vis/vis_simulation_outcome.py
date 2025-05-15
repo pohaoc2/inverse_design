@@ -339,7 +339,7 @@ def plot_pairwise_scatter(df, metric_names, metrics_ranges, point_size=50, alpha
 
 def main():
     param_file = "inputs/kde_sampled_inputs_small_std/kde_sampled_parameters_log.csv"
-    data_dir = "../../../ARCADE_OUTPUT/ABC_SMC_RF_N1024_combined_grid_stded/"
+    data_dir = "../../../ARCADE_OUTPUT/ABC_SMC_RF_N1024_combined_grid_doub/"
     target_metrics = ["doub_time", "act_ratio", "symmetry"]
     metrics_ranges = {"doub_time": (20, 210), "act_ratio": (-0.01, 1.01), "symmetry": (0.5, 1.01)}
     for iter in range(2, 3):
@@ -358,16 +358,19 @@ def main():
         ax_main = g.ax_joint
 
         # Add lines to the main plot
+        max_act_ratio = valid_df['act_ratio'].max()
+        min_act_ratio = valid_df['act_ratio'].min()
         ax_main.axvline(x=32, color='red', linestyle='--', label='Target doub_time = 32')
-        ax_main.axhline(y=0.9, color='orange', linestyle='--', label='Infeasible act_ratio = 0.9')
-        ax_main.axhline(y=0.3, color='orange', linestyle='--', label='Infeasible act_ratio = 0.3')
+        ax_main.axhline(y=max_act_ratio, color='orange', linestyle='--', label=f'Infeasible act_ratio > {max_act_ratio:.2f}')
+        ax_main.axhline(y=min_act_ratio, color='orange', linestyle='--', label=f'Infeasible act_ratio < {min_act_ratio:.2f}')
 
         # Add arrows
-        ax_main.annotate('', xy=(35, 0.95), xytext=(35, 0.9), arrowprops=dict(arrowstyle='->', color='orange'))
-        ax_main.annotate('', xy=(35, 0.25), xytext=(35, 0.3), arrowprops=dict(arrowstyle='->', color='orange'))
+        ax_main.annotate('', xy=(33, max_act_ratio + 0.05), xytext=(33, max_act_ratio), arrowprops=dict(arrowstyle='->', color='orange'))
+        ax_main.annotate('', xy=(33, min_act_ratio - 0.05), xytext=(33, min_act_ratio), arrowprops=dict(arrowstyle='->', color='orange'))
 
         # Add legend
         ax_main.legend()
+        ax_main.set_ylim(0.25, 0.82)
         plt.savefig(f"{data_dir}/iter_{iter}/joint_plot.png")
         plt.show()
         #plot_pairwise_scatter(valid_df, target_metrics, metrics_ranges, save_path=f"{data_dir}/iter_{iter}/pairwise_scatter.png")
