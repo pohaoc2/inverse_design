@@ -395,7 +395,7 @@ def run_example():
         min_samples_leaf=5,
         param_ranges=param_ranges,
         random_state=42, 
-        criterion='MMD',
+        criterion='CART',
         subsample_ratio=0.5,
         perturbation_kernel=perturbation_kernel,
         prior_pdf=prior_pdf,
@@ -419,8 +419,8 @@ def run_example():
     ]
     # timestamps = timestamps[:8]
     source_type = "point" if config_params["point_based"] else "grid"
-    input_dir = f"inputs/abc_smc_rf_n{n_samples}_{config_params['perturbed_config']}_{source_type}_breast_mmd/"
-    output_dir = f"../../../ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}_{config_params['perturbed_config']}_{source_type}_breast_mmd/"
+    input_dir = f"inputs/abc_smc_rf_n{n_samples}_{config_params['perturbed_config']}_{source_type}_glioblastoma/"
+    output_dir = f"../../../ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}_{config_params['perturbed_config']}_{source_type}_glioblastoma/"
     jar_path = "models/arcade-logging-necrotic.jar"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
