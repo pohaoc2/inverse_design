@@ -297,7 +297,7 @@ def run_example():
     start_time = time.time()
     
     smc_rf = ABCSMCRF(
-        n_iterations=5,           # Number of SMC iterations
+        n_iterations=4,           # Number of SMC iterations
         n_particles=500,          # Number of particles per iteration
         rf_type='DRF',            # Use Distributional Random Forest for multivariate inference
         n_trees=100,              # Number of trees in the random forest
