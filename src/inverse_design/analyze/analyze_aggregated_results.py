@@ -580,7 +580,7 @@ def plot_histogram_comparison(
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "../../../ARCADE_OUTPUT/ABC_SMC_RF_N1024_combined_grid_breast"
+    parameter_base_folder = "../../../ARCADE_OUTPUT/ABC_SMC_RF_N1024_combined_grid_breast_mmd"
     input_folder = parameter_base_folder + "/iter_0/inputs"
     csv_file = f"{parameter_base_folder}/iter_0/final_metrics.csv"
 
@@ -604,22 +604,20 @@ if __name__ == "__main__":
         )
         both_file = csv_file
         target_metrics = {
-            "symmetry": 0.806,
+            "symmetry": 0.75,
             "symmetry_std": 0.067,
             #"cycle_length": 30.0,
-            "doub_time": 45.5,
+            "doub_time": 32,
             "doub_time_std": 13.79,
             #"n_cells": 100,
             #"act_ratio": 0.7,
+            #"act_ratio_std": 0.067,
             #"vol": 2000,
             #"activity": 0.5,
             "colony_growth": 18.3,
         }
 
-        df_paths = [cellular_only_file, env_only_file, both_file]
-        dfs = [pd.read_csv(df) for df in df_paths]
         dfs = posterior_metrics_dfs
-        labels = ["Cellular only", "Environmental only", "Cellular and environmental parameters"]
         labels = ["iter_0", "iter_1", "iter_2", "iter_3", "iter_4"]
         for i, (metric_name, metric_value) in enumerate(target_metrics.items()):
             save_file = f"{parameter_base_folder}/metric_distributions_bar_{metric_name}_removed_outliers.png"
@@ -641,7 +639,7 @@ if __name__ == "__main__":
                 color=colors[i],
                 save_path=save_file,
                 target_metric=metric_value,
-                remove_outliers_flag=False,
+                remove_outliers=False,
             )
             """
     percentile = 10
