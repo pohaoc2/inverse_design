@@ -6,6 +6,9 @@ import warnings
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from pandas.plotting import parallel_coordinates
+from scipy.stats import gaussian_kde
+from scipy.ndimage import maximum_filter
+from scipy.ndimage import generate_binary_structure
 warnings.filterwarnings('ignore')
 
 # Load the data
@@ -143,17 +146,78 @@ def plot_correlation_matrix(prior_data, posterior_data):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7))
     
     # Prior correlation matrix
-    sns.heatmap(prior_corr, annot=True, cmap='coolwarm', center=0,
+    sns.heatmap(prior_corr, cmap='coolwarm', center=0,
                 ax=ax1, cbar_kws={'label': 'Correlation'})
     ax1.set_title('Prior Parameter Correlations')
     
     # Posterior correlation matrix
-    sns.heatmap(posterior_corr, annot=True, cmap='coolwarm', center=0,
+    sns.heatmap(posterior_corr, cmap='coolwarm', center=0,
                 ax=ax2, cbar_kws={'label': 'Correlation'})
     ax2.set_title('Posterior Parameter Correlations')
     
     plt.tight_layout()
     return fig
+
+# 4b. Correlation Matrix Heatmap for each peak
+def plot_correlation_matrix_for_peaks(posterior_data, param_subset=None, n_components=2):
+    """Plot correlation matrices for prior and posterior for each peak"""
+    if param_subset is None:
+        param_subset = param_names
+    
+    # Prepare data
+    data = posterior_data[param_subset].values
+    
+    # Standardize the data
+    scaler = StandardScaler()
+    data_scaled = scaler.fit_transform(data)
+    
+    # Perform PCA
+    pca = PCA(n_components=n_components)
+    pca_result = pca.fit_transform(data_scaled)
+    
+    # Plot 1: PCA scatter with density contours
+    x = pca_result[:, 0]
+    y = pca_result[:, 1]
+    
+    # Create meshgrid for contour plot
+    x_grid = np.linspace(x.min(), x.max(), 100)
+    y_grid = np.linspace(y.min(), y.max(), 100)
+    X, Y = np.meshgrid(x_grid, y_grid)
+    positions = np.vstack([X.ravel(), Y.ravel()])
+    
+    # Calculate KDE
+    kernel = gaussian_kde(np.vstack([x, y]))
+    Z = np.reshape(kernel(positions).T, X.shape)
+
+    # Get the peak positions and closest points
+    peak_positions = find_density_peaks(Z, X, Y)
+    # Find points within 10% of the peak
+    peak_points = []
+    for peak in peak_positions:
+        distances = np.sqrt(np.sum((pca_result[:, :2] - peak)**2, axis=1))
+        peak_points.append(data[distances < 0.1])
+    
+    # Create a figure with subplots
+    n_peaks = len(peak_positions)
+    fig, axes = plt.subplots(1, n_peaks, figsize=(8 * n_peaks, 8))
+    # Plot the correlation matrix for each peak
+    for i, peak_point in enumerate(peak_points):
+        # Create a dataframe with the peak points and the parameter names
+        peak_point = pd.DataFrame(peak_point, columns=param_subset)
+        corr_matrix = peak_point.corr()
+        # Mask the upper triangle only (not the diagonal)
+        mask = np.triu(np.ones_like(corr_matrix, dtype=bool), k=1)
+        corr_matrix = corr_matrix.mask(mask)
+        if i == len(peak_points) - 1:
+            sns.heatmap(corr_matrix, cmap='coolwarm', center=0, ax=axes[i], fmt=".2f", cbar=True)
+        else:
+            sns.heatmap(corr_matrix, cmap='coolwarm', center=0, ax=axes[i], fmt=".2f", cbar=False)
+        axes[i].set_title(f'Correlation Matrix for Peak {i+1}')
+    
+    plt.tight_layout()
+    return fig
+    
+    
 
 # 5. Trace plots for parameter convergence
 def plot_trace_analysis(prior_data, posterior_data):
@@ -270,13 +334,12 @@ def plot_posterior_pair_density(posterior_data, param_subset=None):
             ax = axes[i, j]
             
             if i == j:  # Diagonal: KDE of single parameter
-                from scipy.stats import gaussian_kde
+                
                 kde = gaussian_kde(posterior_data[param1])
                 x_range = np.linspace(posterior_data[param1].min(), posterior_data[param1].max(), 100)
                 ax.plot(x_range, kde(x_range), color='blue')
                 ax.fill_between(x_range, kde(x_range), alpha=0.3, color='blue')
-                ax.set_title(param1)
-                ax.set_ylabel('Density')
+                ax.set_ylabel(param1)
             
             elif i > j:  # Lower triangle: KDE contour plot
                 # Create meshgrid for the contour plot
@@ -296,7 +359,7 @@ def plot_posterior_pair_density(posterior_data, param_subset=None):
                 ax.set_ylabel(param1)
                 
                 # Add colorbar to the last plot
-                if i == n_params-1 and j == 0:
+                if i == n_params-1 and j == n_params-2:
                     plt.colorbar(contour, ax=ax, label='Density')
             
             else:  # Upper triangle: clear
@@ -306,9 +369,177 @@ def plot_posterior_pair_density(posterior_data, param_subset=None):
     plt.tight_layout()
     return fig
 
+def find_density_peaks(Z, X, Y, threshold_ratio=0.1, neighborhood_size=5):
+    """
+    Find local maxima in density plot and their closest data points.
+    
+    Args:
+        Z: 2D array of density values
+        X, Y: 2D arrays of coordinates
+        pca_result: PCA transformed data points
+        data: Original data points
+        threshold_ratio: Ratio of maximum density to use as threshold (default: 0.1)
+        neighborhood_size: Size of neighborhood for local maximum detection (default: 5)
+    
+    Returns:
+        peak_positions: Array of peak coordinates
+        closest_indices: Indices of closest data points to each peak
+        closest_points: Original data points closest to each peak
+    """
+    # Find local maxima in the 2D density
+    neighborhood = np.ones((neighborhood_size, neighborhood_size))
+    local_maxima = maximum_filter(Z, footprint=neighborhood) == Z
+    threshold = threshold_ratio * np.max(Z)
+    peaks_mask = local_maxima & (Z > threshold)
+    
+    # Get peak coordinates
+    peak_coords = np.where(peaks_mask)
+    peak_positions = np.column_stack((X[peak_coords], Y[peak_coords]))
+    
+    return peak_positions
+
+# 7b. PCA Density Plot
+def plot_pca_density(posterior_data, prior_data, param_subset=None, n_components=2):
+    """
+    Create a density plot in PCA space showing the main directions of variation.
+    
+    Args:
+        posterior_data: DataFrame containing posterior samples
+        prior_data: DataFrame containing prior samples
+        param_subset: List of parameters to include in PCA (default: all parameters)
+        n_components: Number of PCA components to plot (default: 2)
+    """
+    if param_subset is None:
+        param_subset = param_names
+    
+    # Prepare data
+    data = posterior_data[param_subset].values
+    
+    # Standardize the data
+    scaler = StandardScaler()
+    data_scaled = scaler.fit_transform(data)
+    
+    # Perform PCA
+    pca = PCA(n_components=n_components)
+    pca_result = pca.fit_transform(data_scaled)
+    
+    # Plot 1: PCA scatter with density contours
+    x = pca_result[:, 0]
+    y = pca_result[:, 1]
+    
+    # Create meshgrid for contour plot
+    x_grid = np.linspace(x.min(), x.max(), 100)
+    y_grid = np.linspace(y.min(), y.max(), 100)
+    X, Y = np.meshgrid(x_grid, y_grid)
+    positions = np.vstack([X.ravel(), Y.ravel()])
+    
+    # Calculate KDE
+    kernel = gaussian_kde(np.vstack([x, y]))
+    Z = np.reshape(kernel(positions).T, X.shape)
+    
+    # Find peaks and closest points
+    peak_positions = find_density_peaks(
+        Z, X, Y
+    )
+    # Find closest points to each peak
+    closest_indices = []
+    closest_points = []
+    for peak in peak_positions:
+        distances = np.sqrt(np.sum((pca_result[:, :2] - peak)**2, axis=1))
+        closest_idx = np.argmin(distances)
+        closest_indices.append(closest_idx)
+        closest_points.append(data[closest_idx])
+
+    # Create figure with subplots
+    n_peaks = len(peak_positions)
+    fig = plt.figure(figsize=(20, 4 * n_peaks))
+    
+    # Create a more flexible gridspec
+    gs = fig.add_gridspec(n_peaks, 2, width_ratios=[2.5, 1])
+    
+    # PCA plot (spans left column for all rows)
+    ax_pca = fig.add_subplot(gs[:, 0])
+    
+    # Plot scatter and contours
+    ax_pca.scatter(x, y, alpha=0.1, s=10, color='blue')
+    contour = ax_pca.contourf(X, Y, Z, levels=20, cmap='viridis', alpha=0.6)
+    
+    # Plot peaks and their closest points
+    colors = ['red', 'green', 'purple', 'orange', 'brown', 'pink', 'gray', 'olive']
+    for i, (peak, closest_idx) in enumerate(zip(peak_positions, closest_indices)):
+        color = colors[i % len(colors)]
+        ax_pca.scatter(peak[0], peak[1], color=color, s=100, alpha=0.8, 
+                      label=f'Peak {i+1}', zorder=5, edgecolors='black', linewidth=2)
+        ax_pca.scatter(x[closest_idx], y[closest_idx], color=color, s=100, alpha=0.8,
+                      marker='x', label=f'Closest to Peak {i+1}', zorder=5)
+    
+    ax_pca.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.1%} variance)', fontsize=14)
+    ax_pca.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.1%} variance)', fontsize=14)
+    ax_pca.set_title('PCA Density Plot with Local Maxima', fontsize=16)
+    ax_pca.legend(bbox_to_anchor=(1.02, 1), loc='upper left')
+    plt.colorbar(contour, ax=ax_pca, label='Density', shrink=0.7)
+    
+    # Calculate prior means for percentage change
+    prior_means = prior_data[param_subset].mean().values
+    
+    # Create separate bar plots for each peak on the right side
+    for i, (peak, point) in enumerate(zip(peak_positions, closest_points)):
+        # Each peak gets a subplot in the right columns
+        ax = fig.add_subplot(gs[i, 1:])  # Spans columns 1 and 2
+        
+        # Calculate percentage changes
+        pct_changes = ((point - prior_means) / prior_means) * 100
+        
+        # Create bar plot
+        bars = ax.bar(range(len(param_subset)), pct_changes, 
+                     alpha=0.8, color=colors[i % len(colors)], edgecolor='black', linewidth=1)
+        
+        # Add value labels
+        for j, (bar, pct_change, orig_val) in enumerate(zip(bars, pct_changes, point)):
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2., height + (5 if height >= 0 else -5),
+                   f'{orig_val:.1e}',
+                   ha='center', va='bottom' if height >= 0 else 'top',
+                   rotation=45, fontsize=9)
+        
+        # Customize plot
+        ax.set_xticks(range(len(param_subset)))
+        if i == len(peak_positions) - 1:
+            ax.set_xticklabels(param_subset, rotation=45, ha='right', fontsize=10)
+        else:
+            ax.set_xticklabels([])
+        ax.set_ylabel('Percentage Change (%)', fontsize=12)
+        
+        # Add reference lines
+        ax.axhline(y=0, color='black', linestyle='-', alpha=0.7, linewidth=1)
+        ax.axhline(y=50, color='gray', linestyle='--', alpha=0.7)
+        ax.axhline(y=-50, color='gray', linestyle='--', alpha=0.7)
+        ax.axhline(y=100, color='gray', linestyle=':', alpha=0.7)
+        ax.axhline(y=-100, color='gray', linestyle=':', alpha=0.7)
+        
+        # Set consistent y-axis limits across all subplots
+        all_pct_changes = [((point - prior_means) / prior_means) * 100 for point in closest_points]
+        y_min = min(min(pct) for pct in all_pct_changes) - 10
+        y_max = max(max(pct) for pct in all_pct_changes) + 10
+        ax.set_ylim(y_min, y_max)
+    
+    # Adjust layout
+    plt.tight_layout()
+    plt.subplots_adjust(hspace=0.05, wspace=0.01)
+    
+    # Print the values for each peak
+    print("\nParameter values for each local maximum:")
+    for i, (peak, point) in enumerate(zip(peak_positions, closest_points)):
+        print(f"\nPeak {i+1} (PCA coordinates: [{peak[0]:.2f}, {peak[1]:.2f}]):")
+        for param, value in zip(param_subset, point):
+            pct_change = ((value - prior_means[param_subset.index(param)]) / prior_means[param_subset.index(param)]) * 100
+            print(f"{param}: {value:.4e} ({pct_change:+.1f}% from prior mean)")
+    
+    return fig
+
 # 8. Parallel Coordinates Plot with Percentage Change
 def plot_parallel_coordinates_with_change(prior_data, posterior_data, param_subset=None, 
-                                        sample_size=1000, alpha=0.1, cmap='RdYlBu_r'):
+                                        sample_size=1000, alpha=0.1):
     """
     Create a parallel coordinates plot showing percentage change from reference values.
     
@@ -318,7 +549,6 @@ def plot_parallel_coordinates_with_change(prior_data, posterior_data, param_subs
         param_subset: List of parameters to plot (default: first 5 parameters)
         sample_size: Number of samples to plot (default: 1000)
         alpha: Transparency of lines (default: 0.1)
-        cmap: Colormap to use (default: 'RdYlBu_r')
     """
     if param_subset is None:
         param_subset = param_names[:5]
@@ -334,19 +564,14 @@ def plot_parallel_coordinates_with_change(prior_data, posterior_data, param_subs
     if len(posterior_df) > sample_size:
         posterior_df = posterior_df.sample(n=sample_size, random_state=42)
     
-    # Create a color mapping based on the first parameter's values
-    first_param = param_subset[0]
-    norm = plt.Normalize(posterior_df[first_param].min(), posterior_df[first_param].max())
-    colors = plt.cm.get_cmap(cmap)(norm(posterior_df[first_param]))
-    
     # Create the plot with a larger figure size
     fig, ax = plt.subplots(figsize=(15, 8))
     
-    # Plot each line with custom colors and transparency
+    # Plot each line with a single color
     for i, (_, row) in enumerate(posterior_df.iterrows()):
         values = row[param_subset].values
         ax.plot(range(len(param_subset)), values, 
-                color=colors[i], alpha=alpha, linewidth=0.5)
+                color='blue', alpha=alpha, linewidth=0.5)
     
     # Add reference line at 0% change
     ax.axhline(y=0, color='black', linestyle='--', alpha=0.7, 
@@ -362,15 +587,9 @@ def plot_parallel_coordinates_with_change(prior_data, posterior_data, param_subs
     # Add grid
     ax.grid(True, alpha=0.3)
     
-    # Add colorbar
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([])
-    cbar = plt.colorbar(sm, ax=ax, pad=0.02)
-    cbar.set_label(f'{first_param} Value', fontsize=10)
-    
     # Add legend with only selected entries
     handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles, labels, loc='upper right', bbox_to_anchor=(1.15, 1))
+    ax.legend(handles, labels, loc='upper right')
     
     # Adjust layout
     plt.tight_layout()
@@ -382,30 +601,31 @@ print("Generating visualization plots...")
 
 
 param_subset = ["PROLIFERATION_ENERGY_MU", "CONVERSION_FRACTION_MU", "ATP_PRODUCTION_RATE_MU", "GLUCOSE_UPTAKE_RATE_MU"]#, "CELL_VOLUME_MU"]
+param_subset = prior_df.columns.tolist()
+param_subset = [param for param in param_subset if not param.endswith("_SIGMA")]
+param_subset.remove("OXYGEN_CONCENTRATION")
+param_subset.remove("CAPILLARY_DENSITY")
+param_subset.remove("GLUCOSE_CONCENTRATION")
 # 1. Corner plot
 """
 corner_fig = create_corner_plot(prior_df, posterior_df, param_subset)
 plt.figure(corner_fig.number)
 plt.savefig('corner_plot.png', dpi=300, bbox_inches='tight')
-#plt.show()
 
 # 2. Marginal distributions
 marginal_fig = plot_marginal_distributions(prior_df, posterior_df)
 plt.figure(marginal_fig.number)
 plt.savefig('marginal_distributions.png', dpi=300, bbox_inches='tight')
-#plt.show()
 
 # 3. PCA analysis
 pca_fig = plot_pca_analysis(prior_df, posterior_df)
 plt.figure(pca_fig.number)
 plt.savefig('pca_analysis.png', dpi=300, bbox_inches='tight')
-#plt.show()
 
 # 4. Correlation matrices
 corr_fig = plot_correlation_matrix(prior_df, posterior_df)
 plt.figure(corr_fig.number)
 plt.savefig('correlation_matrices.png', dpi=300, bbox_inches='tight')
-#plt.show()
 
 # 5. Trace analysis
 trace_fig = plot_trace_analysis(prior_df, posterior_df)
@@ -422,21 +642,27 @@ plt.savefig('summary_comparison.png', dpi=300, bbox_inches='tight')
 posterior_pair_fig = plot_posterior_pair_density(posterior_df, param_subset)
 plt.figure(posterior_pair_fig.number)
 plt.savefig('posterior_pair_density.png', dpi=300, bbox_inches='tight')
-"""
+
 # 8. Parallel coordinates plot with percentage change
 parallel_fig = plot_parallel_coordinates_with_change(
     prior_df, 
     posterior_df, 
     param_subset, 
-    reference='prior_mean',
     sample_size=1000,  # Adjust this number based on your data size
-    alpha=0.5,         # Adjust transparency
-    cmap='RdYlBu_r'    # Try other colormaps like 'viridis', 'plasma', 'coolwarm'
+    alpha=0.5          # Adjust transparency
 )
 plt.figure(parallel_fig.number)
 plt.savefig('parallel_coordinates_change.png', dpi=300, bbox_inches='tight')
 
-
+# 9. PCA density plot
+pca_density_fig = plot_pca_density(posterior_df, prior_df, param_subset)
+plt.figure(pca_density_fig.number)
+plt.savefig('pca_density.png', dpi=300, bbox_inches='tight')
+"""
+# 10. Correlation matrix for each peak
+peak_corr_fig = plot_correlation_matrix_for_peaks(posterior_df, param_subset)
+plt.figure(peak_corr_fig.number)
+plt.savefig('peak_correlation_matrices.png', dpi=300, bbox_inches='tight')
 
 """
 plt.figure(figsize=(20, 18))
