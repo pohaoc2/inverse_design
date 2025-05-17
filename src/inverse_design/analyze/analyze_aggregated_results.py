@@ -580,7 +580,7 @@ def plot_histogram_comparison(
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "../../../ARCADE_OUTPUT/ABC_SMC_RF_N1024_combined_grid_breast_mmd"
+    parameter_base_folder = "../../../ARCADE_OUTPUT/ABC_SMC_RF_N1024_combined_grid_glioblastoma"
     input_folder = parameter_base_folder + "/iter_0/inputs"
     csv_file = f"{parameter_base_folder}/iter_0/final_metrics.csv"
 
@@ -604,17 +604,17 @@ if __name__ == "__main__":
         )
         both_file = csv_file
         target_metrics = {
-            "symmetry": 0.75,
-            "symmetry_std": 0.067,
+            "symmetry": 0.91,
+            "symmetry_std": 0.11,
             #"cycle_length": 30.0,
-            "doub_time": 32,
-            "doub_time_std": 13.79,
+            "doub_time": 30.8,
+            "doub_time_std": 4.32,
             #"n_cells": 100,
             #"act_ratio": 0.7,
             #"act_ratio_std": 0.067,
-            #"vol": 2000,
             #"activity": 0.5,
-            "colony_growth": 18.3,
+            "colony_growth": 35.408,
+            "vol": 5203.72
         }
 
         dfs = posterior_metrics_dfs

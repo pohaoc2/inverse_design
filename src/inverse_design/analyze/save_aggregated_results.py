@@ -191,7 +191,9 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
     parameter_base_folder = "ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/grid"
+    parameter_base_folder = "TEST/"
     input_base_folder = "inputs/STEM_CELL/density_source/grid"
+    input_base_folder = "inputs/TEST/"
     input_folder = parameter_base_folder + "/inputs"
     metrics_calculator = SimulationMetrics(parameter_base_folder, input_base_folder)
 
