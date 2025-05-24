@@ -546,7 +546,7 @@ def plot_histogram_comparison(
     base_rgb = to_rgb(color)
     colors = []
     for i in range(n_distributions):
-        darken_factor = 0.15 * i
+        darken_factor = 0.1 * i
         adjusted_rgb = tuple((1 - darken_factor) * c for c in base_rgb)
         colors.append(to_hex(adjusted_rgb))
 
@@ -580,7 +580,7 @@ def plot_histogram_comparison(
 
 if __name__ == "__main__":
     # Specify your parameters
-    parameter_base_folder = "../../../ARCADE_OUTPUT/ABC_SMC_RF_N1024_combined_grid_glioblastoma"
+    parameter_base_folder = "../../../ARCADE_OUTPUT/ABC_SMC_RF_N512_combined_grid_breast"
     input_folder = parameter_base_folder + "/iter_0/inputs"
     csv_file = f"{parameter_base_folder}/iter_0/final_metrics.csv"
 
@@ -590,11 +590,7 @@ if __name__ == "__main__":
         colors = ['purple', "#d303fc", 'blue', "#03ecfc", 'brown', 'orange', 'green', 'red', 'pink']
         #posterior_metrics_files = [f"{parameter_base_folder}/accepted_metrics_{i}p.csv" for i in range(20, 4, -5)]
         posterior_1 = csv_file
-        posterior_2 = f"{parameter_base_folder}/iter_1/final_metrics.csv"
-        posterior_3 = f"{parameter_base_folder}/iter_2/final_metrics.csv"
-        posterior_4 = f"{parameter_base_folder}/iter_3/final_metrics.csv"
-        posterior_5 = f"{parameter_base_folder}/iter_4/final_metrics.csv"
-        posterior_metrics_files = [posterior_1, posterior_2, posterior_3, posterior_4, posterior_5]
+        posterior_metrics_files = [f"{parameter_base_folder}/iter_{iteration}/final_metrics.csv" for iteration in range(10)]
         posterior_metrics_dfs = [pd.read_csv(posterior_metrics_file) for posterior_metrics_file in posterior_metrics_files]
         env_only_file = (
             "../../../ARCADE_OUTPUT/STEM_CELL/DENSITY_SOURCE/grid/final_metrics.csv"
@@ -604,21 +600,21 @@ if __name__ == "__main__":
         )
         both_file = csv_file
         target_metrics = {
-            "symmetry": 0.91,
-            "symmetry_std": 0.11,
+            "symmetry": 0.806,
+            "symmetry_std": 0.067,
             #"cycle_length": 30.0,
-            "doub_time": 30.8,
-            "doub_time_std": 4.32,
+            "doub_time": 45.5,
+            "doub_time_std": 13.79,
             #"n_cells": 100,
             #"act_ratio": 0.7,
             #"act_ratio_std": 0.067,
             #"activity": 0.5,
-            "colony_growth": 35.408,
-            "vol": 5203.72
+            "colony_growth": 18.3,
+            #"vol": 5203.72
         }
 
         dfs = posterior_metrics_dfs
-        labels = ["iter_0", "iter_1", "iter_2", "iter_3", "iter_4"]
+        labels = [f"iter_{i}" for i in range(len(posterior_metrics_dfs))]
         for i, (metric_name, metric_value) in enumerate(target_metrics.items()):
             save_file = f"{parameter_base_folder}/metric_distributions_bar_{metric_name}_removed_outliers.png"
             plot_histogram_comparison(

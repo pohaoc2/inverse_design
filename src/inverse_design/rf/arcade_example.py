@@ -335,17 +335,17 @@ def save_targets_to_json(target_names, target_values, output_file="targets.json"
 
 def run_example():
     """Run the ABC-SMC-DRF example on the ARCADE model"""
-    target_names = ["doub_time", "symmetry", "vol", "colony_growth"]
-    target_values = [30.8, 0.91, 5203.72, 35.408]
-    target_names = target_names + [name+"_std" for name in target_names[:2]]
-    target_values = target_values + [4.32, 0.11]
+    target_names = ["doub_time"]#, "symmetry", "colony_growth"]
+    target_values = [47]#, 0.806, 18.3]
+    # target_names = target_names + [name+"_std" for name in target_names[:2]]
+    # target_values = target_values + [13.79, 0.067]
     targets = []
     for name, value in zip(target_names, target_values):
         targets.append(Target(metric=Metric.get(name), value=value, weight=1.0))
     n_statistics = len(target_names)
     print("\nRunning ABC-SMC-DRF...")
     start_time = time.time()
-    sobol_power = 10
+    sobol_power = 9
     radius = 10
     margin = 2
     hex_size = 30
@@ -388,7 +388,7 @@ def run_example():
         param_ranges.pop("X_SPACING")
     param_ranges = {k: v for k, v in param_ranges.items() if v[0] != v[1]}
     smc_rf = ABCSMCRF(
-        n_iterations=5,           
+        n_iterations=3,           
         sobol_power=sobol_power,            
         rf_type='DRF',
         n_trees=50,
@@ -419,8 +419,8 @@ def run_example():
     ]
     # timestamps = timestamps[:8]
     source_type = "point" if config_params["point_based"] else "grid"
-    input_dir = f"inputs/abc_smc_rf_n{n_samples}_{config_params['perturbed_config']}_{source_type}_glioblastoma/"
-    output_dir = f"../../../ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}_{config_params['perturbed_config']}_{source_type}_glioblastoma/"
+    input_dir = f"inputs/abc_smc_rf_n{n_samples}_{config_params['perturbed_config']}_{source_type}_doub_47/"
+    output_dir = f"../../../ARCADE_OUTPUT/ABC_SMC_RF_N{n_samples}_{config_params['perturbed_config']}_{source_type}_doub_47/"
     jar_path = "models/arcade-logging-necrotic.jar"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
